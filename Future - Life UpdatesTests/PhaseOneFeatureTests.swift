@@ -169,6 +169,126 @@ struct PhaseOneFeatureTests {
         }
     }
 
+    @Test("Scale responses accumulate into running totals")
+    func scaleResponsesAccumulateIntoRunningTotals() throws {
+        let container = try makeInMemoryContainer()
+        let context = container.mainContext
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+
+        let goal = TrackingGoal(title: "Hydration", description: "Track water intake", category: .health)
+        goal.schedule = Schedule()
+        goal.schedule.goal = goal
+
+        let scaleQuestion = Question(
+            text: "Glasses of water",
+            responseType: .scale,
+            validationRules: ValidationRules(minimumValue: 0, maximumValue: 20, allowsEmpty: false)
+        )
+        scaleQuestion.goal = goal
+        goal.questions = [scaleQuestion]
+
+        context.insert(goal)
+        try context.save()
+
+        var currentDate = calendar.date(from: DateComponents(year: 2025, month: 4, day: 1, hour: 8))!
+        let baseDate = currentDate
+        let viewModel = DataEntryViewModel(
+            goal: goal,
+            modelContext: context,
+            dateProvider: {
+                defer { currentDate = calendar.date(byAdding: .hour, value: 1, to: currentDate)! }
+                return currentDate
+            },
+            calendar: calendar
+        )
+
+        viewModel.updateNumericResponse(3, for: scaleQuestion)
+        try viewModel.saveEntries()
+
+        viewModel.updateNumericResponse(2, for: scaleQuestion)
+        try viewModel.saveEntries()
+
+        let descriptor = FetchDescriptor<DataPoint>(
+            sortBy: [SortDescriptor(\.timestamp, order: .forward)]
+        )
+        let points = try context.fetch(descriptor)
+
+        #expect(points.count == 2)
+        #expect(points[0].numericValue == 3)
+        #expect(points[0].numericDelta == 3)
+        #expect(points[1].numericValue == 5)
+        #expect(points[1].numericDelta == 2)
+
+        #expect(calendar.isDate(points[0].timestamp, inSameDayAs: baseDate))
+    }
+
+    @Test("Goal history groups entries by day with deltas")
+    func goalHistoryGroupsEntriesByDayWithDeltas() throws {
+        let container = try makeInMemoryContainer()
+        let context = container.mainContext
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+
+        let goal = TrackingGoal(title: "Activity", description: "Track exercise reps", category: .health)
+        goal.schedule = Schedule()
+        goal.schedule.goal = goal
+
+        let scaleQuestion = Question(
+            text: "Push-ups",
+            responseType: .scale,
+            validationRules: ValidationRules(minimumValue: 0, maximumValue: 100, allowsEmpty: false)
+        )
+        scaleQuestion.goal = goal
+        goal.questions = [scaleQuestion]
+
+        let baseDate = calendar.date(from: DateComponents(year: 2025, month: 5, day: 10, hour: 9))!
+        let laterSameDay = calendar.date(byAdding: .hour, value: 3, to: baseDate)!
+        let previousDay = calendar.date(byAdding: .day, value: -1, to: baseDate)!
+
+        let points = [
+            DataPoint(goal: goal, question: scaleQuestion, timestamp: baseDate, numericValue: 3, numericDelta: 3),
+            DataPoint(goal: goal, question: scaleQuestion, timestamp: laterSameDay, numericValue: 5, numericDelta: 2),
+            DataPoint(goal: goal, question: scaleQuestion, timestamp: previousDay, numericValue: 4, numericDelta: 4)
+        ]
+
+        goal.dataPoints.append(contentsOf: points)
+        scaleQuestion.dataPoints.append(contentsOf: points)
+        points.forEach { context.insert($0) }
+        try context.save()
+
+        let viewModel = GoalHistoryViewModel(
+            goal: goal,
+            modelContext: context,
+            dateProvider: { laterSameDay },
+            calendar: calendar
+        )
+
+        #expect(viewModel.sections.count == 2)
+
+        guard let latestSection = viewModel.sections.first else {
+            Issue.record("Expected a section for the latest day")
+            return
+        }
+
+        #expect(calendar.isDate(latestSection.date, inSameDayAs: baseDate))
+        #expect(latestSection.entries.count == 2)
+        #expect(latestSection.entries.first?.responseSummary == "3 -> 5")
+        #expect(latestSection.entries.last?.responseSummary == "0 -> 3")
+
+        guard viewModel.sections.count > 1 else {
+            Issue.record("Expected a section for the previous day")
+            return
+        }
+
+        let previousSection = viewModel.sections[1]
+        #expect(calendar.isDate(previousSection.date, inSameDayAs: previousDay))
+        #expect(previousSection.entries.count == 1)
+        #expect(previousSection.entries.first?.responseSummary == "0 -> 4")
+    }
+
     @Test("GoalEditorViewModel updates schedule and questions")
     func goalEditorViewModelUpdatesScheduleAndQuestions() async throws {
         let container = try makeInMemoryContainer()

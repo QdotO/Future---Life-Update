@@ -173,6 +173,7 @@ final class Question {
 final class DataPoint {
     @Attribute(.unique) var id: UUID
     var numericValue: Double?
+    var numericDelta: Double?
     var textValue: String?
     var boolValue: Bool?
     var selectedOptions: [String]?
@@ -188,7 +189,8 @@ final class DataPoint {
         goal: TrackingGoal?,
         question: Question?,
         timestamp: Date = Date(),
-        numericValue: Double? = nil,
+    numericValue: Double? = nil,
+    numericDelta: Double? = nil,
         textValue: String? = nil,
         boolValue: Bool? = nil,
         selectedOptions: [String]? = nil,
@@ -200,7 +202,8 @@ final class DataPoint {
         self.goal = goal
         self.question = question
         self.timestamp = timestamp
-        self.numericValue = numericValue
+    self.numericValue = numericValue
+    self.numericDelta = numericDelta
         self.textValue = textValue
         self.boolValue = boolValue
         self.selectedOptions = selectedOptions

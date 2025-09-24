@@ -12,25 +12,34 @@ struct GoalHistoryView: View {
 
     var body: some View {
         List {
-            if viewModel.entries.isEmpty {
+            if viewModel.sections.isEmpty {
                 ContentUnavailableView("No entries yet", systemImage: "tray")
             } else {
-                ForEach(viewModel.entries) { entry in
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(entry.questionTitle)
-                            .font(.headline)
-                        Text(entry.responseSummary)
-                            .font(.body)
-                        Text(entry.timestamp, format: .dateTime.day().month().year().hour().minute())
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                        if let details = entry.additionalDetails {
-                            Text(details)
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
+                ForEach(viewModel.sections) { section in
+                    Section {
+                        ForEach(section.entries) { entry in
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack {
+                                    Text(entry.questionTitle)
+                                        .font(.headline)
+                                    Spacer()
+                                    Text(entry.timeSummary)
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Text(entry.responseSummary)
+                                    .font(.body)
+                                if let details = entry.additionalDetails {
+                                    Text(details)
+                                        .font(.caption)
+                                        .foregroundStyle(.tertiary)
+                                }
+                            }
+                            .padding(.vertical, 4)
                         }
+                    } header: {
+                        Text(section.date, format: .dateTime.month().day().year())
                     }
-                    .padding(.vertical, 4)
                 }
             }
         }

@@ -19,6 +19,8 @@ final class DataEntryViewModel {
 
     private(set) var goal: TrackingGoal
     private var responses: [UUID: ResponseValue] = [:]
+    private var dailyTotals: [UUID: Double] = [:]
+    private var totalsDate: Date?
 
     init(
         goal: TrackingGoal,
@@ -31,6 +33,7 @@ final class DataEntryViewModel {
         self.dateProvider = dateProvider
         self.calendar = calendar
         seedDefaultResponses()
+        totalsDate = calendar.startOfDay(for: dateProvider())
     }
 
     var canSubmit: Bool {
@@ -133,37 +136,57 @@ final class DataEntryViewModel {
                 isValid(response, for: question)
             else { continue }
 
-            let dataPoint = try existingDataPoint(for: question, on: now) ?? {
-                let point = DataPoint(goal: goal, question: question, timestamp: now)
-                point.goal = goal
-                point.question = question
-                goal.dataPoints.append(point)
-                question.dataPoints.append(point)
-                modelContext.insert(point)
-                return point
-            }()
-
-            dataPoint.timestamp = now
-            dataPoint.numericValue = nil
-            dataPoint.boolValue = nil
-            dataPoint.textValue = nil
-            dataPoint.selectedOptions = nil
-            dataPoint.timeValue = nil
-
             switch question.responseType {
-            case .numeric, .scale, .slider:
+            case .scale, .slider:
+                guard case let .numeric(deltaValue) = response else { continue }
+                let appliedDelta = try applyDelta(deltaValue, for: question, timestamp: now)
+                if appliedDelta == nil {
+                    continue
+                }
+            case .numeric:
+                let dataPoint = try existingDataPoint(for: question, on: now) ?? createDataPoint(for: question, at: now)
+                dataPoint.timestamp = now
+                dataPoint.numericDelta = nil
                 if case let .numeric(value) = response {
                     dataPoint.numericValue = value
+                } else {
+                    dataPoint.numericValue = nil
                 }
+                resetNonNumericFields(of: dataPoint)
             case .boolean:
+                let dataPoint = try existingDataPoint(for: question, on: now) ?? createDataPoint(for: question, at: now)
+                dataPoint.timestamp = now
+                dataPoint.numericValue = nil
+                dataPoint.numericDelta = nil
+                dataPoint.textValue = nil
+                dataPoint.selectedOptions = nil
+                dataPoint.timeValue = nil
                 if case let .boolean(value) = response {
                     dataPoint.boolValue = value
+                } else {
+                    dataPoint.boolValue = nil
                 }
             case .text:
+                let dataPoint = try existingDataPoint(for: question, on: now) ?? createDataPoint(for: question, at: now)
+                dataPoint.timestamp = now
+                dataPoint.numericValue = nil
+                dataPoint.numericDelta = nil
+                dataPoint.boolValue = nil
+                dataPoint.selectedOptions = nil
+                dataPoint.timeValue = nil
                 if case let .text(value) = response {
                     dataPoint.textValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                } else {
+                    dataPoint.textValue = nil
                 }
             case .multipleChoice:
+                let dataPoint = try existingDataPoint(for: question, on: now) ?? createDataPoint(for: question, at: now)
+                dataPoint.timestamp = now
+                dataPoint.numericValue = nil
+                dataPoint.numericDelta = nil
+                dataPoint.boolValue = nil
+                dataPoint.textValue = nil
+                dataPoint.timeValue = nil
                 if case let .options(set) = response {
                     if set.isEmpty {
                         dataPoint.selectedOptions = nil
@@ -172,10 +195,21 @@ final class DataEntryViewModel {
                     } else {
                         dataPoint.selectedOptions = Array(set)
                     }
+                } else {
+                    dataPoint.selectedOptions = nil
                 }
             case .time:
+                let dataPoint = try existingDataPoint(for: question, on: now) ?? createDataPoint(for: question, at: now)
+                dataPoint.timestamp = now
+                dataPoint.numericValue = nil
+                dataPoint.numericDelta = nil
+                dataPoint.boolValue = nil
+                dataPoint.textValue = nil
+                dataPoint.selectedOptions = nil
                 if case let .time(date) = response {
                     dataPoint.timeValue = date
+                } else {
+                    dataPoint.timeValue = nil
                 }
             }
         }
@@ -265,5 +299,101 @@ final class DataEntryViewModel {
         descriptor.fetchLimit = 1
 
         return try modelContext.fetch(descriptor).first
+    }
+
+    private func latestDataPoint(for question: Question, on date: Date) throws -> DataPoint? {
+        let startOfDay = calendar.startOfDay(for: date)
+        guard let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) else {
+            return nil
+        }
+
+        let goalIdentifier = goal.persistentModelID
+        let questionIdentifier = question.persistentModelID
+
+        var descriptor = FetchDescriptor<DataPoint>(
+            predicate: #Predicate<DataPoint> { dataPoint in
+                dataPoint.goal?.persistentModelID == goalIdentifier &&
+                dataPoint.question?.persistentModelID == questionIdentifier &&
+                dataPoint.timestamp >= startOfDay &&
+                dataPoint.timestamp < endOfDay
+            },
+            sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+        )
+        descriptor.fetchLimit = 1
+
+        return try modelContext.fetch(descriptor).first
+    }
+
+    private func createDataPoint(for question: Question, at timestamp: Date) -> DataPoint {
+        let point = DataPoint(goal: goal, question: question, timestamp: timestamp)
+        point.goal = goal
+        point.question = question
+        goal.dataPoints.append(point)
+        question.dataPoints.append(point)
+        modelContext.insert(point)
+        return point
+    }
+
+    private func ensureTotalsAreForToday() {
+        let today = calendar.startOfDay(for: dateProvider())
+        if totalsDate != today {
+            totalsDate = today
+            dailyTotals.removeAll()
+        }
+    }
+
+    private func runningTotal(for question: Question) -> Double {
+        ensureTotalsAreForToday()
+        if let cached = dailyTotals[question.id] {
+            return cached
+        }
+
+          let today = totalsDate ?? calendar.startOfDay(for: dateProvider())
+          let latestPointOptional: DataPoint? = try? latestDataPoint(for: question, on: today)
+          if let latestPoint = latestPointOptional,
+              let numericValue = latestPoint.numericValue {
+            dailyTotals[question.id] = numericValue
+            return numericValue
+        }
+
+        dailyTotals[question.id] = 0
+        return 0
+    }
+
+    private func applyDelta(_ deltaValue: Double, for question: Question, timestamp: Date) throws -> Double? {
+        ensureTotalsAreForToday()
+        let currentTotal = runningTotal(for: question)
+
+        var newTotal = currentTotal + deltaValue
+
+        if let maximum = question.validationRules?.maximumValue {
+            newTotal = min(newTotal, maximum)
+        }
+        if let minimum = question.validationRules?.minimumValue {
+            newTotal = max(newTotal, minimum)
+        }
+
+        let appliedDelta = newTotal - currentTotal
+        guard abs(appliedDelta) > .ulpOfOne else {
+            return nil
+        }
+
+        let dataPoint = createDataPoint(for: question, at: timestamp)
+        dataPoint.numericValue = newTotal
+        dataPoint.numericDelta = appliedDelta
+        dataPoint.boolValue = nil
+        dataPoint.textValue = nil
+        dataPoint.selectedOptions = nil
+        dataPoint.timeValue = nil
+
+        dailyTotals[question.id] = newTotal
+        return appliedDelta
+    }
+
+    private func resetNonNumericFields(of dataPoint: DataPoint) {
+        dataPoint.boolValue = nil
+        dataPoint.textValue = nil
+        dataPoint.selectedOptions = nil
+        dataPoint.timeValue = nil
     }
 }
