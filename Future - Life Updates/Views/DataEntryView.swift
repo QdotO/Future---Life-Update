@@ -99,15 +99,28 @@ struct DataEntryView: View {
 
     private func sliderRow(for question: Question) -> some View {
         let bounds = sliderBounds(for: question)
-        let binding = Binding<Double>(
-            get: { viewModel.numericValue(for: question, default: bounds.lowerBound) },
-            set: { viewModel.updateNumericResponse($0, for: question) }
+        let intBinding = Binding<Int>(
+            get: {
+                let value = Int(round(viewModel.numericValue(for: question, default: Double(bounds.lowerBound))))
+                return min(max(value, bounds.lowerBound), bounds.upperBound)
+            },
+            set: { newValue in
+                let clamped = min(max(newValue, bounds.lowerBound), bounds.upperBound)
+                viewModel.updateNumericResponse(Double(clamped), for: question)
+            }
         )
+
+        let sliderBinding = Binding<Double>(
+            get: { Double(intBinding.wrappedValue) },
+            set: { newValue in intBinding.wrappedValue = Int(newValue.rounded()) }
+        )
+
+        let doubleBounds = Double(bounds.lowerBound)...Double(bounds.upperBound)
 
         return VStack(alignment: .leading, spacing: 12) {
             Text(question.text)
-            Slider(value: binding, in: bounds, step: sliderStep(for: question))
-            Text(binding.wrappedValue, format: .number)
+            Slider(value: sliderBinding, in: doubleBounds, step: 1)
+            Text("\(intBinding.wrappedValue)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -177,18 +190,12 @@ struct DataEntryView: View {
         return min(minimum, maximum)...max(maximum, minimum)
     }
 
-    private func sliderBounds(for question: Question) -> ClosedRange<Double> {
+    private func sliderBounds(for question: Question) -> ClosedRange<Int> {
         let minimum = question.validationRules?.minimumValue ?? 0
         let maximum = question.validationRules?.maximumValue ?? 100
-        return min(minimum, maximum)...max(maximum, minimum)
-    }
-
-    private func sliderStep(for question: Question) -> Double {
-        if let rules = question.validationRules, let min = rules.minimumValue, let max = rules.maximumValue {
-            let span = max - min
-            return span <= 10 ? 0.5 : 1
-        }
-        return 1
+        let lowerBound = Int(floor(min(minimum, maximum)))
+        let upperBound = Int(ceil(max(maximum, minimum)))
+        return lowerBound...upperBound
     }
 
     private func defaultTime() -> Date {

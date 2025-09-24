@@ -134,7 +134,7 @@ struct PhaseOneFeatureTests {
 
         viewModel.updateNumericResponse(42, for: numericQuestion)
         viewModel.updateNumericResponse(7, for: scaleQuestion)
-        viewModel.updateNumericResponse(0.75, for: sliderQuestion)
+        viewModel.updateNumericResponse(1, for: sliderQuestion)
         viewModel.updateBooleanResponse(true, for: booleanQuestion)
         viewModel.updateTextResponse("Feeling great", for: textQuestion)
         viewModel.setOption("Energy", isSelected: true, for: multiQuestion)
@@ -157,11 +157,7 @@ struct PhaseOneFeatureTests {
 
         #expect(pointsByQuestion[numericQuestion.id]?.numericValue == 42)
         #expect(pointsByQuestion[scaleQuestion.id]?.numericValue == 7)
-        if let sliderValue = pointsByQuestion[sliderQuestion.id]?.numericValue {
-            #expect(abs(sliderValue - 0.75) < 0.0001)
-        } else {
-            Issue.record("Expected slider value to be stored")
-        }
+    #expect(pointsByQuestion[sliderQuestion.id]?.numericValue == 1)
         #expect(pointsByQuestion[booleanQuestion.id]?.boolValue == true)
         #expect(pointsByQuestion[textQuestion.id]?.textValue == "Feeling great")
         #expect(pointsByQuestion[multiQuestion.id]?.selectedOptions == ["Energy"])
