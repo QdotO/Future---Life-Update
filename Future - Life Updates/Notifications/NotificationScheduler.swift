@@ -6,13 +6,21 @@ final class NotificationScheduler: @unchecked Sendable {
     static let shared = NotificationScheduler()
     private let center = UNUserNotificationCenter.current()
 
-    private init() { }
+    private init() {
+        let currentCenter = center
+        Task { @MainActor in
+            currentCenter.delegate = NotificationCenterDelegate.shared
+        }
+    }
 
     func scheduleNotifications(for goal: TrackingGoal) {
         Task { [weak self] in
             guard let self else { return }
             let authorized = await ensureAuthorization()
-            guard authorized else { return }
+            guard authorized else {
+                print("[Notifications] Skipping schedule – authorization not granted")
+                return
+            }
 
             let requestIdentifiers = goal.schedule.times.enumerated().map { index, _ in
                 "goal-\(goal.id.uuidString)-notification-\(index)"
@@ -47,7 +55,10 @@ final class NotificationScheduler: @unchecked Sendable {
         Task { [weak self] in
             guard let self else { return }
             let authorized = await ensureAuthorization()
-            guard authorized else { return }
+            guard authorized else {
+                print("[Notifications] Skipping test notification – authorization not granted")
+                return
+            }
 
             let content = UNMutableNotificationContent()
             content.title = "Test: \(goal.title)"
@@ -74,17 +85,27 @@ final class NotificationScheduler: @unchecked Sendable {
         let settings = await center.notificationSettings()
         switch settings.authorizationStatus {
         case .authorized, .provisional, .ephemeral:
+            print("[Notifications] Authorization already granted: \(settings.authorizationStatus.rawValue)")
             return true
         case .denied:
+            print("[Notifications] Authorization denied by user")
             return false
         case .notDetermined:
             do {
+                print("[Notifications] Requesting notification authorization")
                 let granted = try await center.requestAuthorization(options: [.alert, .sound, .badge])
+                if granted {
+                    print("[Notifications] Authorization granted on request")
+                } else {
+                    print("[Notifications] Authorization request declined")
+                }
                 return granted
             } catch {
+                print("[Notifications] Authorization request failed: \(error)")
                 return false
             }
         @unknown default:
+            print("[Notifications] Unknown authorization status: \(settings.authorizationStatus.rawValue)")
             return false
         }
     }
