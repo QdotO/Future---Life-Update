@@ -119,7 +119,8 @@ final class GoalCreationViewModel {
             return question
         }
 
-        modelContext.insert(goal)
+    modelContext.insert(goal)
+    try modelContext.save()
         draftQuestions.removeAll()
         scheduleDraft = ScheduleDraft(startDate: dateProvider())
         title = ""

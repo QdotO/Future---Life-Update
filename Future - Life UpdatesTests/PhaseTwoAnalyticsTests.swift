@@ -102,4 +102,57 @@ struct PhaseTwoAnalyticsTests {
 
         #expect(viewModel.currentStreakDays == 3)
     }
+
+    @Test("Goal trends computes boolean streaks")
+    func goalTrendsComputesBooleanStreaks() throws {
+        let container = try makeInMemoryContainer()
+        let context = container.mainContext
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+
+        let goal = TrackingGoal(title: "Accountability", description: "Daily commitment check", category: .habits)
+        let question = Question(text: "Did you complete your task?", responseType: .boolean)
+        goal.questions = [question]
+        goal.schedule = Schedule()
+        question.goal = goal
+        context.insert(goal)
+
+        let today = calendar.date(from: DateComponents(year: 2025, month: 4, day: 20, hour: 8))!
+        let dayMinusOne = calendar.date(byAdding: .day, value: -1, to: today)!
+        let dayMinusTwo = calendar.date(byAdding: .day, value: -2, to: today)!
+        let dayMinusThree = calendar.date(byAdding: .day, value: -3, to: today)!
+        let dayMinusFour = calendar.date(byAdding: .day, value: -4, to: today)!
+
+        let points: [DataPoint] = [
+            DataPoint(goal: goal, question: question, timestamp: today, boolValue: true),
+            DataPoint(goal: goal, question: question, timestamp: dayMinusOne, boolValue: false),
+            DataPoint(goal: goal, question: question, timestamp: dayMinusTwo, boolValue: true),
+            DataPoint(goal: goal, question: question, timestamp: dayMinusThree, boolValue: true),
+            DataPoint(goal: goal, question: question, timestamp: dayMinusFour, boolValue: true)
+        ]
+
+        goal.dataPoints.append(contentsOf: points)
+        question.dataPoints.append(contentsOf: points)
+        points.forEach { context.insert($0) }
+        try context.save()
+
+        let viewModel = GoalTrendsViewModel(
+            goal: goal,
+            modelContext: context,
+            calendar: calendar,
+            dateProvider: { calendar.date(byAdding: .hour, value: 1, to: today)! }
+        )
+
+        #expect(viewModel.booleanStreaks.count == 1)
+
+        guard let streak = viewModel.booleanStreaks.first else {
+            Issue.record("Expected streak information for boolean question")
+            return
+        }
+
+        #expect(streak.currentStreak == 1)
+        #expect(streak.bestStreak == 3)
+        #expect(streak.lastResponseValue == true)
+        #expect(streak.lastResponseDate == today)
+    }
 }

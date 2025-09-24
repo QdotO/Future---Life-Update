@@ -343,4 +343,36 @@ struct PhaseOneFeatureTests {
 
         #expect(updatedGoal.questions.contains(where: { $0.text == "Did you read before bed?" }))
     }
+
+    @Test("Newly created goal retains metadata after first log")
+    func newGoalRetainsMetadataAfterLogging() throws {
+        let container = try makeInMemoryContainer()
+        let context = container.mainContext
+
+        let creationDate = Date(timeIntervalSince1970: 4_000)
+        let creationViewModel = GoalCreationViewModel(modelContext: context, dateProvider: { creationDate })
+        creationViewModel.title = "Daily Stretch"
+        creationViewModel.goalDescription = "Loosen up and avoid stiffness"
+        creationViewModel.selectedCategory = .fitness
+        creationViewModel.addManualQuestion(
+            text: "How many minutes did you stretch?",
+            responseType: .numeric,
+            validationRules: ValidationRules(minimumValue: 0, maximumValue: 120, allowsEmpty: false)
+        )
+
+        let goal = try creationViewModel.createGoal()
+
+        guard let question = goal.questions.first else {
+            Issue.record("Expected goal to include the created question")
+            return
+        }
+
+        let entryDate = Date(timeIntervalSince1970: 4_500)
+        let dataEntry = DataEntryViewModel(goal: goal, modelContext: context, dateProvider: { entryDate })
+        dataEntry.updateNumericResponse(15, for: question)
+        try dataEntry.saveEntries()
+
+        #expect(goal.title == "Daily Stretch")
+        #expect(goal.goalDescription == "Loosen up and avoid stiffness")
+    }
 }

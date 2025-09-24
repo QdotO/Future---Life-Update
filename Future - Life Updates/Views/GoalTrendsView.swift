@@ -11,11 +11,18 @@ struct GoalTrendsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            if viewModel.dailySeries.isEmpty {
+            let hasNumeric = !viewModel.dailySeries.isEmpty
+            let hasBoolean = !viewModel.booleanStreaks.isEmpty
+
+            if !hasNumeric && !hasBoolean {
                 emptyState
             } else {
-                trendsChart
-                streakSummary
+                if hasNumeric {
+                    numericSection
+                }
+                if hasBoolean {
+                    booleanSection
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -24,14 +31,23 @@ struct GoalTrendsView: View {
 
     private var emptyState: some View {
         ContentUnavailableView(
-            "No trend data yet",
+            "No insights yet",
             systemImage: "chart.line.uptrend.xyaxis",
-            description: Text("Log numeric responses to unlock your progress insights.")
+            description: Text("Log a few updates to unlock charts and streaks for this goal.")
         )
         .frame(maxWidth: .infinity)
     }
 
-    private var trendsChart: some View {
+    private var numericSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Daily progress")
+                .font(.headline)
+            numericChart
+            streakSummary
+        }
+    }
+
+    private var numericChart: some View {
         Chart(viewModel.dailySeries) { entry in
             AreaMark(
                 x: .value("Date", entry.date, unit: .day),
@@ -115,6 +131,83 @@ struct GoalTrendsView: View {
             return "1 day"
         }
         return "\(viewModel.currentStreakDays) days"
+    }
+
+    private var booleanSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Yes/No streaks")
+                .font(.headline)
+            VStack(alignment: .leading, spacing: 12) {
+                ForEach(viewModel.booleanStreaks) { streak in
+                    booleanCard(for: streak)
+                }
+            }
+        }
+    }
+
+    private func booleanCard(for streak: GoalTrendsViewModel.BooleanStreak) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(streak.questionTitle)
+                    .font(.headline)
+                Spacer()
+                Image(systemName: streak.currentStreak > 0 ? "flame.fill" : "flame")
+                    .foregroundStyle(streak.currentStreak > 0 ? .orange : .secondary)
+            }
+
+            Text(booleanStreakHeadline(for: streak))
+                .font(.title3.weight(.semibold))
+
+            Text("Longest streak: \(booleanBestDescription(for: streak))")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            if let detail = booleanDetailLine(for: streak) {
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(.systemGray6))
+        )
+    }
+
+    private func booleanStreakHeadline(for streak: GoalTrendsViewModel.BooleanStreak) -> String {
+        switch streak.currentStreak {
+        case 0:
+            return "No active yes streak"
+        case 1:
+            return "1-day yes streak"
+        default:
+            return "\(streak.currentStreak)-day yes streak"
+        }
+    }
+
+    private func booleanBestDescription(for streak: GoalTrendsViewModel.BooleanStreak) -> String {
+        switch streak.bestStreak {
+        case 0:
+            return "None yet"
+        case 1:
+            return "1 day"
+        default:
+            return "\(streak.bestStreak) days"
+        }
+    }
+
+    private func booleanDetailLine(for streak: GoalTrendsViewModel.BooleanStreak) -> String? {
+        guard let date = streak.lastResponseDate else {
+            return "No responses yet"
+        }
+
+        let dateText = date.formatted(.dateTime.month().day())
+        if let value = streak.lastResponseValue {
+            return "Last answered \(value ? "Yes" : "No") on \(dateText)"
+        }
+        return "Last response recorded on \(dateText)"
     }
 }
 

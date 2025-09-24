@@ -16,9 +16,21 @@ final class GoalTrendsViewModel {
         var id: Date { date }
     }
 
+    struct BooleanStreak: Identifiable, Hashable {
+        let questionID: UUID
+        let questionTitle: String
+        let currentStreak: Int
+        let bestStreak: Int
+        let lastResponseDate: Date?
+        let lastResponseValue: Bool?
+
+        var id: UUID { questionID }
+    }
+
     private(set) var goal: TrackingGoal
     private(set) var dailySeries: [DailyAverage] = []
     private(set) var currentStreakDays: Int = 0
+    private(set) var booleanStreaks: [BooleanStreak] = []
 
     private let modelContext: ModelContext
     private let calendar: Calendar
@@ -39,14 +51,20 @@ final class GoalTrendsViewModel {
 
     func refresh() {
         do {
-            try rebuildTrends()
+            try rebuildNumericTrends()
         } catch {
             dailySeries = []
             currentStreakDays = 0
         }
+
+        do {
+            try rebuildBooleanStreaks()
+        } catch {
+            booleanStreaks = []
+        }
     }
 
-    private func rebuildTrends() throws {
+    private func rebuildNumericTrends() throws {
         let goalIdentifier = goal.persistentModelID
         var descriptor = FetchDescriptor<DataPoint>(
             predicate: #Predicate<DataPoint> { dataPoint in
@@ -60,6 +78,53 @@ final class GoalTrendsViewModel {
         let dataPoints = try modelContext.fetch(descriptor)
         buildDailySeries(from: dataPoints)
         computeCurrentStreak(using: dataPoints)
+    }
+
+    private func rebuildBooleanStreaks() throws {
+        let goalIdentifier = goal.persistentModelID
+        var streaks: [BooleanStreak] = []
+
+        for question in goal.questions where question.responseType == .boolean {
+            let questionIdentifier = question.persistentModelID
+            var descriptor = FetchDescriptor<DataPoint>(
+                predicate: #Predicate<DataPoint> { dataPoint in
+                    dataPoint.goal?.persistentModelID == goalIdentifier &&
+                    dataPoint.question?.persistentModelID == questionIdentifier &&
+                    dataPoint.boolValue != nil
+                },
+                sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+            )
+            descriptor.propertiesToFetch = [\.timestamp, \.boolValue]
+
+            let points = try modelContext.fetch(descriptor)
+
+            let successDays: Set<Date> = Set(points.compactMap { point in
+                guard point.boolValue == true else { return nil }
+                return calendar.startOfDay(for: point.timestamp)
+            })
+
+            let currentStreak = computeCurrentBooleanStreak(from: successDays)
+            let bestStreak = computeBestBooleanStreak(from: successDays)
+            let latestResponse = points.first
+
+            let streak = BooleanStreak(
+                questionID: question.id,
+                questionTitle: question.text,
+                currentStreak: currentStreak,
+                bestStreak: bestStreak,
+                lastResponseDate: latestResponse?.timestamp,
+                lastResponseValue: latestResponse?.boolValue
+            )
+
+            streaks.append(streak)
+        }
+
+        booleanStreaks = streaks.sorted { lhs, rhs in
+            if lhs.currentStreak == rhs.currentStreak {
+                return lhs.questionTitle < rhs.questionTitle
+            }
+            return lhs.currentStreak > rhs.currentStreak
+        }
     }
 
     private func buildDailySeries(from dataPoints: [DataPoint]) {
@@ -114,5 +179,44 @@ final class GoalTrendsViewModel {
         }
 
         currentStreakDays = streak
+    }
+
+    private func computeCurrentBooleanStreak(from successDays: Set<Date>) -> Int {
+        guard !successDays.isEmpty else { return 0 }
+
+        var streak = 0
+        var cursor = calendar.startOfDay(for: dateProvider())
+
+        while successDays.contains(cursor) {
+            streak += 1
+            guard let previous = calendar.date(byAdding: .day, value: -1, to: cursor) else { break }
+            cursor = previous
+        }
+
+        return streak
+    }
+
+    private func computeBestBooleanStreak(from successDays: Set<Date>) -> Int {
+        guard !successDays.isEmpty else { return 0 }
+
+        let sortedDays = successDays.sorted()
+        var best = 0
+        var current = 0
+        var previousDay: Date?
+
+        for day in sortedDays {
+            if let previousDay,
+               let expectedNext = calendar.date(byAdding: .day, value: 1, to: previousDay),
+               calendar.isDate(day, inSameDayAs: expectedNext) {
+                current += 1
+            } else {
+                current = 1
+            }
+
+            best = max(best, current)
+            previousDay = day
+        }
+
+        return best
     }
 }
