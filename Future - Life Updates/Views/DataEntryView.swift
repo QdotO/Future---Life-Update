@@ -62,18 +62,22 @@ struct DataEntryView: View {
 
     private func numericRow(for question: Question) -> some View {
         let bounds = numericBounds(for: question)
-        return HStack {
+        let valueBinding = Binding<Double>(
+            get: { viewModel.numericValue(for: question, default: bounds.lowerBound) },
+            set: { viewModel.updateNumericResponse($0, for: question) }
+        )
+        let currentValue = valueBinding.wrappedValue
+
+        return HStack(spacing: 12) {
             Text(question.text)
             Spacer()
-            Stepper(value: Binding(
-                get: { viewModel.numericValue(for: question, default: bounds.lowerBound) },
-                set: { viewModel.updateNumericResponse($0, for: question) }
-            ), in: bounds, step: 1) {
-                Text(viewModel.numericValue(for: question, default: bounds.lowerBound), format: .number)
-                    .monospacedDigit()
-                    .frame(width: 60)
-            }
-            .labelsHidden()
+            Text(currentValue, format: .number)
+                .monospacedDigit()
+                .frame(width: 60, alignment: .trailing)
+            Stepper("", value: valueBinding, in: bounds, step: 1)
+                .labelsHidden()
+                .accessibilityLabel(Text(question.text))
+                .accessibilityValue(Text(currentValue, format: .number))
         }
     }
 
