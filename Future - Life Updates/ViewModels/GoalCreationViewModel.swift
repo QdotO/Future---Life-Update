@@ -54,9 +54,19 @@ final class GoalCreationViewModel {
     }
 
     @discardableResult
-    func addManualQuestion(text: String, responseType: ResponseType) -> Question {
+    func addManualQuestion(
+        text: String,
+        responseType: ResponseType,
+        options: [String]? = nil,
+        validationRules: ValidationRules? = nil
+    ) -> Question {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let question = Question(text: trimmed, responseType: responseType)
+        let question = Question(
+            text: trimmed,
+            responseType: responseType,
+            options: options?.isEmpty == true ? nil : options,
+            validationRules: validationRules
+        )
         draftQuestions.append(question)
         return question
     }

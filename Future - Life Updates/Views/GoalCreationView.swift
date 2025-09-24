@@ -5,12 +5,17 @@ struct GoalCreationView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var newQuestionText: String = ""
+    @State private var newQuestionOptionsText: String = ""
+    @State private var newQuestionMinimum: Double = 0
+    @State private var newQuestionMaximum: Double = 100
+    @State private var newQuestionAllowsEmpty: Bool = false
     @State private var selectedResponseType: ResponseType = .numeric
     @State private var selectedFrequency: Frequency
     @State private var selectedTimezone: TimeZone
     @State private var selectedTime: Date
     @State private var errorMessage: String?
     @State private var didSeedSchedule = false
+    @State private var didSeedQuestionDefaults = false
 
     @Bindable private var viewModel: GoalCreationViewModel
 
@@ -64,6 +69,13 @@ struct GoalCreationView: View {
                     didSeedSchedule = true
                     updateSchedule(frequency: selectedFrequency)
                 }
+                if !didSeedQuestionDefaults {
+                    didSeedQuestionDefaults = true
+                    seedQuestionDefaults(for: selectedResponseType)
+                }
+            }
+            .onChange(of: selectedResponseType) { _, newType in
+                seedQuestionDefaults(for: newType)
             }
         }
     }
@@ -91,12 +103,37 @@ struct GoalCreationView: View {
                 ContentUnavailableView("Add the first question", systemImage: "text.badge.plus")
             } else {
                 ForEach(viewModel.draftQuestions, id: \.id) { question in
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: 6) {
                         Text(question.text)
                             .font(.headline)
                         Text(question.responseType.displayName)
                             .font(.footnote)
                             .foregroundStyle(.secondary)
+                        if let options = question.options, !options.isEmpty {
+                            Text("Options: \(options.joined(separator: ", "))")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        if let rules = question.validationRules {
+                            if let min = rules.minimumValue, let max = rules.maximumValue {
+                                Text("Range: \(min.formatted()) – \(max.formatted())")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                            } else if let min = rules.minimumValue {
+                                Text("Minimum: \(min.formatted())")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                            } else if let max = rules.maximumValue {
+                                Text("Maximum: \(max.formatted())")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                            }
+                            if rules.allowsEmpty {
+                                Text("Allows empty response")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
                     }
                     .swipeActions(edge: .trailing) {
                         Button(role: .destructive) {
@@ -108,7 +145,7 @@ struct GoalCreationView: View {
                 }
             }
 
-            VStack(alignment: .leading) {
+            VStack(alignment: .leading, spacing: 12) {
                 TextField("Ask a question to track", text: $newQuestionText)
                 Picker("Response Type", selection: $selectedResponseType) {
                     ForEach(ResponseType.allCases, id: \.self) { type in
@@ -116,6 +153,7 @@ struct GoalCreationView: View {
                     }
                 }
                 .pickerStyle(.segmented)
+                questionConfigurationFields
                 Button {
                     addQuestion()
                 } label: {
@@ -125,6 +163,43 @@ struct GoalCreationView: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(newQuestionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
+        }
+    }
+
+    @ViewBuilder
+    private var questionConfigurationFields: some View {
+        switch selectedResponseType {
+        case .numeric, .scale, .slider:
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Minimum")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        TextField("Minimum", value: $newQuestionMinimum, format: .number)
+                            .keyboardType(.decimalPad)
+                            .textFieldStyle(.roundedBorder)
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Maximum")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        TextField("Maximum", value: $newQuestionMaximum, format: .number)
+                            .keyboardType(.decimalPad)
+                            .textFieldStyle(.roundedBorder)
+                    }
+                }
+                Toggle("Allow empty response", isOn: $newQuestionAllowsEmpty)
+            }
+        case .multipleChoice:
+            VStack(alignment: .leading, spacing: 8) {
+                TextField("Options (comma separated)", text: $newQuestionOptionsText)
+                Toggle("Allow empty response", isOn: $newQuestionAllowsEmpty)
+            }
+        case .text:
+            Toggle("Allow empty response", isOn: $newQuestionAllowsEmpty)
+        case .boolean, .time:
+            Toggle("Allow empty response", isOn: $newQuestionAllowsEmpty)
         }
     }
 
@@ -160,12 +235,75 @@ struct GoalCreationView: View {
         }
     }
 
+    private func seedQuestionDefaults(for responseType: ResponseType) {
+        newQuestionAllowsEmpty = false
+        newQuestionOptionsText = ""
+        switch responseType {
+        case .numeric:
+            newQuestionMinimum = 0
+            newQuestionMaximum = 100
+        case .scale:
+            newQuestionMinimum = 1
+            newQuestionMaximum = 10
+        case .slider:
+            newQuestionMinimum = 0
+            newQuestionMaximum = 100
+        case .multipleChoice:
+            break
+        case .text, .boolean, .time:
+            break
+        }
+    }
+
+    private func resetNewQuestionFields() {
+        newQuestionText = ""
+        selectedResponseType = .numeric
+        seedQuestionDefaults(for: .numeric)
+    }
+
     private func addQuestion() {
         let trimmed = newQuestionText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        viewModel.addManualQuestion(text: trimmed, responseType: selectedResponseType)
-        newQuestionText = ""
-        selectedResponseType = .numeric
+
+        var options: [String]? = nil
+        var validation: ValidationRules? = nil
+
+        switch selectedResponseType {
+        case .multipleChoice:
+            let parsedOptions = newQuestionOptionsText
+                .split(separator: ",")
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+            var unique: [String] = []
+            var seen: Set<String> = []
+            for option in parsedOptions where !seen.contains(option.lowercased()) {
+                seen.insert(option.lowercased())
+                unique.append(option)
+            }
+            if unique.isEmpty {
+                errorMessage = "Add at least one option before saving."
+                return
+            }
+            options = unique
+            validation = ValidationRules(allowsEmpty: newQuestionAllowsEmpty)
+        case .numeric, .scale, .slider:
+            let minimum = min(newQuestionMinimum, newQuestionMaximum)
+            let maximum = max(newQuestionMinimum, newQuestionMaximum)
+            validation = ValidationRules(minimumValue: minimum, maximumValue: maximum, allowsEmpty: newQuestionAllowsEmpty)
+        case .text, .boolean, .time:
+            if newQuestionAllowsEmpty {
+                validation = ValidationRules(allowsEmpty: true)
+            }
+        }
+
+        viewModel.addManualQuestion(
+            text: trimmed,
+            responseType: selectedResponseType,
+            options: options,
+            validationRules: validation
+        )
+
+        resetNewQuestionFields()
     }
 
     private func updateSchedule(frequency: Frequency, timezone: TimeZone? = nil) {

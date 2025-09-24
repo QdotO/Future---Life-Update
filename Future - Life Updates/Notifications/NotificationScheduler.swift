@@ -43,6 +43,33 @@ final class NotificationScheduler: @unchecked Sendable {
         }
     }
 
+    func sendTestNotification(for goal: TrackingGoal) {
+        Task { [weak self] in
+            guard let self else { return }
+            let authorized = await ensureAuthorization()
+            guard authorized else { return }
+
+            let content = UNMutableNotificationContent()
+            content.title = "Test: \(goal.title)"
+            content.body = nextQuestionBody(for: goal)
+            content.sound = .default
+            content.userInfo = [
+                "goalId": goal.id.uuidString,
+                "isTest": true
+            ]
+
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+            let identifier = "goal-\(goal.id.uuidString)-test-\(UUID().uuidString)"
+            let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+
+            do {
+                try await center.add(request)
+            } catch {
+                print("Failed to schedule test notification: \(error)")
+            }
+        }
+    }
+
     private func ensureAuthorization() async -> Bool {
         let settings = await center.notificationSettings()
         switch settings.authorizationStatus {

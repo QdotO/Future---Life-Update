@@ -5,35 +5,23 @@ struct DataEntryView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var viewModel: DataEntryViewModel
-    @State private var numericResponses: [UUID: Double]
     private let goal: TrackingGoal
 
     init(goal: TrackingGoal, modelContext: ModelContext, dateProvider: @escaping () -> Date = Date.init) {
         self.goal = goal
         let viewModel = DataEntryViewModel(goal: goal, modelContext: modelContext, dateProvider: dateProvider)
         self._viewModel = State(initialValue: viewModel)
-        var defaults: [UUID: Double] = [:]
-        for question in goal.questions where question.responseType == .numeric {
-            let baseline = question.validationRules?.minimumValue ?? 0
-            defaults[question.id] = baseline
-            viewModel.setNumericResponse(baseline, for: question)
-        }
-        self._numericResponses = State(initialValue: defaults)
     }
 
     var body: some View {
         NavigationStack {
             Form {
-                ForEach(goal.questions) { question in
-                    switch question.responseType {
-                    case .numeric:
-                        numericEntryRow(for: question)
-                    case .boolean:
-                        toggleEntryRow(for: question)
-                    case .text:
-                        textEntryRow(for: question)
-                    default:
-                        unsupportedRow(for: question)
+                let activeQuestions = goal.questions.filter { $0.isActive }
+                if activeQuestions.isEmpty {
+                    ContentUnavailableView("No active questions", systemImage: "checkmark.circle")
+                } else {
+                    ForEach(activeQuestions) { question in
+                        questionRow(for: question)
                     }
                 }
             }
@@ -46,25 +34,42 @@ struct DataEntryView: View {
                     Button("Save") {
                         Task { await saveEntries() }
                     }
-                    .disabled(!canSubmit)
+                    .disabled(!viewModel.canSubmit)
                 }
             }
         }
     }
 
-    private var canSubmit: Bool {
-        !numericResponses.isEmpty
+    @ViewBuilder
+    private func questionRow(for question: Question) -> some View {
+        switch question.responseType {
+        case .numeric:
+            numericRow(for: question)
+        case .scale:
+            scaleRow(for: question)
+        case .slider:
+            sliderRow(for: question)
+        case .boolean:
+            booleanRow(for: question)
+        case .text:
+            textRow(for: question)
+        case .multipleChoice:
+            multipleChoiceRow(for: question)
+        case .time:
+            timeRow(for: question)
+        }
     }
 
-    private func numericEntryRow(for question: Question) -> some View {
-        HStack {
+    private func numericRow(for question: Question) -> some View {
+        let bounds = numericBounds(for: question)
+        return HStack {
             Text(question.text)
             Spacer()
-            let minimum = question.validationRules?.minimumValue ?? 0
-            let maximum = question.validationRules?.maximumValue ?? 1000
-            let upperBound = max(maximum, minimum)
-            Stepper(value: binding(for: question), in: minimum...upperBound, step: 1) {
-                Text("\(numericResponses[question.id] ?? minimum, format: .number)")
+            Stepper(value: Binding(
+                get: { viewModel.numericValue(for: question, default: bounds.lowerBound) },
+                set: { viewModel.updateNumericResponse($0, for: question) }
+            ), in: bounds, step: 1) {
+                Text(viewModel.numericValue(for: question, default: bounds.lowerBound), format: .number)
                     .monospacedDigit()
                     .frame(width: 60)
             }
@@ -72,41 +77,118 @@ struct DataEntryView: View {
         }
     }
 
-    private func binding(for question: Question) -> Binding<Double> {
-        Binding<Double>(
-            get: { numericResponses[question.id] ?? 0 },
-            set: { numericResponses[question.id] = $0; viewModel.setNumericResponse($0, for: question) }
+    private func scaleRow(for question: Question) -> some View {
+        let bounds = scaleBounds(for: question)
+        let binding = Binding<Int>(
+            get: { Int(viewModel.numericValue(for: question, default: Double(bounds.lowerBound))) },
+            set: { viewModel.updateNumericResponse(Double($0), for: question) }
         )
-    }
 
-    private func toggleEntryRow(for question: Question) -> some View {
-        Toggle(isOn: .constant(false)) {
-            VStack(alignment: .leading) {
-                Text(question.text)
-                Text("Boolean input coming soon")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+        return VStack(alignment: .leading, spacing: 8) {
+            Text(question.text)
+            Stepper(value: binding, in: bounds) {
+                Text("\(binding.wrappedValue)")
+                    .font(.headline)
             }
         }
-        .disabled(true)
     }
 
-    private func textEntryRow(for question: Question) -> some View {
-        VStack(alignment: .leading) {
+    private func sliderRow(for question: Question) -> some View {
+        let bounds = sliderBounds(for: question)
+        let binding = Binding<Double>(
+            get: { viewModel.numericValue(for: question, default: bounds.lowerBound) },
+            set: { viewModel.updateNumericResponse($0, for: question) }
+        )
+
+        return VStack(alignment: .leading, spacing: 12) {
             Text(question.text)
-            Text("Text input coming soon")
-                .font(.footnote)
+            Slider(value: binding, in: bounds, step: sliderStep(for: question))
+            Text(binding.wrappedValue, format: .number)
+                .font(.caption)
                 .foregroundStyle(.secondary)
         }
     }
 
-    private func unsupportedRow(for question: Question) -> some View {
-        VStack(alignment: .leading) {
+    private func booleanRow(for question: Question) -> some View {
+        Toggle(isOn: Binding(
+            get: { viewModel.booleanValue(for: question) },
+            set: { viewModel.updateBooleanResponse($0, for: question) }
+        )) {
             Text(question.text)
-            Text("Response type not yet supported in this prototype")
-                .font(.footnote)
-                .foregroundStyle(.tertiary)
         }
+    }
+
+    private func textRow(for question: Question) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(question.text)
+            TextField("Enter response", text: Binding(
+                get: { viewModel.textValue(for: question) },
+                set: { viewModel.updateTextResponse($0, for: question) }
+            ), axis: .vertical)
+            .lineLimit(3, reservesSpace: true)
+        }
+    }
+
+    private func multipleChoiceRow(for question: Question) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(question.text)
+            if let options = question.options, !options.isEmpty {
+                ForEach(options, id: \.self) { option in
+                    Toggle(option, isOn: Binding(
+                        get: { viewModel.selectedOptions(for: question).contains(option) },
+                        set: { viewModel.setOption(option, isSelected: $0, for: question) }
+                    ))
+                }
+            } else {
+                Text("No options configured")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func timeRow(for question: Question) -> some View {
+        DatePicker(
+            question.text,
+            selection: Binding(
+                get: {
+                    viewModel.timeValue(for: question, fallback: defaultTime())
+                },
+                set: { viewModel.updateTimeResponse($0, for: question) }
+            ),
+            displayedComponents: .hourAndMinute
+        )
+    }
+
+    private func numericBounds(for question: Question) -> ClosedRange<Double> {
+        let minimum = question.validationRules?.minimumValue ?? 0
+        let maximum = question.validationRules?.maximumValue ?? max(minimum + 100, minimum + 10)
+        let upperBound = max(maximum, minimum + 1)
+        return minimum...upperBound
+    }
+
+    private func scaleBounds(for question: Question) -> ClosedRange<Int> {
+        let minimum = Int(question.validationRules?.minimumValue ?? 1)
+        let maximum = Int(question.validationRules?.maximumValue ?? 10)
+        return min(minimum, maximum)...max(maximum, minimum)
+    }
+
+    private func sliderBounds(for question: Question) -> ClosedRange<Double> {
+        let minimum = question.validationRules?.minimumValue ?? 0
+        let maximum = question.validationRules?.maximumValue ?? 100
+        return min(minimum, maximum)...max(maximum, minimum)
+    }
+
+    private func sliderStep(for question: Question) -> Double {
+        if let rules = question.validationRules, let min = rules.minimumValue, let max = rules.maximumValue {
+            let span = max - min
+            return span <= 10 ? 0.5 : 1
+        }
+        return 1
+    }
+
+    private func defaultTime() -> Date {
+        Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date()
     }
 
     private func saveEntries() async {
@@ -120,15 +202,16 @@ struct DataEntryView: View {
 }
 
 #Preview {
-    do {
-        let container = try PreviewSampleData.makePreviewContainer()
+    if let container = try? PreviewSampleData.makePreviewContainer() {
         let context = container.mainContext
-        guard let goal = try context.fetch(FetchDescriptor<TrackingGoal>()).first else {
-            return Text("No sample goal")
+        if let goals = try? context.fetch(FetchDescriptor<TrackingGoal>()),
+           let goal = goals.first {
+            DataEntryView(goal: goal, modelContext: context)
+                .modelContainer(container)
+        } else {
+            Text("No sample goal")
         }
-        return DataEntryView(goal: goal, modelContext: context)
-            .modelContainer(container)
-    } catch {
-        return Text("Preview Error: \(error.localizedDescription)")
+    } else {
+        Text("Preview Error Loading Sample Data")
     }
 }

@@ -36,7 +36,7 @@ enum TrackingCategory: String, CaseIterable, Codable, Identifiable, Sendable {
     }
 }
 
-struct ValidationRules: Codable, Sendable {
+struct ValidationRules: Codable, Sendable, Equatable {
     var minimumValue: Double?
     var maximumValue: Double?
     var allowsEmpty: Bool
@@ -176,6 +176,7 @@ final class DataPoint {
     var textValue: String?
     var boolValue: Bool?
     var selectedOptions: [String]?
+    var timeValue: Date?
     var timestamp: Date
     var mood: Int?
     var location: String?
@@ -191,6 +192,7 @@ final class DataPoint {
         textValue: String? = nil,
         boolValue: Bool? = nil,
         selectedOptions: [String]? = nil,
+        timeValue: Date? = nil,
         mood: Int? = nil,
         location: String? = nil
     ) {
@@ -202,6 +204,7 @@ final class DataPoint {
         self.textValue = textValue
         self.boolValue = boolValue
         self.selectedOptions = selectedOptions
+        self.timeValue = timeValue
         self.mood = mood
         self.location = location
     }
