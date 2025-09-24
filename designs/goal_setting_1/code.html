@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Stitch Design</title>
+<link href="data:image/x-icon;base64," rel="icon" type="image/x-icon"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#1313ec",
+              "background-light": "#f6f6f8",
+              "background-dark": "#101022",
+              "surface-light": "#ffffff",
+              "surface-dark": "#1c1c36",
+              "foreground-light": "#101022",
+              "foreground-dark": "#ffffff",
+              "subtle-light": "#9ca3af",
+              "subtle-dark": "#9292c9",
+            },
+            fontFamily: {
+              "display": ["Inter", "sans-serif"],
+            },
+            borderRadius: { "DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px" },
+          },
+        },
+      };
+    </script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+<style>
+      body {
+        min-height: 100dvh;
+        font-family: 'Inter', sans-serif;
+      }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-foreground-light dark:text-foreground-dark">
+<div class="flex flex-col min-h-screen">
+<header class="flex items-center justify-between p-4 bg-background-light dark:bg-background-dark sticky top-0 z-10">
+<button class="p-2 rounded-full hover:bg-primary/10">
+<span class="material-symbols-outlined text-foreground-light dark:text-foreground-dark">arrow_back</span>
+</button>
+<div class="flex-1 text-center">
+<div class="h-2 w-full max-w-xs mx-auto bg-surface-light dark:bg-surface-dark rounded-full">
+<div class="h-2 bg-primary rounded-full" style="width: 100%;"></div>
+</div>
+</div>
+<button class="p-2 rounded-full hover:bg-primary/10">
+<span class="material-symbols-outlined text-foreground-light dark:text-foreground-dark">close</span>
+</button>
+</header>
+<main class="flex-1 px-6 py-8 flex flex-col">
+<div class="text-center mb-8">
+<h1 class="text-3xl font-bold">Ready to go?</h1>
+<p class="text-subtle-light dark:text-subtle-dark mt-2">Here's a summary of your new goal.</p>
+</div>
+<div class="space-y-6 flex-1">
+<div class="bg-surface-light dark:bg-surface-dark p-4 rounded-xl">
+<div class="flex justify-between items-start">
+<div>
+<p class="text-sm text-subtle-light dark:text-subtle-dark">Goal Name</p>
+<p class="text-lg font-semibold mt-1">Learn to Code</p>
+</div>
+<button class="p-1 text-subtle-light dark:text-subtle-dark hover:text-primary">
+<span class="material-symbols-outlined text-sm">edit</span>
+</button>
+</div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark p-4 rounded-xl">
+<p class="text-sm text-subtle-light dark:text-subtle-dark">Description</p>
+<p class="mt-1">I want to become a proficient software developer by building real-world projects and contributing to open source.</p>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark p-4 rounded-xl">
+<p class="text-sm text-subtle-light dark:text-subtle-dark">Target Date</p>
+<p class="mt-1">December 31, 2024</p>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark p-4 rounded-xl">
+<div class="flex justify-between items-start">
+<div>
+<p class="text-sm text-subtle-light dark:text-subtle-dark">Questions</p>
+<ul class="mt-2 space-y-2 list-disc list-inside">
+<li>Did I code for at least 30 minutes today?</li>
+<li>Did I learn a new concept?</li>
+<li>Did I push my code to GitHub?</li>
+</ul>
+</div>
+<button class="p-1 text-subtle-light dark:text-subtle-dark hover:text-primary">
+<span class="material-symbols-outlined text-sm">edit</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+<footer class="p-4 bg-background-light dark:bg-background-dark sticky bottom-0">
+<button class="w-full h-12 px-5 rounded-xl bg-primary text-white text-base font-bold flex items-center justify-center">
+            Create Goal
+        </button>
+</footer>
+</div>
+
+</body></html>

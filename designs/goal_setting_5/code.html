@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Stitch Design</title>
+<link href="data:image/x-icon;base64," rel="icon" type="image/x-icon"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#1313ec",
+              "background-light": "#f6f6f8",
+              "background-dark": "#101022",
+              "surface-light": "#ffffff",
+              "surface-dark": "#1c1c36",
+              "foreground-light": "#101022",
+              "foreground-dark": "#ffffff",
+              "subtle-light": "#9ca3af",
+              "subtle-dark": "#9292c9",
+            },
+            fontFamily: {
+              "display": ["Inter", "sans-serif"],
+            },
+            borderRadius: { "DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px" },
+          },
+        },
+      };
+    </script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+<style>
+      .form-select {
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239292c9' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+        background-position: right 0.5rem center;
+        background-repeat: no-repeat;
+        background-size: 1.5em 1.5em;
+        padding-right: 2.5rem;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .date-picker-wrapper {
+        position: relative;
+      }
+      .date-picker-wrapper input[type="date"] {
+        position: relative;
+        z-index: 1;
+        background: transparent;
+        color: transparent;
+      }
+      .date-picker-wrapper input[type="date"]::-webkit-calendar-picker-indicator {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        cursor: pointer;
+        opacity: 0;
+        z-index: 2;
+      }
+      .date-picker-display {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+      }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="font-display bg-background-light dark:bg-background-dark text-foreground-light dark:text-foreground-dark">
+<div class="flex flex-col min-h-screen">
+<header class="flex items-center justify-between p-4 bg-background-light dark:bg-background-dark sticky top-0 z-10">
+<button class="p-2 rounded-full hover:bg-primary/10">
+<span class="material-symbols-outlined text-foreground-light dark:text-foreground-dark"> arrow_back </span>
+</button>
+<div class="flex-1 text-center">
+<div class="h-2 w-full max-w-xs mx-auto bg-surface-light dark:bg-surface-dark rounded-full">
+<div class="h-2 bg-primary rounded-full" style="width: 75%;"></div>
+</div>
+</div>
+<button class="p-2 rounded-full hover:bg-primary/10">
+<span class="material-symbols-outlined text-foreground-light dark:text-foreground-dark"> close </span>
+</button>
+</header>
+<main class="flex-1 px-4 py-6 flex flex-col justify-center">
+<div class="text-center space-y-8">
+<h1 class="text-3xl font-bold">When is your target date?</h1>
+<div class="relative w-full max-w-xs mx-auto">
+<div class="date-picker-wrapper">
+<input class="w-full h-14 px-4 text-center rounded-lg bg-surface-light dark:bg-surface-dark border-none focus:ring-2 focus:ring-primary text-lg cursor-pointer" id="datePicker" type="date" value="2024-12-31"/>
+<div class="date-picker-display text-lg" id="datePickerDisplay">
+<span>December 31, 2024</span>
+</div>
+</div>
+</div>
+</div>
+</main>
+<footer class="p-4 bg-background-light dark:bg-background-dark sticky bottom-0">
+<button class="w-full h-12 px-5 rounded-xl bg-primary text-white text-base font-bold flex items-center justify-center">
+            Continue
+        </button>
+</footer>
+</div>
+<script>
+  const datePicker = document.getElementById('datePicker');
+  const datePickerDisplay = document.getElementById('datePickerDisplay');
+  function formatDate(date) {
+    const options = { year: 'numeric', month: 'long', day: 'numeric' };
+    return new Date(date + 'T00:00:00').toLocaleDateString('en-US', options);
+  }
+  datePickerDisplay.querySelector('span').textContent = formatDate(datePicker.value);
+  datePicker.addEventListener('change', (event) => {
+    datePickerDisplay.querySelector('span').textContent = formatDate(event.target.value);
+  });
+</script>
+
+</body></html>

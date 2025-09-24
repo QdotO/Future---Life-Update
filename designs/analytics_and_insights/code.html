@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Stitch Design</title>
+<link href="data:image/x-icon;base64," rel="icon" type="image/x-icon"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              primary: "#1313ec",
+              "background-light": "#f6f6f8",
+              "background-dark": "#101022",
+            },
+            fontFamily: {
+              display: ["Inter"],
+            },
+            borderRadius: {
+              DEFAULT: "0.5rem",
+              lg: "1rem",
+              xl: "1.5rem",
+              full: "9999px",
+            },
+          },
+        },
+      };
+    </script>
+<link crossorigin="" href="https://fonts.gstatic.com/" rel="preconnect"/>
+<link as="style" href="https://fonts.googleapis.com/css2?display=swap&amp;family=Inter%3Awght%40400%3B500%3B700%3B900&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900" onload="this.rel='stylesheet'" rel="stylesheet"/>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+    .progress-bar-fill {
+      animation: fillProgress 1s ease-out forwards;
+    }
+    @keyframes fillProgress {
+      from { width: 0; }
+      to { width: var(--progress-width); }
+    }
+    .streak-animation {
+      animation: bounce 0.6s ease-in-out;
+    }
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
+  </style>
+</head>
+<body class="font-display bg-background-light dark:bg-background-dark">
+<div class="relative flex h-auto min-h-screen w-full flex-col justify-between">
+<div class="flex-grow">
+<header class="flex items-center p-4">
+<button class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-black dark:text-white">
+<svg fill="currentColor" height="24px" viewBox="0 0 256 256" width="24px" xmlns="http://www.w3.org/2000/svg">
+<path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"></path>
+</svg>
+</button>
+<h1 class="flex-1 text-center text-lg font-bold text-black dark:text-white">Insights</h1>
+<div class="w-10"></div>
+</header>
+<main class="space-y-6 p-4">
+<div>
+<h2 class="text-xl font-bold text-black dark:text-white">Goal: Learn Spanish</h2>
+</div>
+<div class="rounded-xl bg-primary/10 dark:bg-primary/20 p-6">
+<div class="flex flex-col gap-2">
+<p class="text-base font-medium text-black dark:text-white">Progress Over Time</p>
+<p class="text-4xl font-bold text-black dark:text-white">75%</p>
+<div class="flex items-center gap-2">
+<p class="text-sm text-black/60 dark:text-white/60">Last 30 Days</p>
+<p class="text-sm font-medium text-green-500">+10%</p>
+</div>
+</div>
+<div class="mt-4 h-48">
+<svg fill="none" height="100%" preserveAspectRatio="none" viewBox="0 0 472 150" width="100%" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<linearGradient gradientUnits="userSpaceOnUse" id="paint0_linear_refactored" x1="236" x2="236" y1="1" y2="149">
+<stop stop-color="var(--tw-clr-primary)" stop-opacity="0.3"></stop>
+<stop offset="1" stop-color="var(--tw-clr-primary)" stop-opacity="0"></stop>
+</linearGradient>
+</defs>
+<path d="M0 109C18.1538 109 18.1538 21 36.3077 21C54.4615 21 54.4615 41 72.6154 41C90.7692 41 90.7692 93 108.923 93C127.077 93 127.077 33 145.231 33C163.385 33 163.385 101 181.538 101C199.692 101 199.692 61 217.846 61C236 61 236 45 254.154 45C272.308 45 272.308 121 290.462 121C308.615 121 308.615 149 326.769 149C344.923 149 344.923 1 363.077 1C381.231 1 381.231 81 399.385 81C417.538 81 417.538 129 435.692 129C453.846 129 453.846 25 472 25V149H0V109Z" fill="url(#paint0_linear_refactored)"></path>
+<path class="text-primary" d="M0 109C18.1538 109 18.1538 21 36.3077 21C54.4615 21 54.4615 41 72.6154 41C90.7692 41 90.7692 93 108.923 93C127.077 93 127.077 33 145.231 33C163.385 33 163.385 101 181.538 101C199.692 101 199.692 61 217.846 61C236 61 236 45 254.154 45C272.308 45 272.308 121 290.462 121C308.615 121 308.615 149 326.769 149C344.923 149 344.923 1 363.077 1C381.231 1 381.231 81 399.385 81C417.538 81 417.538 129 435.692 129C453.846 129 453.846 25 472 25" stroke="currentColor" stroke-linecap="round" stroke-width="3"></path>
+</svg>
+</div>
+<div class="mt-2 flex justify-around">
+<p class="text-xs font-bold text-black/60 dark:text-white/60">Week 1</p>
+<p class="text-xs font-bold text-black/60 dark:text-white/60">Week 2</p>
+<p class="text-xs font-bold text-black/60 dark:text-white/60">Week 3</p>
+<p class="text-xs font-bold text-black/60 dark:text-white/60">Week 4</p>
+</div>
+</div>
+<div>
+<h3 class="text-lg font-bold text-black dark:text-white">Question: Did you practice Spanish today?</h3>
+</div>
+<div class="rounded-xl bg-primary/10 dark:bg-primary/20 p-6">
+<div class="flex flex-col gap-2">
+<p class="text-base font-medium text-black dark:text-white">Daily Practice</p>
+<div class="flex items-center gap-4">
+<p class="text-4xl font-bold text-black dark:text-white">5</p>
+<div class="flex items-center gap-2">
+<p class="text-sm text-black/60 dark:text-white/60">Days in a row</p>
+<div class="flex h-10 w-10 items-center justify-center rounded-full bg-yellow-400 streak-animation">
+<p class="text-xl font-bold text-white">🔥</p>
+</div>
+</div>
+</div>
+<p class="text-2xl font-bold text-black dark:text-white">7 Days Total</p>
+</div>
+<div class="mt-4 grid h-48 grid-cols-7 items-end gap-3 px-3">
+<div class="w-full rounded bg-primary/30" style="height: 20%;"></div>
+<div class="w-full rounded bg-primary/30" style="height: 70%;"></div>
+<div class="w-full rounded bg-primary/30" style="height: 40%;"></div>
+<div class="w-full rounded bg-primary progress-bar-fill" style="--progress-width: 100%;"></div>
+<div class="w-full rounded bg-primary/30" style="height: 40%;"></div>
+<div class="w-full rounded bg-primary/30" style="height: 90%;"></div>
+<div class="w-full rounded bg-primary progress-bar-fill" style="--progress-width: 100%;"></div>
+</div>
+<div class="mt-2 grid grid-cols-7 gap-3 px-3 text-center">
+<p class="text-xs font-bold text-black/60 dark:text-white/60">Mon</p>
+<p class="text-xs font-bold text-black/60 dark:text-white/60">Tue</p>
+<p class="text-xs font-bold text-black/60 dark:text-white/60">Wed</p>
+<p class="text-xs font-bold text-black/60 dark:text-white/60">Thu</p>
+<p class="text-xs font-bold text-black/60 dark:text-white/60">Fri</p>
+<p class="text-xs font-bold text-black/60 dark:text-white/60">Sat</p>
+<p class="text-xs font-bold text-black/60 dark:text-white/60">Sun</p>
+</div>
+</div>
+<div>
+<h3 class="text-lg font-bold text-black dark:text-white">Question: How many hours did you study?</h3>
+</div>
+<div class="rounded-xl bg-primary/10 dark:bg-primary/20 p-6">
+<div class="flex flex-col gap-2">
+<p class="text-base font-medium text-black dark:text-white">Study Hours</p>
+<p class="text-4xl font-bold text-black dark:text-white">12 Hours</p>
+<div class="flex items-center gap-2">
+<p class="text-sm text-black/60 dark:text-white/60">This Week</p>
+<p class="text-sm font-medium text-green-500">+5%</p>
+</div>
+</div>
+<div class="mt-4 grid h-48 grid-cols-[auto_1fr] items-center gap-x-4 gap-y-3">
+<p class="text-xs font-bold text-black/60 dark:text-white/60">1</p>
+<div class="h-4 w-full rounded-full bg-primary/20"><div class="h-full rounded-full bg-primary progress-bar-fill" style="--progress-width: 10%;"></div></div>
+<p class="text-xs font-bold text-black/60 dark:text-white/60">2</p>
+<div class="h-4 w-full rounded-full bg-primary/20"><div class="h-full rounded-full bg-primary progress-bar-fill" style="--progress-width: 60%;"></div></div>
+<p class="text-xs font-bold text-black/60 dark:text-white/60">3</p>
+<div class="h-4 w-full rounded-full bg-primary/20"><div class="h-full rounded-full bg-primary progress-bar-fill" style="--progress-width: 20%;"></div></div>
+<p class="text-xs font-bold text-black/60 dark:text-white/60">4</p>
+<div class="h-4 w-full rounded-full bg-primary/20"><div class="h-full rounded-full bg-primary progress-bar-fill" style="--progress-width: 50%;"></div></div>
+<p class="text-xs font-bold text-black/60 dark:text-white/60">5</p>
+<div class="h-4 w-full rounded-full bg-primary/20"><div class="h-full rounded-full bg-primary progress-bar-fill" style="--progress-width: 100%;"></div></div>
+</div>
+</div>
+</main>
+</div>
+<footer class="sticky bottom-0 border-t border-primary/20 bg-background-light/80 pb-3 pt-2 backdrop-blur-sm dark:bg-background-dark/80">
+<nav class="flex justify-around">
+<a class="flex flex-1 flex-col items-center justify-end gap-1 text-black/60 dark:text-white/60" href="#">
+<div class="flex h-8 items-center justify-center">
+<svg fill="currentColor" height="24px" viewBox="0 0 256 256" width="24px" xmlns="http://www.w3.org/2000/svg">
+<path d="M232,64H208V56a16,16,0,0,0-16-16H64A16,16,0,0,0,48,56v8H24A16,16,0,0,0,8,80V96a40,40,0,0,0,40,40h3.65A80.13,80.13,0,0,0,120,191.61V216H96a8,8,0,0,0,0,16h64a8,8,0,0,0,0-16H136V191.58c31.94-3.23,58.44-25.64,68.08-55.58H208a40,40,0,0,0,40-40V80A16,16,0,0,0,232,64ZM48,120A24,24,0,0,1,24,96V80H48v32q0,4,.39,8Zm144-8.9c0,35.52-28.49,64.64-63.51,64.9H128a64,64,0,0,1-64-64V56H192ZM232,96a24,24,0,0,1-24,24h-.5a81.81,81.81,0,0,0,.5-8.9V80h24Z"></path>
+</svg>
+</div>
+<p class="text-xs font-medium leading-normal">Goals</p>
+</a>
+<a class="flex flex-1 flex-col items-center justify-end gap-1 text-black/60 dark:text-white/60" href="#">
+<div class="flex h-8 items-center justify-center">
+<svg fill="currentColor" height="24px" viewBox="0 0 256 256" width="24px" xmlns="http://www.w3.org/2000/svg">
+<path d="M208,32H184V24a8,8,0,0,0-16,0v8H88V24a8,8,0,0,0-16,0v8H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM72,48v8a8,8,0,0,0,16,0V48h80v8a8,8,0,0,0,16,0V48h24V80H48V48ZM208,208H48V96H208V208Zm-96-88v64a8,8,0,0,1-16,0V132.94l-4.42,2.22a8,8,0,0,1-7.16-14.32l16-8A8,8,0,0,1,112,120Zm59.16,30.45L152,176h16a8,8,0,0,1,0,16H136a8,8,0,0,1-6.4-12.8l28.78-38.37A8,8,0,1,0,145.07,132a8,8,0,1,1-13.85-8A24,24,0,0,1,176,136,23.76,23.76,0,0,1,171.16,150.45Z"></path>
+</svg>
+</div>
+<p class="text-xs font-medium leading-normal">Today</p>
+</a>
+<a class="flex flex-1 flex-col items-center justify-end gap-1 rounded-full bg-primary/10 text-primary dark:bg-primary/20 dark:text-white" href="#">
+<div class="flex h-8 items-center justify-center">
+<svg fill="currentColor" height="24px" viewBox="0 0 256 256" width="24px" xmlns="http://www.w3.org/2000/svg">
+<path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40ZM200,176a8,8,0,0,1,0,16H56a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v62.92l34.88-29.07a8,8,0,0,1,9.56-.51l43,28.69,43.41-36.18a8,8,0,0,1,10.24,12.3l-48,40a8,8,0,0,1-9.56.51l-43-28.69L64,155.75V176Z"></path>
+</svg>
+</div>
+<p class="text-xs font-medium leading-normal">Insights</p>
+</a>
+<a class="flex flex-1 flex-col items-center justify-end gap-1 text-black/60 dark:text-white/60" href="#">
+<div class="flex h-8 items-center justify-center">
+<svg fill="currentColor" height="24px" viewBox="0 0 256 256" width="24px" xmlns="http://www.w3.org/2000/svg">
+<path d="M128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm88-29.84q.06-2.16,0-4.32l14.92-18.64a8,8,0,0,0,1.48-7.06,107.21,107.21,0,0,0-10.88-26.25,8,8,0,0,0-6-3.93l-23.72-2.64q-1.48-1.56-3-3L186,40.54a8,8,0,0,0-3.94-6,107.71,107.71,0,0,0-26.25-10.87,8,8,0,0,0-7.06,1.49L130.16,40Q128,40,125.84,40L107.2,25.11a8,8,0,0,0-7.06-1.48A107.6,107.6,0,0,0,73.89,34.51a8,8,0,0,0-3.93,6L67.32,64.27q-1.56,1.49-3,3L40.54,70a8,8,0,0,0-6,3.94,107.71,107.71,0,0,0-10.87,26.25,8,8,0,0,0,1.49,7.06L40,125.84Q40,128,40,130.16L25.11,148.8a8,8,0,0,0-1.48,7.06,107.21,107.21,0,0,0,10.88,26.25,8,8,0,0,0,6,3.93l23.72,2.64q1.49,1.56,3,3L70,215.46a8,8,0,0,0,3.94,6,107.71,107.71,0,0,0,26.25,10.87,8,8,0,0,0,7.06-1.49L125.84,216q2.16.06,4.32,0l18.64,14.92a8,8,0,0,0,7.06,1.48,107.21,107.21,0,0,0,26.25-10.88,8,8,0,0,0,3.93-6l2.64-23.72q1.56-1.48,3-3L215.46,186a8,8,0,0,0,6-3.94,107.71,107.71,0,0,0,10.87-26.25,8,8,0,0,0-1.49-7.06Zm-16.1-6.5a73.93,73.93,0,0,1,0,8.68,8,8,0,0,0,1.74,5.48l14.19,17.73a91.57,91.57,0,0,1-6.23,15L187,173.11a8,8,0,0,0-5.1,2.64,74.11,74.11,0,0,1-6.14,6.14,8,8,0,0,0-2.64,5.1l-2.51,22.58a91.32,91.32,0,0,1-15,6.23l-17.74-14.19a8,8,0,0,0-5-1.75h-.48a73.93,73.93,0,0,1-8.68,0,8,8,0,0,0-5.48-1.74L100.45,215.8a91.57,91.57,0,0,1-15-6.23L82.89,187a8,8,0,0,0-2.64-5.1,74.11,74.11,0,0,1-6.14-6.14,8,8,0,0,0-5.1-2.64L46.43,170.6a91.32,91.32,0,0,1-6.23-15l14.19-17.74a8,8,0,0,0,1.74-5.48,73.93,73.93,0,0,1,0-8.68,8,8,0,0,0-1.74-5.48L40.2,100.45a91.57,91.57,0,0,1,6.23-15L69,82.89a8,8,0,0,0,5.1-2.64,74.11,74.11,0,0,1,6.14-6.14A8,8,0,0,0,82.89,69L85.4,46.43a91.32,91.32,0,0,1,15-6.23l17.74,14.19a8,8,0,0,0,5.48,1.74,73.93,73.93,0,0,1,8.68,0,8,8,0,0,0,5.48-1.74L155.55,40.2a91.57,91.57,0,0,1,15,6.23L173.11,69a8,8,0,0,0,2.64,5.1,74.11,74.11,0,0,1,6.14,6.14,8,8,0,0,0,5.1,2.64l22.58,2.51a91.32,91.32,0,0,1,6.23,15l-14.19,17.74A8,8,0,0,0,199.87,123.66Z"></path>
+</svg>
+</div>
+<p class="text-xs font-medium leading-normal">Settings</p>
+</a>
+</nav>
+</footer>
+</div>
+</body>
+</html>

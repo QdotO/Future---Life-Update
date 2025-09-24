@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Stitch Design</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              primary: {
+                DEFAULT: '#4F46E5',
+                light: '#6366F1',
+                dark: '#4338CA',
+              },
+              secondary: '#10B981',
+              background: {
+                DEFAULT: '#111827',
+                light: '#1F2937'
+              },
+              'text-primary': '#F9FAFB',
+              'text-secondary': '#D1D5DB'
+            },
+            fontFamily: {
+              display: ["Inter"],
+            },
+            borderRadius: {
+              DEFAULT: "0.5rem",
+              lg: "1rem",
+              xl: "1.5rem",
+              full: "9999px",
+            },
+          },
+        },
+      };
+    </script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background font-display text-text-primary">
+<div class="flex h-screen flex-col">
+<header class="flex items-center p-4">
+<button class="text-text-primary">
+<span class="material-symbols-outlined"> close </span>
+</button>
+<h1 class="flex-1 text-center font-bold text-lg pr-8 text-text-primary">New Goal</h1>
+</header>
+<main class="flex flex-1 flex-col items-center justify-center text-center px-4 pb-16">
+<div class="mb-8">
+<div class="relative inline-flex items-center justify-center">
+<div class="absolute inset-0 rounded-full bg-primary/30 animate-ping"></div>
+<div class="relative flex h-28 w-28 items-center justify-center rounded-full bg-primary/20">
+<span class="material-symbols-outlined text-6xl text-primary-light"> check_circle </span>
+</div>
+</div>
+</div>
+<h2 class="text-4xl font-black mb-3 text-text-primary">Goal created!</h2>
+<p class="max-w-md text-text-secondary">
+          You've successfully created your goal. You're one step closer to achieving your aspirations.
+        </p>
+</main>
+<div class="px-4 pb-8 space-y-4">
+<button class="w-full h-14 rounded-xl bg-primary hover:bg-primary-dark transition-colors text-white font-bold text-lg">View Goal</button>
+<button class="w-full h-14 rounded-xl bg-background-light hover:bg-gray-700 transition-colors text-text-primary font-bold text-lg">
+          Back to Dashboard
+        </button>
+</div>
+<nav class="border-t border-gray-700 bg-background/80 backdrop-blur-lg sticky bottom-0">
+<div class="flex justify-around items-center h-20 px-4">
+<a class="flex flex-col items-center gap-1 text-primary-light" href="#">
+<span class="material-symbols-outlined"> crisis_alert </span>
+<span class="text-xs font-medium">Goals</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-text-secondary" href="#">
+<span class="material-symbols-outlined"> today </span>
+<span class="text-xs font-medium">Today</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-text-secondary" href="#">
+<span class="material-symbols-outlined"> insights </span>
+<span class="text-xs font-medium">Insights</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-text-secondary" href="#">
+<span class="material-symbols-outlined"> settings </span>
+<span class="text-xs font-medium">Settings</span>
+</a>
+</div>
+</nav>
+</div>
+
+</body></html>

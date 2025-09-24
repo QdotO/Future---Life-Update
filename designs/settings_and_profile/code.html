@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Settings</title>
+<link crossorigin="" href="https://fonts.gstatic.com/" rel="preconnect"/>
+<link as="style" href="https://fonts.googleapis.com/css2?display=swap&amp;family=Inter%3Awght%40400%3B500%3B700%3B900&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900" onload="this.rel='stylesheet'" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary": "#1313ec",
+            "background-light": "#f6f6f8",
+            "background-dark": "#101022",
+          },
+          fontFamily: {
+            "display": ["Inter"]
+          },
+          borderRadius: {
+            "DEFAULT": "0.5rem",
+            "lg": "1rem",
+            "xl": "1.5rem",
+            "full": "9999px"
+          },
+        },
+      },
+    }
+  </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-gray-800 dark:text-gray-200">
+<div class="flex flex-col h-screen justify-between">
+<div class="flex-grow overflow-y-auto pb-24">
+<header class="sticky top-0 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-sm z-10">
+<div class="flex items-center p-4">
+<button class="p-2 -ml-2 text-gray-600 dark:text-gray-300">
+<span class="material-symbols-outlined">arrow_back_ios_new</span>
+</button>
+<h1 class="text-lg font-bold flex-1 text-center pr-8 text-gray-900 dark:text-white">Settings</h1>
+</div>
+</header>
+<main class="p-4 space-y-8">
+<section class="flex items-center gap-4">
+<img alt="User avatar" class="w-20 h-20 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCvMEtLcUZbrQKWFWY0aXIQczbak-ZVBDbboZTy4CfAtN6zjM0paZ-jRFpHZoTMxUJgA4L-4t9UXaZeqnI8x-nbYYBFkB8-fekNtIRP19Y-jv9dtTotudKddTb5TYFpevsEnGx3Nm2OP8gsqa3AeltnHYdoOv-K9ITrng9AC5Z8uHOr6EICT0QdccxydI9uaWhfhMQ6cowW2KJRETMkrIsRgidDEwmYWbrY9AX0ZkfGx94vxlcN9eV4R__eObXH8IxqbcDGMLVOaTA"/>
+<div>
+<h2 class="text-xl font-bold text-gray-900 dark:text-white">Ethan Carter</h2>
+<p class="text-sm text-gray-500 dark:text-gray-400">ethan.carter@email.com</p>
+</div>
+</section>
+<div class="space-y-4">
+<h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 px-4">ACCOUNT</h3>
+<div class="bg-white/5 dark:bg-black/10 rounded-lg">
+<a class="flex items-center justify-between p-4 border-b border-white/5 dark:border-black/10 hover:bg-primary/10 transition-colors duration-200 rounded-t-lg" href="#">
+<span class="text-gray-800 dark:text-gray-200">Edit Profile</span>
+<span class="material-symbols-outlined text-gray-400 dark:text-gray-500">arrow_forward_ios</span>
+</a>
+<a class="flex items-center justify-between p-4 border-b border-white/5 dark:border-black/10 hover:bg-primary/10 transition-colors duration-200" href="#">
+<span class="text-gray-800 dark:text-gray-200">Change Password</span>
+<span class="material-symbols-outlined text-gray-400 dark:text-gray-500">arrow_forward_ios</span>
+</a>
+<a class="flex items-center justify-between p-4 hover:bg-primary/10 transition-colors duration-200 rounded-b-lg" href="#">
+<span class="text-red-500 dark:text-red-400">Sign Out</span>
+</a>
+</div>
+</div>
+<div class="space-y-4">
+<h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 px-4">PREFERENCES</h3>
+<div class="bg-white/5 dark:bg-black/10 rounded-lg">
+<a class="flex items-center justify-between p-4 border-b border-white/5 dark:border-black/10 hover:bg-primary/10 transition-colors duration-200 rounded-t-lg" href="#">
+<span class="text-gray-800 dark:text-gray-200">Notifications</span>
+<span class="material-symbols-outlined text-gray-400 dark:text-gray-500">arrow_forward_ios</span>
+</a>
+<a class="flex items-center justify-between p-4 border-b border-white/5 dark:border-black/10 hover:bg-primary/10 transition-colors duration-200" href="#">
+<span class="text-gray-800 dark:text-gray-200">Privacy</span>
+<span class="material-symbols-outlined text-gray-400 dark:text-gray-500">arrow_forward_ios</span>
+</a>
+<a class="flex items-center justify-between p-4 hover:bg-primary/10 transition-colors duration-200 rounded-b-lg" href="#">
+<span class="text-gray-800 dark:text-gray-200">Appearance</span>
+<span class="material-symbols-outlined text-gray-400 dark:text-gray-500">arrow_forward_ios</span>
+</a>
+</div>
+</div>
+<div class="space-y-4">
+<h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 px-4">SUPPORT</h3>
+<div class="bg-white/5 dark:bg-black/10 rounded-lg">
+<a class="flex items-center justify-between p-4 border-b border-white/5 dark:border-black/10 hover:bg-primary/10 transition-colors duration-200 rounded-t-lg" href="#">
+<span class="text-gray-800 dark:text-gray-200">Help &amp; Support</span>
+<span class="material-symbols-outlined text-gray-400 dark:text-gray-500">arrow_forward_ios</span>
+</a>
+<a class="flex items-center justify-between p-4 hover:bg-primary/10 transition-colors duration-200 rounded-b-lg" href="#">
+<span class="text-gray-800 dark:text-gray-200">About</span>
+<span class="material-symbols-outlined text-gray-400 dark:text-gray-500">arrow_forward_ios</span>
+</a>
+</div>
+</div>
+</main>
+</div>
+<footer class="fixed bottom-0 left-0 right-0 bg-background-light/90 dark:bg-background-dark/90 backdrop-blur-sm border-t border-gray-200 dark:border-gray-800">
+<nav class="flex justify-around items-center h-20">
+<a class="flex flex-col items-center gap-1 text-gray-500 dark:text-gray-400" href="#">
+<span class="material-symbols-outlined">emoji_events</span>
+<span class="text-xs">Goals</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-gray-500 dark:text-gray-400" href="#">
+<span class="material-symbols-outlined">today</span>
+<span class="text-xs">Today</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-gray-500 dark:text-gray-400" href="#">
+<span class="material-symbols-outlined">insights</span>
+<span class="text-xs">Insights</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-primary" href="#">
+<div class="bg-primary/10 dark:bg-primary/20 p-3 rounded-full">
+<span class="material-symbols-outlined">settings</span>
+</div>
+<span class="text-xs font-bold">Settings</span>
+</a>
+</nav>
+</footer>
+</div>
+
+</body></html>

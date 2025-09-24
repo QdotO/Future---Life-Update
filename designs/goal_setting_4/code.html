@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Goal Setting</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+<script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#1313ec",
+              "background-light": "#f6f6f8",
+              "background-dark": "#101022",
+              "surface-light": "#ffffff",
+              "surface-dark": "#1c1c36",
+              "foreground-light": "#101022",
+              "foreground-dark": "#ffffff",
+              "subtle-light": "#9ca3af",
+              "subtle-dark": "#9292c9",
+            },
+            fontFamily: {
+              "display": ["Inter", "sans-serif"],
+            },
+            borderRadius: { "DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px" },
+          },
+        },
+      };
+    </script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+<style>
+      .form-select {
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239292c9' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+        background-position: right 0.5rem center;
+        background-repeat: no-repeat;
+        background-size: 1.5em 1.5em;
+        padding-right: 2.5rem;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+    </style>
+<style>
+        body {
+            min-height: 100dvh;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="font-display bg-background-light dark:bg-background-dark text-foreground-light dark:text-foreground-dark">
+<div class="flex flex-col min-h-screen">
+<header class="flex items-center justify-between p-4 bg-background-light dark:bg-background-dark sticky top-0 z-10">
+<button class="p-2 rounded-full hover:bg-primary/10">
+<span class="material-symbols-outlined text-foreground-light dark:text-foreground-dark"> arrow_back </span>
+</button>
+<div class="flex-1 text-center px-4">
+<div class="h-2 w-full max-w-xs mx-auto bg-surface-light dark:bg-surface-dark rounded-full">
+<div class="h-2 bg-primary rounded-full transition-all duration-500" style="width: 50%;"></div>
+</div>
+</div>
+<button class="p-2 rounded-full hover:bg-primary/10">
+<span class="material-symbols-outlined text-foreground-light dark:text-foreground-dark"> close </span>
+</button>
+</header>
+<main class="flex-1 px-4 py-6 flex flex-col">
+<div class="flex-1 flex flex-col justify-center">
+<h1 class="text-3xl font-bold text-center mb-8">What questions will you ask?</h1>
+<div class="space-y-4">
+<div class="bg-surface-light dark:bg-surface-dark p-4 rounded-lg">
+<input class="w-full h-12 px-4 rounded-lg bg-background-light dark:bg-background-dark placeholder-subtle-light dark:placeholder-subtle-dark border-none focus:ring-2 focus:ring-primary text-lg" placeholder="e.g., Did I exercise today?" type="text"/>
+<div class="mt-4 flex items-center justify-between">
+<span class="text-subtle-light dark:text-subtle-dark text-sm">Question type</span>
+<select class="form-select appearance-none bg-background-light dark:bg-background-dark border-none rounded-lg text-foreground-light dark:text-foreground-dark focus:ring-2 focus:ring-primary text-sm pl-4 pr-10 py-2">
+<option>Yes/No</option>
+<option>Number</option>
+<option>Text</option>
+</select>
+</div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark p-4 rounded-lg">
+<input class="w-full h-12 px-4 rounded-lg bg-background-light dark:bg-background-dark placeholder-subtle-light dark:placeholder-subtle-dark border-none focus:ring-2 focus:ring-primary text-lg" placeholder="e.g., How many pages did I read?" type="text"/>
+<div class="mt-4 flex items-center justify-between">
+<span class="text-subtle-light dark:text-subtle-dark text-sm">Question type</span>
+<select class="form-select appearance-none bg-background-light dark:bg-background-dark border-none rounded-lg text-foreground-light dark:text-foreground-dark focus:ring-2 focus:ring-primary text-sm pl-4 pr-10 py-2">
+<option>Yes/No</option>
+<option selected="">Number</option>
+<option>Text</option>
+</select>
+</div>
+</div>
+</div>
+<button class="mt-6 w-full h-12 px-5 rounded-xl bg-primary/10 text-primary dark:text-white dark:bg-primary/20 text-base font-bold flex items-center justify-center">
+<span class="material-symbols-outlined mr-2"> add </span>
+                Add another question
+            </button>
+</div>
+</main>
+<footer class="p-4 bg-background-light dark:bg-background-dark sticky bottom-0">
+<button class="w-full h-12 px-5 rounded-xl bg-primary text-white text-base font-bold flex items-center justify-center">
+            Continue
+        </button>
+</footer>
+</div>
+
+</body></html>

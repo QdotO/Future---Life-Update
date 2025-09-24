@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<title>Life Tracker - New Goal</title>
+<link crossorigin="" href="https://fonts.gstatic.com/" rel="preconnect"/>
+<link as="style" href="https://fonts.googleapis.com/css2?display=swap&amp;family=Inter:wght@400;500;700;900&amp;family=Noto+Sans:wght@400;500;700;900" onload="this.rel='stylesheet'" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary": "#1313ec",
+            "background-light": "#f6f6f8",
+            "background-dark": "#101022",
+          },
+          fontFamily: {
+            "display": ["Inter"]
+          },
+          borderRadius: {"DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px"},
+        },
+      },
+    }
+  </script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-gray-800 dark:text-gray-200">
+<div class="flex flex-col h-screen justify-between">
+<main class="flex-grow overflow-y-auto">
+<header class="sticky top-0 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-sm z-10">
+<div class="flex items-center p-4">
+<button class="p-2 -ml-2 text-gray-600 dark:text-gray-300">
+<span class="material-symbols-outlined">close</span>
+</button>
+<h1 class="text-lg font-bold text-center flex-1 text-gray-900 dark:text-white">New Goal</h1>
+<div class="w-8"></div>
+</div>
+</header>
+<div class="p-4 space-y-6">
+<div>
+<label class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2 block" for="goal-name">Goal Name</label>
+<input class="w-full bg-white/5 dark:bg-white/5 border border-white/10 dark:border-white/10 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 rounded-lg p-4 focus:ring-2 focus:ring-primary focus:border-transparent" id="goal-name" placeholder="e.g., Run a Marathon" type="text"/>
+</div>
+<div>
+<label class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2 block" for="goal-description">Description</label>
+<textarea class="w-full bg-white/5 dark:bg-white/5 border border-white/10 dark:border-white/10 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 rounded-lg p-4 focus:ring-2 focus:ring-primary focus:border-transparent resize-none" id="goal-description" placeholder="A brief description of your goal..." rows="4"></textarea>
+</div>
+<div>
+<h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Questions &amp; Prompts</h2>
+<div class="space-y-4">
+<div>
+<label class="sr-only" for="question-1">Question 1</label>
+<input class="w-full bg-white/5 dark:bg-white/5 border border-white/10 dark:border-white/10 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 rounded-lg p-4 focus:ring-2 focus:ring-primary focus:border-transparent" id="question-1" placeholder="How are you feeling today?" type="text"/>
+</div>
+<div>
+<label class="sr-only" for="question-2">Question 2</label>
+<input class="w-full bg-white/5 dark:bg-white/5 border border-white/10 dark:border-white/10 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 rounded-lg p-4 focus:ring-2 focus:ring-primary focus:border-transparent" id="question-2" placeholder="Did you complete your run?" type="text"/>
+</div>
+<div>
+<label class="sr-only" for="question-3">Question 3</label>
+<input class="w-full bg-white/5 dark:bg-white/5 border border-white/10 dark:border-white/10 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 rounded-lg p-4 focus:ring-2 focus:ring-primary focus:border-transparent" id="question-3" placeholder="Any obstacles faced?" type="text"/>
+</div>
+<button class="w-full flex items-center justify-center gap-2 p-3 rounded-lg bg-primary/10 dark:bg-primary/20 text-primary hover:bg-primary/20 dark:hover:bg-primary/30 transition-colors">
+<span class="material-symbols-outlined text-xl">add</span>
+<span class="font-medium">Add another question</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+<footer class="p-4 bg-background-light dark:bg-background-dark border-t border-white/10 dark:border-white/10">
+<button class="w-full bg-primary text-white font-bold py-4 px-5 rounded-xl hover:opacity-90 transition-opacity">
+        Create Goal
+      </button>
+</footer>
+</div>
+
+</body></html>

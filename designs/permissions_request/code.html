@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<title>Stitch Design</title>
+<link href="data:image/x-icon;base64," rel="icon" type="image/x-icon"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary": "#1313ec",
+            "background-light": "#f6f6f8",
+            "background-dark": "#101022",
+          },
+          fontFamily: {
+            "display": ["Inter"]
+          },
+          borderRadius: {
+            "DEFAULT": "0.5rem",
+            "lg": "1rem",
+            "xl": "1.5rem",
+            "full": "9999px"
+          },
+        },
+      },
+    }
+  </script>
+<link crossorigin="" href="https://fonts.gstatic.com/" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&amp;display=swap" rel="stylesheet"/>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-gray-900 dark:text-white">
+<div class="flex flex-col min-h-screen">
+<header class="py-6 px-4">
+<h1 class="text-3xl font-bold text-center">Permissions</h1>
+</header>
+<main class="flex-grow px-4 space-y-6">
+<div class="flex items-start gap-4 p-4 rounded-lg bg-white/5 dark:bg-white/5">
+<div class="flex-shrink-0 size-12 flex items-center justify-center bg-primary/10 dark:bg-primary/20 rounded-lg text-primary">
+<svg fill="currentColor" height="28" viewBox="0 0 256 256" width="28" xmlns="http://www.w3.org/2000/svg">
+<path d="M221.8,175.94C216.25,166.38,208,139.33,208,104a80,80,0,1,0-160,0c0,35.34-8.26,62.38-13.81,71.94A16,16,0,0,0,48,200H88.81a40,40,0,0,0,78.38,0H208a16,16,0,0,0,13.8-24.06ZM128,216a24,24,0,0,1-22.62-16h45.24A24,24,0,0,1,128,216ZM48,184c7.7-13.24,16-43.92,16-80a64,64,0,1,1,128,0c0,36.05,8.28,66.73,16,80Z"></path>
+</svg>
+</div>
+<div>
+<h2 class="text-lg font-bold">Notifications</h2>
+<p class="text-sm text-gray-500 dark:text-gray-400">Receive reminders to answer your questions and track your progress.</p>
+</div>
+</div>
+<div class="flex items-start gap-4 p-4 rounded-lg bg-white/5 dark:bg-white/5">
+<div class="flex-shrink-0 size-12 flex items-center justify-center bg-primary/10 dark:bg-primary/20 rounded-lg text-primary">
+<svg fill="currentColor" height="28" viewBox="0 0 256 256" width="28" xmlns="http://www.w3.org/2000/svg">
+<path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,16V158.75l-26.07-26.06a16,16,0,0,0-22.63,0l-20,20-44-44a16,16,0,0,0-22.62,0L40,149.37V56ZM40,172l52-52,80,80H40Zm176,28H194.63l-36-36,20-20L216,181.38V200ZM144,100a12,12,0,1,1,12,12A12,12,0,0,1,144,100Z"></path>
+</svg>
+</div>
+<div>
+<h2 class="text-lg font-bold">Photos</h2>
+<p class="text-sm text-gray-500 dark:text-gray-400">Access your photos to add images to your goals and progress updates.</p>
+</div>
+</div>
+<div class="flex items-start gap-4 p-4 rounded-lg bg-white/5 dark:bg-white/5">
+<div class="flex-shrink-0 size-12 flex items-center justify-center bg-primary/10 dark:bg-primary/20 rounded-lg text-primary">
+<svg fill="currentColor" height="28" viewBox="0 0 256 256" width="28" xmlns="http://www.w3.org/2000/svg">
+<path d="M128,64a40,40,0,1,0,40,40A40,40,0,0,0,128,64Zm0,64a24,24,0,1,1,24-24A24,24,0,0,1,128,128Zm0-112a88.1,88.1,0,0,0-88,88c0,31.4,14.51,64.68,42,96.25a254.19,254.19,0,0,0,41.45,38.3,8,8,0,0,0,9.18,0A254.19,254.19,0,0,0,174,200.25c27.45-31.57,42-64.85,42-96.25A88.1,88.1,0,0,0,128,16Zm0,206c-16.53-13-72-60.75-72-118a72,72,0,0,1,144,0C200,161.23,144.53,209,128,222Z"></path>
+</svg>
+</div>
+<div>
+<h2 class="text-lg font-bold">Location</h2>
+<p class="text-sm text-gray-500 dark:text-gray-400">Track your location to provide context to your progress and activities.</p>
+</div>
+</div>
+</main>
+<footer class="p-4 pb-8">
+<div class="grid grid-cols-2 gap-4">
+<button class="flex w-full cursor-pointer items-center justify-center rounded-lg h-12 px-5 bg-primary/20 dark:bg-primary/30 text-white font-bold">
+<span class="truncate">Not Now</span>
+</button>
+<button class="flex w-full cursor-pointer items-center justify-center rounded-lg h-12 px-5 bg-primary text-white font-bold">
+<span class="truncate">Grant Permissions</span>
+</button>
+</div>
+</footer>
+</div>
+
+</body></html>

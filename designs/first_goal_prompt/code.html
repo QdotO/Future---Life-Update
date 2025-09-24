@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Stitch Design</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1313ec",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#101022",
+                    },
+                    fontFamily: {
+                        "display": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display">
+<div class="flex flex-col min-h-screen">
+<header class="flex items-center justify-between p-4">
+<div class="w-10"></div>
+<h1 class="text-lg font-bold text-gray-900 dark:text-white">Goals</h1>
+<button class="w-10 h-10 flex items-center justify-center text-gray-500 dark:text-gray-400">
+<span class="material-symbols-outlined text-3xl">
+                    add
+                </span>
+</button>
+</header>
+<main class="flex-grow flex flex-col items-center justify-center text-center px-6">
+<div class="w-24 h-24 rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center mb-8">
+<span class="material-symbols-outlined text-5xl text-primary">
+                    flag
+                </span>
+</div>
+<h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Set your first goal</h2>
+<p class="text-base text-gray-600 dark:text-gray-400 max-w-xs">
+                Start your journey towards achieving your aspirations. Set a goal and track your progress.
+            </p>
+</main>
+<footer class="p-4 pb-8">
+<button class="w-full bg-primary text-white font-bold h-12 rounded-lg flex items-center justify-center">
+                Create Your First Goal
+            </button>
+</footer>
+</div>
+
+</body></html>
