@@ -6,6 +6,7 @@ struct GoalDetailView: View {
 
     @Bindable var goal: TrackingGoal
     @State private var presentingDataEntry = false
+    @State private var trendsViewModel: GoalTrendsViewModel?
 
     var body: some View {
         List {
@@ -24,6 +25,15 @@ struct GoalDetailView: View {
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
+                }
+            }
+
+            Section("Trends") {
+                if let viewModel = trendsViewModel {
+                    GoalTrendsView(viewModel: viewModel)
+                        .transition(.opacity)
+                } else {
+                    ContentUnavailableView("Analytics will appear after logging", systemImage: "chart.line.uptrend.xyaxis")
                 }
             }
 
@@ -68,6 +78,16 @@ struct GoalDetailView: View {
         }
         .sheet(isPresented: $presentingDataEntry) {
             DataEntryView(goal: goal, modelContext: modelContext)
+        }
+        .task {
+            if let existing = trendsViewModel {
+                existing.refresh()
+            } else {
+                trendsViewModel = GoalTrendsViewModel(goal: goal, modelContext: modelContext)
+            }
+        }
+        .onChange(of: goal.updatedAt) { _, _ in
+            trendsViewModel?.refresh()
         }
     }
 
