@@ -10,57 +10,119 @@ import SwiftData
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query private var items: [Item]
+    @State private var showingCreateGoal = false
+
+    @Query(sort: \TrackingGoal.updatedAt, order: .reverse)
+    private var goals: [TrackingGoal]
 
     var body: some View {
-        NavigationSplitView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
-                    } label: {
-                        Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
-                    }
+        NavigationStack {
+            Group {
+                if goals.isEmpty {
+                    emptyState
+                } else {
+                    goalsList
                 }
-                .onDelete(perform: deleteItems)
             }
-#if os(macOS)
-            .navigationSplitViewColumnWidth(min: 180, ideal: 200)
-#endif
+            .navigationTitle("Life Updates")
             .toolbar {
-#if os(iOS)
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-#endif
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        showingCreateGoal = true
+                    } label: {
+                        Label("Add Goal", systemImage: "plus")
                     }
                 }
             }
-        } detail: {
-            Text("Select an item")
-        }
-    }
-
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(timestamp: Date())
-            modelContext.insert(newItem)
-        }
-    }
-
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            for index in offsets {
-                modelContext.delete(items[index])
+            .sheet(isPresented: $showingCreateGoal) {
+                GoalCreationView(viewModel: GoalCreationViewModel(modelContext: modelContext))
             }
+        }
+    }
+
+    private var emptyState: some View {
+        ContentUnavailableView(
+            "Create your first goal",
+            systemImage: "target",
+            description: Text("Set up proactive prompts to stay on track.")
+        )
+        .toolbarBackground(.automatic, for: .navigationBar)
+    }
+
+    private var goalsList: some View {
+        List {
+            ForEach(goals) { goal in
+                NavigationLink(destination: GoalDetailView(goal: goal)) {
+                    GoalCardView(goal: goal)
+                }
+            }
+            .onDelete(perform: deleteGoals)
+        }
+    }
+
+    private func deleteGoals(at offsets: IndexSet) {
+        for index in offsets {
+            let goal = goals[index]
+            modelContext.delete(goal)
+        }
+        do {
+            try modelContext.save()
+        } catch {
+            print("Failed to delete goals: \(error)")
         }
     }
 }
 
+private struct GoalCardView: View {
+    @Bindable var goal: TrackingGoal
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(goal.title)
+                    .font(.headline)
+                Spacer()
+                Label(goal.category.displayName, systemImage: "tag")
+                    .labelStyle(.titleAndIcon)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            if !goal.goalDescription.isEmpty {
+                Text(goal.goalDescription)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let nextReminder = goal.schedule.times.first {
+                Text("Next reminder: \(nextReminder.formattedTime(in: goal.schedule.timezone))")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let latestEntry = goal.dataPoints.sorted(by: { $0.timestamp > $1.timestamp }).first,
+               let question = latestEntry.question {
+                HStack {
+                    Text("Last response")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(question.text)
+                        .font(.footnote)
+                        .lineLimit(1)
+                }
+            }
+        }
+        .padding(.vertical, 8)
+    }
+}
+
 #Preview {
-    ContentView()
-        .modelContainer(for: Item.self, inMemory: true)
+    do {
+        let container = try PreviewSampleData.makePreviewContainer()
+        return ContentView()
+            .modelContainer(container)
+    } catch {
+        return Text("Preview Error: \(error.localizedDescription)")
+    }
 }

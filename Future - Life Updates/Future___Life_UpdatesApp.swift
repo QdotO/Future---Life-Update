@@ -4,10 +4,13 @@ import SwiftUI
 import SwiftData
 
 @main
-struct ___PACKAGENAME:identifier___App: App {
+struct Future_Life_UpdatesApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            TrackingGoal.self,
+            Question.self,
+            Schedule.self,
+            DataPoint.self
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
