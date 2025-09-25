@@ -28,6 +28,18 @@ struct PhaseOneFeatureTests {
         #expect(goal.createdAt <= goal.updatedAt)
     }
 
+    @Test("Schedule defaults produce empty weekday selections")
+    func scheduleDefaultsSelectedWeekdays() {
+        let schedule = Schedule(frequency: .weekly)
+        #expect(schedule.selectedWeekdays.isEmpty)
+
+        let deduplicated = Schedule(
+            frequency: .weekly,
+            selectedWeekdays: [.monday, .monday, .tuesday]
+        )
+        #expect(deduplicated.selectedWeekdays == [.monday, .tuesday])
+    }
+
     @Test("GoalCreationViewModel persists configured goal")
     func goalCreationPersistsGoalWithQuestions() async throws {
         let container = try makeInMemoryContainer()
@@ -71,6 +83,30 @@ struct PhaseOneFeatureTests {
         #expect(fetchedGoal.schedule.startDate == fixedStartDate)
     }
 
+    @Test("GoalCreationViewModel surfaces scheduling conflicts")
+    func goalCreationDetectsSchedulingConflicts() throws {
+        let container = try makeInMemoryContainer()
+        let context = container.mainContext
+
+        let existingSchedule = Schedule(
+            startDate: Date(),
+            frequency: .daily,
+            times: [ScheduleTime(hour: 9, minute: 0)],
+            timezoneIdentifier: TimeZone.current.identifier
+        )
+        let existingGoal = TrackingGoal(title: "Existing", description: "", category: .health, schedule: existingSchedule)
+        existingSchedule.goal = existingGoal
+        context.insert(existingGoal)
+        try context.save()
+
+        let viewModel = GoalCreationViewModel(modelContext: context)
+        let reminderDate = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date()
+        let didAdd = viewModel.addScheduleTime(from: reminderDate)
+        #expect(didAdd)
+        let conflictDescription = viewModel.conflictDescription()
+        #expect(conflictDescription?.contains("Existing") == true)
+    }
+
     @Test("DataEntryViewModel overwrites same-day responses")
     func dataEntryViewModelOverwritesSameDayResponses() async throws {
         let container = try makeInMemoryContainer()
@@ -104,6 +140,29 @@ struct PhaseOneFeatureTests {
         #expect(points.count == 1)
         #expect(points.first?.numericValue == 10)
         #expect(Calendar.current.isDate(points.first?.timestamp ?? .distantPast, inSameDayAs: fixedDate))
+    }
+
+    @Test("GoalEditorViewModel prevents overlapping reminders")
+    func goalEditorPreventsReminderConflicts() throws {
+        let container = try makeInMemoryContainer()
+        let context = container.mainContext
+
+        let schedule = Schedule(
+            startDate: Date(),
+            frequency: .daily,
+            times: [ScheduleTime(hour: 9, minute: 0), ScheduleTime(hour: 10, minute: 0)],
+            timezoneIdentifier: TimeZone.current.identifier
+        )
+        let goal = TrackingGoal(title: "Hydration", description: "", category: .health, schedule: schedule)
+        schedule.goal = goal
+        context.insert(goal)
+        try context.save()
+
+        let viewModel = GoalEditorViewModel(goal: goal, modelContext: context)
+        let conflictingDate = Calendar.current.date(bySettingHour: 9, minute: 2, second: 0, of: Date()) ?? Date()
+        let wasUpdated = viewModel.updateScheduleTime(at: 1, to: conflictingDate)
+        #expect(!wasUpdated)
+        #expect(viewModel.scheduleDraft.times.contains(where: { $0.hour == 10 && $0.minute == 0 }))
     }
 
     @Test("DataEntryViewModel handles all response types")

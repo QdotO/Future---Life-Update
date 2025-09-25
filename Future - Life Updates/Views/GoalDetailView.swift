@@ -120,9 +120,42 @@ struct GoalDetailView: View {
         let times = goal.schedule.times
         guard !times.isEmpty else { return "No reminders configured" }
         let timezone = goal.schedule.timezone
-        return times
+        let timeDescription = times
             .map { $0.formattedTime(in: timezone) }
             .joined(separator: ", ")
+
+        let frequencyDescription: String
+        switch goal.schedule.frequency {
+        case .daily:
+            frequencyDescription = "Daily"
+        case .weekly:
+            let weekdays = goal.schedule.normalizedWeekdays()
+            if weekdays.isEmpty {
+                frequencyDescription = "Weekly"
+            } else {
+                let names = weekdays
+                    .map { $0.shortDisplayName }
+                    .joined(separator: ", ")
+                frequencyDescription = "Weekly on \(names)"
+            }
+        case .monthly:
+            let day = Calendar.current.component(.day, from: goal.schedule.startDate)
+            frequencyDescription = "Monthly on day \(day)"
+        case .custom:
+            if let interval = goal.schedule.intervalDayCount {
+                frequencyDescription = "Every \(interval) days"
+            } else {
+                frequencyDescription = "Custom cadence"
+            }
+        case .once:
+            let formatter = DateFormatter()
+            formatter.dateStyle = .medium
+            formatter.timeStyle = .none
+            formatter.timeZone = timezone
+            frequencyDescription = "Once on \(formatter.string(from: goal.schedule.startDate))"
+        }
+
+        return "\(frequencyDescription) at \(timeDescription)"
     }
 
     private func recentResponseSummary(for dataPoint: DataPoint) -> String {

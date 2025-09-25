@@ -13,6 +13,8 @@ struct GoalEditView: View {
     @State private var newReminderTime: Date = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date()
     @State private var errorMessage: String?
     @State private var didSeedNewQuestionDefaults = false
+    @State private var conflictMessage: String?
+    @State private var scheduleError: String?
 
     @Bindable private var viewModel: GoalEditorViewModel
 
@@ -53,6 +55,7 @@ struct GoalEditView: View {
                     didSeedNewQuestionDefaults = true
                     seedNewQuestionDefaults(for: newResponseType)
                 }
+                conflictMessage = viewModel.conflictDescription()
             }
             .onChange(of: newResponseType) { _, newType in
                 seedNewQuestionDefaults(for: newType)
@@ -100,6 +103,7 @@ struct GoalEditView: View {
                     }
                     .swipeActions {
                         Button(role: .destructive) {
+                            Haptics.warning()
                             viewModel.removeDraft(draft)
                         } label: {
                             Label("Delete", systemImage: "trash")
@@ -315,19 +319,100 @@ struct GoalEditView: View {
 
     private var scheduleSection: some View {
         Section("Schedule") {
-            Picker("Frequency", selection: $viewModel.scheduleDraft.frequency) {
+            Picker("Frequency", selection: Binding(
+                get: { viewModel.scheduleDraft.frequency },
+                set: { newValue in
+                    viewModel.setFrequency(newValue)
+                    scheduleError = nil
+                    let conflict = viewModel.conflictDescription()
+                    conflictMessage = conflict
+                    if conflict != nil {
+                        Haptics.warning()
+                    } else {
+                        Haptics.selection()
+                    }
+                }
+            )) {
                 ForEach(Frequency.allCases, id: \.self) { frequency in
                     Text(frequency.displayName).tag(frequency)
                 }
             }
 
-            Picker("Timezone", selection: $viewModel.scheduleDraft.timezone) {
+            switch viewModel.scheduleDraft.frequency {
+            case .weekly:
+                WeekdaySelector(
+                    selectedWeekdays: Binding(
+                        get: { viewModel.scheduleDraft.selectedWeekdays },
+                        set: { newValue in
+                            viewModel.updateSelectedWeekdays(newValue)
+                            scheduleError = nil
+                            let conflict = viewModel.conflictDescription()
+                            conflictMessage = conflict
+                            if conflict != nil {
+                                Haptics.warning()
+                            }
+                        }
+                    )
+                )
+                .padding(.vertical, 4)
+                if viewModel.scheduleDraft.selectedWeekdays.isEmpty {
+                    Text("Select at least one day to send reminders.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            case .custom:
+                IntervalPicker(
+                    interval: Binding(
+                        get: { viewModel.scheduleDraft.intervalDayCount ?? 3 },
+                        set: { newValue in
+                            viewModel.updateIntervalDayCount(newValue)
+                            scheduleError = nil
+                            let conflict = viewModel.conflictDescription()
+                            conflictMessage = conflict
+                            if conflict != nil {
+                                Haptics.warning()
+                            } else {
+                                Haptics.selection()
+                            }
+                        }
+                    )
+                )
+            default:
+                EmptyView()
+            }
+
+            Picker("Timezone", selection: Binding(
+                get: { viewModel.scheduleDraft.timezone },
+                set: {
+                    viewModel.setTimezone($0)
+                    scheduleError = nil
+                    let conflict = viewModel.conflictDescription()
+                    conflictMessage = conflict
+                    if conflict != nil {
+                        Haptics.warning()
+                    } else {
+                        Haptics.selection()
+                    }
+                }
+            )) {
                 ForEach(TimeZone.knownTimeZoneIdentifiers.sorted(), id: \.self) { identifier in
                     if let timezone = TimeZone(identifier: identifier) {
                         Text(timezone.localizedName(for: .shortGeneric, locale: .current) ?? identifier)
                             .tag(timezone)
                     }
                 }
+            }
+
+            if let conflictMessage {
+                Text(conflictMessage)
+                    .font(.footnote)
+                    .foregroundStyle(.orange)
+            }
+
+            if let scheduleError {
+                Text(scheduleError)
+                    .font(.footnote)
+                    .foregroundStyle(.red)
             }
 
             if viewModel.scheduleDraft.times.isEmpty {
@@ -339,12 +424,30 @@ struct GoalEditView: View {
                             "Reminder \(index + 1)",
                             selection: Binding(
                                 get: { viewModel.reminderDate(for: scheduleTime) },
-                                set: { viewModel.updateScheduleTime(at: index, to: $0) }
+                                set: { newValue in
+                                    if viewModel.updateScheduleTime(at: index, to: newValue) {
+                                        Haptics.selection()
+                                        scheduleError = nil
+                                        conflictMessage = viewModel.conflictDescription()
+                                    } else {
+                                        scheduleError = "Reminders must be at least 5 minutes apart."
+                                        Haptics.warning()
+                                    }
+                                }
                             ),
                             displayedComponents: .hourAndMinute
                         )
+
                         Button(role: .destructive) {
                             viewModel.removeScheduleTime(at: index)
+                            scheduleError = nil
+                            let conflict = viewModel.conflictDescription()
+                            conflictMessage = conflict
+                            if conflict != nil {
+                                Haptics.warning()
+                            } else {
+                                Haptics.selection()
+                            }
                         } label: {
                             Image(systemName: "minus.circle")
                                 .foregroundStyle(.red)
@@ -355,7 +458,15 @@ struct GoalEditView: View {
             }
 
             Button {
-                viewModel.addScheduleTime(from: newReminderTime)
+                if viewModel.addScheduleTime(from: newReminderTime) {
+                    Haptics.selection()
+                    scheduleError = nil
+                    conflictMessage = viewModel.conflictDescription()
+                    newReminderTime = Calendar.current.date(byAdding: .minute, value: 30, to: newReminderTime) ?? newReminderTime
+                } else {
+                    scheduleError = "Reminders must be at least 5 minutes apart."
+                    Haptics.warning()
+                }
             } label: {
                 Label("Add Reminder Time", systemImage: "plus.circle")
                     .frame(maxWidth: .infinity)
@@ -404,6 +515,7 @@ struct GoalEditView: View {
             let parsed = parseOptions(from: newQuestionOptionsText)
             if parsed.isEmpty {
                 errorMessage = "Add at least one option before saving."
+                Haptics.warning()
                 return
             }
             options = parsed
@@ -425,16 +537,19 @@ struct GoalEditView: View {
             validationRules: validation
         )
 
+        Haptics.selection()
         resetNewQuestionFields()
     }
 
     private func handleSave() {
         do {
             let goal = try viewModel.saveChanges()
+            Haptics.success()
             NotificationScheduler.shared.scheduleNotifications(for: goal)
             dismiss()
         } catch {
             errorMessage = error.localizedDescription
+            Haptics.error()
         }
     }
 }

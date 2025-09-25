@@ -19,6 +19,32 @@ enum Frequency: String, CaseIterable, Codable, Sendable {
     case custom
 }
 
+enum Weekday: Int, CaseIterable, Codable, Identifiable, Sendable {
+    case sunday = 1
+    case monday
+    case tuesday
+    case wednesday
+    case thursday
+    case friday
+    case saturday
+
+    var id: Int { rawValue }
+
+    var displayName: String {
+        Self.dateFormatter.weekdaySymbols[rawValue - 1]
+    }
+
+    var shortDisplayName: String {
+        Self.dateFormatter.shortWeekdaySymbols[rawValue - 1]
+    }
+
+    private static let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = .current
+        return formatter
+    }()
+}
+
 enum TrackingCategory: String, CaseIterable, Codable, Identifiable, Sendable {
     case health
     case fitness
@@ -68,6 +94,46 @@ struct ScheduleTime: Codable, Hashable, Sendable {
         components.minute = minute
         return components
     }
+
+    var totalMinutes: Int {
+        max(0, min(23, hour)) * 60 + max(0, min(59, minute))
+    }
+
+    func isWithin(window: TimeInterval, of other: ScheduleTime) -> Bool {
+        let difference = abs(totalMinutes - other.totalMinutes)
+        return Double(difference * 60) < window
+    }
+
+    func validated() -> ScheduleTime? {
+        guard hour >= 0, hour < 24, minute >= 0, minute < 60 else { return nil }
+        return self
+    }
+
+    func formattedTime(in timezone: TimeZone, locale: Locale = .current) -> String {
+        var components = DateComponents()
+        components.hour = hour
+        components.minute = minute
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timezone
+        components.year = 2024
+        components.month = 1
+        components.day = 1
+
+        let date = calendar.date(from: components) ?? Date()
+        let formatter = DateFormatter()
+        formatter.locale = locale
+        formatter.timeStyle = .short
+        formatter.timeZone = timezone
+        return formatter.string(from: date)
+    }
+
+    func date(on day: Date, calendar: Calendar) -> Date? {
+        var components = calendar.dateComponents([.year, .month, .day], from: day)
+        components.hour = hour
+        components.minute = minute
+        return calendar.date(from: components)
+    }
 }
 
 @Model
@@ -79,24 +145,42 @@ final class Schedule {
     var endDate: Date?
     var timezoneIdentifier: String
     var goal: TrackingGoal?
+    var selectedWeekdays: [Weekday] = []
+    var intervalDayCount: Int?
 
     init(
         startDate: Date = Date(),
         frequency: Frequency = .daily,
-    times: [ScheduleTime] = [],
+        times: [ScheduleTime] = [],
         endDate: Date? = nil,
-        timezoneIdentifier: String = TimeZone.current.identifier
+        timezoneIdentifier: String = TimeZone.current.identifier,
+        selectedWeekdays: [Weekday] = [],
+        intervalDayCount: Int? = nil
     ) {
         self.id = UUID()
         self.startDate = startDate
         self.frequency = frequency
-        self.times = times
+        self.times = times.sorted { $0.totalMinutes < $1.totalMinutes }
         self.endDate = endDate
         self.timezoneIdentifier = timezoneIdentifier
+        self.selectedWeekdays = Array(Set(selectedWeekdays)).sorted { $0.rawValue < $1.rawValue }
+        self.intervalDayCount = intervalDayCount
     }
 
     var timezone: TimeZone {
         TimeZone(identifier: timezoneIdentifier) ?? .current
+    }
+
+    func normalizedWeekdays() -> [Weekday] {
+        Array(Set(selectedWeekdays)).sorted { $0.rawValue < $1.rawValue }
+    }
+
+    func matches(weekday: Weekday) -> Bool {
+        selectedWeekdays.contains(weekday)
+    }
+
+    func hasConflicts(with scheduleTime: ScheduleTime, window: TimeInterval) -> Bool {
+        times.contains { $0.isWithin(window: window, of: scheduleTime) }
     }
 }
 

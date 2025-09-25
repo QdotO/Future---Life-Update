@@ -5,6 +5,10 @@ import SwiftData
 @MainActor
 @Observable
 final class GoalEditorViewModel {
+    private enum Constants {
+        static let minimumReminderSpacing: TimeInterval = 5 * 60
+        static let defaultIntervalDays: Int = 3
+    }
     enum UpdateError: LocalizedError {
         case missingTitle
         case missingQuestions
@@ -55,6 +59,8 @@ final class GoalEditorViewModel {
         var times: [ScheduleTime]
         var endDate: Date?
         var timezone: TimeZone
+        var selectedWeekdays: Set<Weekday>
+        var intervalDayCount: Int?
     }
 
     private let modelContext: ModelContext
@@ -92,7 +98,9 @@ final class GoalEditorViewModel {
             frequency: schedule.frequency,
             times: schedule.times,
             endDate: schedule.endDate,
-            timezone: timezone
+            timezone: timezone,
+            selectedWeekdays: Set(schedule.selectedWeekdays),
+            intervalDayCount: schedule.intervalDayCount
         )
     }
 
@@ -116,23 +124,107 @@ final class GoalEditorViewModel {
         questionDrafts.removeAll { $0.id == draft.id }
     }
 
-    func updateScheduleTime(at index: Int, to date: Date) {
-        guard scheduleDraft.times.indices.contains(index) else { return }
-        let components = calendar.dateComponents([.hour, .minute], from: date)
-        scheduleDraft.times[index] = ScheduleTime(components: components)
+    @discardableResult
+    func updateScheduleTime(at index: Int, to date: Date) -> Bool {
+        guard scheduleDraft.times.indices.contains(index) else { return false }
+        var components = calendar.dateComponents([.hour, .minute], from: date)
+        components.second = 0
+        guard let updatedTime = ScheduleTime(components: components).validated() else { return false }
+
+        var times = scheduleDraft.times
+        let removed = times.remove(at: index)
+
+        if times.contains(where: { $0.isWithin(window: Constants.minimumReminderSpacing, of: updatedTime) }) {
+            times.insert(removed, at: index)
+            return false
+        }
+
+        times.append(updatedTime)
+        scheduleDraft.times = times.sorted(by: { $0.totalMinutes < $1.totalMinutes })
+        return true
     }
 
-    func addScheduleTime(from date: Date) {
-        let components = calendar.dateComponents([.hour, .minute], from: date)
-        let scheduleTime = ScheduleTime(components: components)
-        if !scheduleDraft.times.contains(scheduleTime) {
-            scheduleDraft.times.append(scheduleTime)
+    func addScheduleTime(from date: Date) -> Bool {
+        var components = calendar.dateComponents([.hour, .minute], from: date)
+        components.second = 0
+        guard let newTime = ScheduleTime(components: components).validated() else { return false }
+
+        if scheduleDraft.times.contains(where: { $0.isWithin(window: Constants.minimumReminderSpacing, of: newTime) }) {
+            return false
         }
+
+        if !scheduleDraft.times.contains(newTime) {
+            scheduleDraft.times.append(newTime)
+            scheduleDraft.times.sort(by: { $0.totalMinutes < $1.totalMinutes })
+        }
+        return true
     }
 
     func removeScheduleTime(at index: Int) {
         guard scheduleDraft.times.indices.contains(index) else { return }
         scheduleDraft.times.remove(at: index)
+    }
+
+    func removeScheduleTime(_ time: ScheduleTime) {
+        scheduleDraft.times.removeAll { $0 == time }
+    }
+
+    func setFrequency(_ frequency: Frequency) {
+        scheduleDraft.frequency = frequency
+        switch frequency {
+        case .weekly:
+            if scheduleDraft.selectedWeekdays.isEmpty {
+                let weekdayValue = calendar.component(.weekday, from: dateProvider())
+                if let weekday = Weekday(rawValue: weekdayValue) {
+                    scheduleDraft.selectedWeekdays = [weekday]
+                }
+            }
+            scheduleDraft.intervalDayCount = nil
+        case .custom:
+            scheduleDraft.selectedWeekdays.removeAll()
+            if scheduleDraft.intervalDayCount == nil {
+                scheduleDraft.intervalDayCount = Constants.defaultIntervalDays
+            }
+        default:
+            scheduleDraft.selectedWeekdays.removeAll()
+            scheduleDraft.intervalDayCount = nil
+        }
+    }
+
+    func updateSelectedWeekdays(_ weekdays: Set<Weekday>) {
+        scheduleDraft.selectedWeekdays = weekdays
+    }
+
+    func updateIntervalDayCount(_ interval: Int?) {
+        guard let interval else {
+            scheduleDraft.intervalDayCount = nil
+            return
+        }
+        scheduleDraft.intervalDayCount = max(2, interval)
+    }
+
+    func setTimezone(_ timezone: TimeZone) {
+        scheduleDraft.timezone = timezone
+    }
+
+    func conflictDescription(window: TimeInterval = Constants.minimumReminderSpacing) -> String? {
+        guard !scheduleDraft.times.isEmpty else { return nil }
+
+        let currentGoalID = goal.id
+        let descriptor = FetchDescriptor<TrackingGoal>(predicate: #Predicate { candidate in
+            candidate.isActive && candidate.id != currentGoalID
+        })
+
+        let activeGoals = (try? modelContext.fetch(descriptor)) ?? []
+        for candidateGoal in activeGoals {
+            guard candidateGoal.schedule.timezoneIdentifier == scheduleDraft.timezone.identifier else { continue }
+            for existingTime in candidateGoal.schedule.times {
+                for newTime in scheduleDraft.times where existingTime.isWithin(window: window, of: newTime) {
+                    return "Clashes with \(candidateGoal.title) near \(existingTime.formattedTime(in: scheduleDraft.timezone))."
+                }
+            }
+        }
+        return nil
     }
 
     func reminderDate(for scheduleTime: ScheduleTime) -> Date {
@@ -162,9 +254,11 @@ final class GoalEditorViewModel {
 
         goal.schedule.startDate = scheduleDraft.startDate
         goal.schedule.frequency = scheduleDraft.frequency
-        goal.schedule.times = scheduleDraft.times
+    goal.schedule.times = scheduleDraft.times.sorted(by: { $0.totalMinutes < $1.totalMinutes })
         goal.schedule.endDate = scheduleDraft.endDate
         goal.schedule.timezoneIdentifier = scheduleDraft.timezone.identifier
+    goal.schedule.selectedWeekdays = scheduleDraft.selectedWeekdays.sorted { $0.rawValue < $1.rawValue }
+    goal.schedule.intervalDayCount = scheduleDraft.intervalDayCount
 
         let draftIDs = Set(questionDrafts.map { $0.id })
         for question in goal.questions where !draftIDs.contains(question.id) {
