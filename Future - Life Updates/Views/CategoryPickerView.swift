@@ -5,7 +5,7 @@ struct CategoryPickerView: View {
     let title: String
     let primaryOptions: [GoalCreationViewModel.CategoryOption]
     let overflowOptions: [GoalCreationViewModel.CategoryOption]
-    @Binding var selectedCategory: TrackingCategory
+    @Binding var selectedCategory: TrackingCategory?
     @Binding var customCategoryLabel: String
     var onSelectOption: (GoalCreationViewModel.CategoryOption) -> Void
     var onUpdateCustomLabel: (String) -> Void
@@ -22,7 +22,11 @@ struct CategoryPickerView: View {
     }
 
     private var shouldShowCustomField: Bool {
-        selectedCategory == .custom
+        selectedCategory == .some(.custom)
+    }
+
+    private var shouldDisplayCustomField: Bool {
+        shouldShowCustomField && isShowingOverflow
     }
 
     var body: some View {
@@ -30,17 +34,31 @@ struct CategoryPickerView: View {
             Text(title)
                 .font(AppTheme.Typography.sectionHeader)
 
-            grid(for: primaryOptions, includeCustomButton: true)
+            if isShowingOverflow && showOverflowToggle {
+                    minimizedPrimaryCategories
+            } else {
+                grid(for: primaryOptions)
+            }
 
             if showOverflowToggle {
                 if isShowingOverflow {
-                    grid(for: overflowOptions)
+                    grid(for: overflowOptions, includeCustomButton: true)
                         .transition(.opacity.combined(with: .move(edge: .top)))
                 }
 
                 Button {
                     withAnimation(.easeInOut(duration: 0.2)) {
-                        isShowingOverflow.toggle()
+                        let willShow = !isShowingOverflow
+                        isShowingOverflow = willShow
+                        if willShow {
+                            if selectedCategory == .some(.custom) && customCategoryLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                    isCustomFieldFocused = true
+                                }
+                            }
+                        } else {
+                            isCustomFieldFocused = false
+                        }
                         Haptics.selection()
                     }
                 } label: {
@@ -50,7 +68,7 @@ struct CategoryPickerView: View {
                 .accessibilityHint(isShowingOverflow ? "Hide additional categories" : "Show additional categories")
             }
 
-            if shouldShowCustomField {
+            if shouldDisplayCustomField {
                 VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
                     Text("Custom category")
                         .font(AppTheme.Typography.caption)
@@ -78,14 +96,36 @@ struct CategoryPickerView: View {
                     .accessibilityHint("Enter a custom category name")
                 }
                 .transition(.opacity)
-                .onAppear {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                        isCustomFieldFocused = true
-                    }
-                }
             }
         }
         .animation(.easeInOut(duration: 0.2), value: selectedCategory)
+            .onAppear {
+                if shouldShowCustomField {
+                    isShowingOverflow = true
+                }
+        }
+    }
+
+    private var minimizedPrimaryCategories: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: AppTheme.Spacing.sm) {
+                ForEach(primaryOptions, id: \.id) { option in
+                    SelectableChip(
+                        title: option.title,
+                        isSelected: isSelected(option),
+                        iconSystemName: nil,
+                        accessibilityHint: option.isCustom ? "Uses your custom category" : nil,
+                        action: {
+                            onSelect(option)
+                        }
+                    )
+                    .accessibilityValue(isSelected(option) ? "Selected" : "Not selected")
+                }
+            }
+            .padding(.horizontal, AppTheme.Spacing.xs)
+        }
+        .frame(maxHeight: 60)
+        .transition(.opacity)
     }
 
     private func grid(for options: [GoalCreationViewModel.CategoryOption], includeCustomButton: Bool = false) -> some View {
@@ -129,9 +169,16 @@ struct CategoryPickerView: View {
         Haptics.selection()
         onSelectOption(option)
         announceSelection(for: option)
-        if option.isCustom && customCategoryLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                isCustomFieldFocused = true
+        if option.isCustom {
+            if !isShowingOverflow {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isShowingOverflow = true
+                }
+            }
+            if customCategoryLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    isCustomFieldFocused = true
+                }
             }
         }
     }
@@ -143,11 +190,12 @@ struct CategoryPickerView: View {
     private func isSelected(_ option: GoalCreationViewModel.CategoryOption) -> Bool {
         switch option {
         case .system(let category):
-            return selectedCategory == category
+            return selectedCategory == .some(category)
         case .custom(let label):
+            guard selectedCategory == .some(.custom) else { return false }
             let normalized = label.trimmingCharacters(in: .whitespacesAndNewlines)
             let current = customCategoryLabel.trimmingCharacters(in: .whitespacesAndNewlines)
-            return selectedCategory == .custom && !current.isEmpty && current.caseInsensitiveCompare(normalized) == .orderedSame
+            return !current.isEmpty && current.caseInsensitiveCompare(normalized) == .orderedSame
         }
     }
 }

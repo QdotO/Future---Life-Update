@@ -44,6 +44,11 @@ struct GoalCreationView: View {
         case configuration
     }
 
+    private enum DetailsField: Hashable {
+        case title
+        case description
+    }
+
     @Environment(\.dismiss) private var dismiss
 
     @State private var step: Step = .details
@@ -60,6 +65,7 @@ struct GoalCreationView: View {
     @State private var conflictMessage: String?
     @State private var errorMessage: String?
     @State private var showingErrorAlert = false
+    @FocusState private var activeDetailsField: DetailsField?
 
     @Bindable private var viewModel: GoalCreationViewModel
 
@@ -148,10 +154,12 @@ struct GoalCreationView: View {
                 TextField("Goal title", text: $viewModel.title)
                     .textInputAutocapitalization(.sentences)
                     .font(AppTheme.Typography.title)
+                    .focused($activeDetailsField, equals: .title)
 
                 TextField("What are you tracking?", text: $viewModel.goalDescription, axis: .vertical)
                     .lineLimit(3, reservesSpace: true)
                     .font(AppTheme.Typography.body)
+                    .focused($activeDetailsField, equals: .description)
 
                 CategoryPickerView(
                     title: "Category",
@@ -166,6 +174,12 @@ struct GoalCreationView: View {
                         viewModel.updateCustomCategoryLabel(label)
                     }
                 )
+            }
+        }
+        .onAppear {
+            if step == .details,
+               viewModel.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                activeDetailsField = .title
             }
         }
     }
@@ -932,7 +946,12 @@ struct GoalCreationView: View {
     private func canAdvance(_ step: Step) -> Bool {
         switch step {
         case .details:
-            return !viewModel.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            let hasTitle = !viewModel.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            guard hasTitle, let category = viewModel.selectedCategory else { return false }
+            if category == .custom {
+                return !viewModel.customCategoryLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            }
+            return true
         case .questions:
             return viewModel.hasDraftQuestions
         case .schedule:
@@ -990,13 +1009,17 @@ struct GoalCreationView: View {
 
 private extension GoalCreationView {
     var selectedCategoryDisplayName: String {
-        if viewModel.selectedCategory == .custom {
+        guard let category = viewModel.selectedCategory else {
+            return "Select a category"
+        }
+
+        if category == .custom {
             let trimmed = viewModel.customCategoryLabel.trimmingCharacters(in: .whitespacesAndNewlines)
             if !trimmed.isEmpty {
                 return trimmed
             }
         }
-        return viewModel.selectedCategory.displayName
+        return category.displayName
     }
 
     struct ResponseTypeOption: Identifiable {

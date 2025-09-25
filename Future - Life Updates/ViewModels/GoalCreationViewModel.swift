@@ -43,6 +43,7 @@ final class GoalCreationViewModel {
     enum CreationError: LocalizedError {
         case missingTitle
         case missingQuestions
+        case missingCategory
 
         var errorDescription: String? {
             switch self {
@@ -50,6 +51,8 @@ final class GoalCreationViewModel {
                 return "Please provide a goal title before saving."
             case .missingQuestions:
                 return "Add at least one question to track before creating this goal."
+            case .missingCategory:
+                return "Choose a category or name your custom category before creating your goal."
             }
         }
     }
@@ -85,7 +88,7 @@ final class GoalCreationViewModel {
 
     var title: String = ""
     var goalDescription: String = ""
-    var selectedCategory: TrackingCategory = .custom
+    var selectedCategory: TrackingCategory? = nil
     var customCategoryLabel: String = ""
     private(set) var draftQuestions: [Question] = []
     private(set) var scheduleDraft: ScheduleDraft
@@ -156,7 +159,8 @@ final class GoalCreationViewModel {
 
     func updateCustomCategoryLabel(_ label: String) {
         customCategoryLabel = label
-        if !label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
             selectedCategory = .custom
         }
     }
@@ -362,11 +366,19 @@ final class GoalCreationViewModel {
             intervalDayCount: normalizedInterval
         )
 
+        guard let category = selectedCategory else {
+            throw CreationError.missingCategory
+        }
+        let normalizedCustomLabel = normalizedCustomCategoryLabel
+        if category == .custom, normalizedCustomLabel == nil {
+            throw CreationError.missingCategory
+        }
+
         let goal = TrackingGoal(
             title: trimmedTitle,
             description: goalDescription.trimmingCharacters(in: .whitespacesAndNewlines),
-            category: selectedCategory,
-            customCategoryLabel: selectedCategory == .custom ? normalizedCustomCategoryLabel : nil,
+            category: category,
+            customCategoryLabel: category == .custom ? normalizedCustomLabel : nil,
             schedule: scheduleModel,
             createdAt: now,
             updatedAt: now
@@ -386,7 +398,7 @@ final class GoalCreationViewModel {
         scheduleDraft = ScheduleDraft(startDate: dateProvider())
         title = ""
         goalDescription = ""
-        selectedCategory = .custom
+        selectedCategory = nil
         customCategoryLabel = ""
         return goal
     }

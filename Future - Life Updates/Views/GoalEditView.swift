@@ -76,7 +76,7 @@ struct GoalEditView: View {
                 title: "Category",
                 primaryOptions: viewModel.primaryCategoryOptions,
                 overflowOptions: viewModel.overflowCategoryOptions,
-                selectedCategory: $viewModel.selectedCategory,
+                selectedCategory: editableCategoryBinding,
                 customCategoryLabel: $viewModel.customCategoryLabel,
                 onSelectOption: { option in
                     viewModel.selectCategory(option)
@@ -559,6 +559,19 @@ struct GoalEditView: View {
             errorMessage = error.localizedDescription
             Haptics.error()
         }
+    }
+}
+
+private extension GoalEditView {
+    var editableCategoryBinding: Binding<TrackingCategory?> {
+        Binding<TrackingCategory?>(
+            get: { viewModel.selectedCategory },
+            set: { newValue in
+                if let category = newValue {
+                    viewModel.selectedCategory = category
+                }
+            }
+        )
     }
 }
 

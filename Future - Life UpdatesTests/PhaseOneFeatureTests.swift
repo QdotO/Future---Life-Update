@@ -195,11 +195,11 @@ struct PhaseOneFeatureTests {
         #expect(overflowTitles.contains("Finance Goals"))
 
         viewModel.selectCategory(.system(.finance))
-        #expect(viewModel.selectedCategory == .finance)
+    #expect(viewModel.selectedCategory == .some(.finance))
         #expect(viewModel.customCategoryLabel.isEmpty)
 
         viewModel.updateCustomCategoryLabel("Mindfulness")
-        #expect(viewModel.selectedCategory == .custom)
+    #expect(viewModel.selectedCategory == .some(.custom))
         #expect(viewModel.customCategoryLabel == "Mindfulness")
 
         let containsMindfulness = viewModel.primaryCategoryOptions.contains { option in
