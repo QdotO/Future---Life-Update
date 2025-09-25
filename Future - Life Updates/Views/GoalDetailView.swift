@@ -14,7 +14,7 @@ struct GoalDetailView: View {
         List {
             Section("Overview") {
                 LabeledContent("Status", value: goal.isActive ? "Active" : "Paused")
-                LabeledContent("Category", value: goal.category.displayName)
+                LabeledContent("Category", value: goal.categoryDisplayName)
                 LabeledContent("Schedule", value: formattedSchedule)
                 Button {
                     NotificationScheduler.shared.sendTestNotification(for: goal)

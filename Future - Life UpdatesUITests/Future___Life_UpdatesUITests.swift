@@ -27,6 +27,23 @@ final class FutureLifeUpdatesUITests: XCTestCase {
     }
 
     @MainActor
+    func testCategoryOverflowReveal() throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        let addGoalButton = app.buttons["Add Goal"]
+        XCTAssertTrue(addGoalButton.waitForExistence(timeout: 2), "Add Goal button should be present on launch")
+        addGoalButton.tap()
+
+        let moreCategoriesButton = app.buttons["More categories"]
+        XCTAssertTrue(moreCategoriesButton.waitForExistence(timeout: 2), "More categories control should appear in creation flow")
+        moreCategoriesButton.tap()
+
+    let financeChip = app.buttons["Finance"]
+        XCTAssertTrue(financeChip.waitForExistence(timeout: 2), "Finance chip should be visible after expanding overflow")
+    }
+
+    @MainActor
     func testLaunchPerformance() throws {
         // This measures how long it takes to launch your application.
         measure(metrics: [XCTApplicationLaunchMetric()]) {

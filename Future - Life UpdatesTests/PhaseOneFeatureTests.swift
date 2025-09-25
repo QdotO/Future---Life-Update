@@ -26,6 +26,7 @@ struct PhaseOneFeatureTests {
         #expect(goal.schedule.frequency == .daily)
         #expect(goal.schedule.times.isEmpty)
         #expect(goal.createdAt <= goal.updatedAt)
+        #expect(goal.customCategoryLabel == nil)
     }
 
     @Test("Schedule defaults produce empty weekday selections")
@@ -105,6 +106,83 @@ struct PhaseOneFeatureTests {
         #expect(didAdd)
         let conflictDescription = viewModel.conflictDescription()
         #expect(conflictDescription?.contains("Existing") == true)
+    }
+
+    @Test("Category picker exposes custom options and persists labels")
+    func categoryPickerSupportsCustomLabels() async throws {
+        let container = try makeInMemoryContainer()
+        let context = container.mainContext
+
+        let wellnessSchedule = Schedule()
+        let wellnessGoal = TrackingGoal(
+            title: "Morning Yoga",
+            description: "",
+            category: .custom,
+            customCategoryLabel: "Wellness",
+            schedule: wellnessSchedule
+        )
+        wellnessSchedule.goal = wellnessGoal
+
+        let financeSchedule = Schedule()
+        let financeGoal = TrackingGoal(
+            title: "Investing",
+            description: "",
+            category: .custom,
+            customCategoryLabel: "Finance Goals",
+            schedule: financeSchedule
+        )
+        financeSchedule.goal = financeGoal
+
+        context.insert(wellnessGoal)
+        context.insert(financeGoal)
+        try context.save()
+
+        let viewModel = GoalCreationViewModel(modelContext: context)
+
+        #expect(viewModel.primaryCategoryOptions.count == GoalCreationViewModel.primaryCategoryLimit)
+        let primaryTitles = viewModel.primaryCategoryOptions.map { $0.title }
+        #expect(primaryTitles.contains(TrackingCategory.health.displayName))
+        #expect(primaryTitles.contains(TrackingCategory.learning.displayName))
+
+        let overflowTitles = viewModel.overflowCategoryOptions.map { $0.title }
+        #expect(overflowTitles.contains(TrackingCategory.social.displayName))
+        #expect(overflowTitles.contains(TrackingCategory.finance.displayName))
+        #expect(overflowTitles.contains("Wellness"))
+        #expect(overflowTitles.contains("Finance Goals"))
+
+        viewModel.selectCategory(.system(.finance))
+        #expect(viewModel.selectedCategory == .finance)
+        #expect(viewModel.customCategoryLabel.isEmpty)
+
+        viewModel.updateCustomCategoryLabel("Mindfulness")
+        #expect(viewModel.selectedCategory == .custom)
+        #expect(viewModel.customCategoryLabel == "Mindfulness")
+
+        let containsMindfulness = viewModel.primaryCategoryOptions.contains { option in
+            if case .custom(let label) = option {
+                return label == "Mindfulness"
+            }
+            return false
+        } || viewModel.overflowCategoryOptions.contains { option in
+            if case .custom(let label) = option {
+                return label == "Mindfulness"
+            }
+            return false
+        }
+        #expect(containsMindfulness)
+
+        viewModel.title = "Meditation"
+        viewModel.goalDescription = "Daily meditation reflection"
+        viewModel.addManualQuestion(text: "How present did you feel?", responseType: .text)
+        viewModel.updateSchedule(
+            frequency: .daily,
+            times: [DateComponents(hour: 7, minute: 30)],
+            timezone: TimeZone.current
+        )
+
+        let savedGoal = try viewModel.createGoal()
+        #expect(savedGoal.category == .custom)
+        #expect(savedGoal.customCategoryLabel == "Mindfulness")
     }
 
     @Test("DataEntryViewModel overwrites same-day responses")

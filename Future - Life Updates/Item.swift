@@ -11,6 +11,17 @@ enum ResponseType: String, CaseIterable, Codable, Sendable {
     case slider
 }
 
+extension TrackingGoal {
+    var categoryDisplayName: String {
+        if category == .custom,
+            let label = customCategoryLabel?.trimmingCharacters(in: .whitespacesAndNewlines),
+            !label.isEmpty {
+            return label
+        }
+        return category.displayName
+    }
+}
+
 enum Frequency: String, CaseIterable, Codable, Sendable {
     case once
     case daily
@@ -190,6 +201,7 @@ final class TrackingGoal {
     var title: String
     var goalDescription: String
     var category: TrackingCategory
+    var customCategoryLabel: String?
     var isActive: Bool
     var createdAt: Date
     var updatedAt: Date
@@ -202,6 +214,7 @@ final class TrackingGoal {
         title: String,
         description: String,
         category: TrackingCategory,
+        customCategoryLabel: String? = nil,
         schedule: Schedule = Schedule(),
         isActive: Bool = true,
         createdAt: Date = Date(),
@@ -211,6 +224,7 @@ final class TrackingGoal {
         self.title = title
         self.goalDescription = description
         self.category = category
+        self.customCategoryLabel = customCategoryLabel
         self.schedule = schedule
         self.isActive = isActive
         self.createdAt = createdAt

@@ -8,6 +8,37 @@ final class GoalCreationViewModel {
     private enum Constants {
         static let minimumReminderSpacing: TimeInterval = 5 * 60
         static let defaultIntervalDays: Int = 3
+        static let primaryCategoryLimit: Int = 6
+    }
+
+    static var primaryCategoryLimit: Int { Constants.primaryCategoryLimit }
+
+    enum CategoryOption: Hashable, Identifiable, Sendable {
+        case system(TrackingCategory)
+        case custom(String)
+
+        var id: String {
+            switch self {
+            case .system(let category):
+                return "system-\(category.rawValue)"
+            case .custom(let label):
+                return "custom-\(label.lowercased())"
+            }
+        }
+
+        var title: String {
+            switch self {
+            case .system(let category):
+                return category.displayName
+            case .custom(let label):
+                return label
+            }
+        }
+
+        var isCustom: Bool {
+            if case .custom = self { return true }
+            return false
+        }
     }
     enum CreationError: LocalizedError {
         case missingTitle
@@ -55,8 +86,10 @@ final class GoalCreationViewModel {
     var title: String = ""
     var goalDescription: String = ""
     var selectedCategory: TrackingCategory = .custom
+    var customCategoryLabel: String = ""
     private(set) var draftQuestions: [Question] = []
     private(set) var scheduleDraft: ScheduleDraft
+    private(set) var recentCustomCategories: [String]
 
     init(
         modelContext: ModelContext,
@@ -67,6 +100,61 @@ final class GoalCreationViewModel {
         self.calendar = calendar
         self.dateProvider = dateProvider
         self.scheduleDraft = ScheduleDraft(startDate: dateProvider())
+        self.recentCustomCategories = GoalCreationViewModel.loadCustomCategories(from: modelContext)
+    }
+
+    var primaryCategoryOptions: [CategoryOption] {
+        Array(allCategoryOptions.prefix(Constants.primaryCategoryLimit))
+    }
+
+    var overflowCategoryOptions: [CategoryOption] {
+        Array(allCategoryOptions.dropFirst(Constants.primaryCategoryLimit))
+    }
+
+    var hasOverflowCategories: Bool {
+        !overflowCategoryOptions.isEmpty
+    }
+
+    private var allCategoryOptions: [CategoryOption] {
+        var systemOptions = TrackingCategory.allCases
+            .filter { $0 != .custom }
+            .map { CategoryOption.system($0) }
+
+        let customOptions = normalizedCustomCategories.map { CategoryOption.custom($0) }
+        systemOptions.append(contentsOf: customOptions)
+        return systemOptions
+    }
+
+    private var normalizedCustomCategories: [String] {
+        var categories = recentCustomCategories
+        if let activeCustomLabel = normalizedCustomCategoryLabel,
+           !categories.contains(where: { $0.caseInsensitiveCompare(activeCustomLabel) == .orderedSame }) {
+            categories.insert(activeCustomLabel, at: 0)
+        }
+        return categories
+    }
+
+    private var normalizedCustomCategoryLabel: String? {
+        let trimmed = customCategoryLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    func selectCategory(_ option: CategoryOption) {
+        switch option {
+        case .system(let category):
+            selectedCategory = category
+            customCategoryLabel = ""
+        case .custom(let label):
+            selectedCategory = .custom
+            customCategoryLabel = label
+        }
+    }
+
+    func updateCustomCategoryLabel(_ label: String) {
+        customCategoryLabel = label
+        if !label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            selectedCategory = .custom
+        }
     }
 
     @discardableResult
@@ -238,6 +326,7 @@ final class GoalCreationViewModel {
             title: trimmedTitle,
             description: goalDescription.trimmingCharacters(in: .whitespacesAndNewlines),
             category: selectedCategory,
+            customCategoryLabel: selectedCategory == .custom ? normalizedCustomCategoryLabel : nil,
             schedule: scheduleModel,
             createdAt: now,
             updatedAt: now
@@ -252,11 +341,34 @@ final class GoalCreationViewModel {
 
         modelContext.insert(goal)
         try modelContext.save()
+        recentCustomCategories = GoalCreationViewModel.loadCustomCategories(from: modelContext)
         draftQuestions.removeAll()
         scheduleDraft = ScheduleDraft(startDate: dateProvider())
         title = ""
         goalDescription = ""
         selectedCategory = .custom
+        customCategoryLabel = ""
         return goal
+    }
+}
+
+extension GoalCreationViewModel {
+    static func loadCustomCategories(from context: ModelContext) -> [String] {
+        let descriptor = FetchDescriptor<TrackingGoal>(predicate: #Predicate { goal in
+            goal.customCategoryLabel != nil && goal.customCategoryLabel != ""
+        })
+        let goals = (try? context.fetch(descriptor)) ?? []
+        let sorted = goals.sorted { $0.updatedAt > $1.updatedAt }
+        var seen: Set<String> = []
+        var labels: [String] = []
+        for goal in sorted {
+            guard let raw = goal.customCategoryLabel?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else { continue }
+            let key = raw.lowercased()
+            if !seen.contains(key) {
+                seen.insert(key)
+                labels.append(raw)
+            }
+        }
+        return labels
     }
 }

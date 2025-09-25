@@ -34,6 +34,7 @@
 - Notifications functional: per-question scheduling, categories, deep links, quick actions save path
 - AppEnvironment added to support background/notification flows with SwiftData main context
 - Phase 2 partial: initial Swift Charts (TrendsView) complete; remaining items queued (HealthKit, Focus/Background, AI, Live Activities)
+- 2025-09-25: Goal category picker updated to adaptive chip grid with overflow drawer, custom label support, refreshed focus/hover styling, and regression coverage (unit + UI tests)
 
 ## User Flow
 

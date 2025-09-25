@@ -72,8 +72,23 @@ final class GoalEditorViewModel {
     var title: String
     var goalDescription: String
     var selectedCategory: TrackingCategory
+    var customCategoryLabel: String
     var questionDrafts: [QuestionDraft]
     var scheduleDraft: ScheduleDraft
+    var recentCustomCategories: [String]
+
+    private var normalizedCustomCategoryLabel: String? {
+        let trimmed = customCategoryLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    var primaryCategoryOptions: [GoalCreationViewModel.CategoryOption] {
+        Array(allCategoryOptions.prefix(GoalCreationViewModel.primaryCategoryLimit))
+    }
+
+    var overflowCategoryOptions: [GoalCreationViewModel.CategoryOption] {
+        Array(allCategoryOptions.dropFirst(GoalCreationViewModel.primaryCategoryLimit))
+    }
 
     init(
         goal: TrackingGoal,
@@ -89,6 +104,8 @@ final class GoalEditorViewModel {
         self.title = goal.title
         self.goalDescription = goal.goalDescription
         self.selectedCategory = goal.category
+        self.customCategoryLabel = goal.customCategoryLabel ?? ""
+        self.recentCustomCategories = GoalCreationViewModel.loadCustomCategories(from: modelContext)
         self.questionDrafts = goal.questions.map { QuestionDraft(question: $0) }
 
         let schedule = goal.schedule
@@ -167,6 +184,24 @@ final class GoalEditorViewModel {
 
     func removeScheduleTime(_ time: ScheduleTime) {
         scheduleDraft.times.removeAll { $0 == time }
+    }
+
+    func selectCategory(_ option: GoalCreationViewModel.CategoryOption) {
+        switch option {
+        case .system(let category):
+            selectedCategory = category
+            customCategoryLabel = ""
+        case .custom(let label):
+            selectedCategory = .custom
+            customCategoryLabel = label
+        }
+    }
+
+    func updateCustomCategoryLabel(_ label: String) {
+        customCategoryLabel = label
+        if !label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            selectedCategory = .custom
+        }
     }
 
     func setFrequency(_ frequency: Frequency) {
@@ -251,6 +286,12 @@ final class GoalEditorViewModel {
         goal.title = trimmedTitle
         goal.goalDescription = goalDescription.trimmingCharacters(in: .whitespacesAndNewlines)
         goal.category = selectedCategory
+        if selectedCategory == .custom {
+            let trimmedLabel = customCategoryLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+            goal.customCategoryLabel = trimmedLabel.isEmpty ? nil : trimmedLabel
+        } else {
+            goal.customCategoryLabel = nil
+        }
 
         goal.schedule.startDate = scheduleDraft.startDate
         goal.schedule.frequency = scheduleDraft.frequency
@@ -293,8 +334,29 @@ final class GoalEditorViewModel {
 
         goal.questions = updatedQuestions
         goal.bumpUpdatedAt(to: dateProvider())
+        recentCustomCategories = GoalCreationViewModel.loadCustomCategories(from: modelContext)
 
         try modelContext.save()
         return goal
+    }
+}
+
+private extension GoalEditorViewModel {
+    var normalizedCustomCategories: [String] {
+        var categories = recentCustomCategories
+        if let active = normalizedCustomCategoryLabel,
+            !categories.contains(where: { $0.caseInsensitiveCompare(active) == .orderedSame }) {
+            categories.insert(active, at: 0)
+        }
+        return categories
+    }
+
+    var allCategoryOptions: [GoalCreationViewModel.CategoryOption] {
+        var systemOptions = TrackingCategory.allCases
+            .filter { $0 != .custom }
+            .map { GoalCreationViewModel.CategoryOption.system($0) }
+        let customOptions = normalizedCustomCategories.map { GoalCreationViewModel.CategoryOption.custom($0) }
+        systemOptions.append(contentsOf: customOptions)
+        return systemOptions
     }
 }

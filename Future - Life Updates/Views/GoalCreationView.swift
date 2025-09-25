@@ -155,16 +155,19 @@ struct GoalCreationView: View {
                     .lineLimit(3, reservesSpace: true)
                     .font(AppTheme.Typography.body)
 
-                VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                    Text("Category")
-                        .font(AppTheme.Typography.sectionHeader)
-                    Picker("Category", selection: $viewModel.selectedCategory) {
-                        ForEach(TrackingCategory.allCases) { category in
-                            Text(category.displayName).tag(category)
-                        }
+                CategoryPickerView(
+                    title: "Category",
+                    primaryOptions: viewModel.primaryCategoryOptions,
+                    overflowOptions: viewModel.overflowCategoryOptions,
+                    selectedCategory: $viewModel.selectedCategory,
+                    customCategoryLabel: $viewModel.customCategoryLabel,
+                    onSelectOption: { option in
+                        viewModel.selectCategory(option)
+                    },
+                    onUpdateCustomLabel: { label in
+                        viewModel.updateCustomCategoryLabel(label)
                     }
-                    .pickerStyle(.segmented)
-                }
+                )
             }
         }
     }
@@ -438,7 +441,7 @@ struct GoalCreationView: View {
                             .font(AppTheme.Typography.body)
                             .foregroundStyle(.secondary)
                     }
-                    Text(viewModel.selectedCategory.displayName)
+                    Text(selectedCategoryDisplayName)
                         .font(AppTheme.Typography.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -628,6 +631,18 @@ struct GoalCreationView: View {
             showingErrorAlert = true
             Haptics.error()
         }
+    }
+}
+
+private extension GoalCreationView {
+    var selectedCategoryDisplayName: String {
+        if viewModel.selectedCategory == .custom {
+            let trimmed = viewModel.customCategoryLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                return trimmed
+            }
+        }
+        return viewModel.selectedCategory.displayName
     }
 }
 

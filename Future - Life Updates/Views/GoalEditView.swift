@@ -72,11 +72,19 @@ struct GoalEditView: View {
             TextField("Description", text: $viewModel.goalDescription, axis: .vertical)
                 .lineLimit(3, reservesSpace: true)
 
-            Picker("Category", selection: $viewModel.selectedCategory) {
-                ForEach(TrackingCategory.allCases) { category in
-                    Text(category.displayName).tag(category)
+            CategoryPickerView(
+                title: "Category",
+                primaryOptions: viewModel.primaryCategoryOptions,
+                overflowOptions: viewModel.overflowCategoryOptions,
+                selectedCategory: $viewModel.selectedCategory,
+                customCategoryLabel: $viewModel.customCategoryLabel,
+                onSelectOption: { option in
+                    viewModel.selectCategory(option)
+                },
+                onUpdateCustomLabel: { label in
+                    viewModel.updateCustomCategoryLabel(label)
                 }
-            }
+            )
         }
     }
 

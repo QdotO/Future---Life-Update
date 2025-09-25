@@ -115,7 +115,7 @@ private struct GoalCardView: View {
                 Text(goal.title)
                     .font(.headline)
                 Spacer()
-                Label(goal.category.displayName, systemImage: "tag")
+                Label(goal.categoryDisplayName, systemImage: "tag")
                     .labelStyle(.titleAndIcon)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
