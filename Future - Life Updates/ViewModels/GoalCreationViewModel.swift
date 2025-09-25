@@ -91,6 +91,10 @@ final class GoalCreationViewModel {
     private(set) var scheduleDraft: ScheduleDraft
     private(set) var recentCustomCategories: [String]
 
+    var hasDraftQuestions: Bool {
+        !draftQuestions.isEmpty
+    }
+
     init(
         modelContext: ModelContext,
         calendar: Calendar = .current,
@@ -158,21 +162,57 @@ final class GoalCreationViewModel {
     }
 
     @discardableResult
+    func upsertQuestion(
+        id: UUID? = nil,
+        text: String,
+        responseType: ResponseType,
+        options: [String]? = nil,
+        validationRules: ValidationRules? = nil
+    ) -> Question {
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanedOptions = options?
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        let normalizedOptions = cleanedOptions?.isEmpty == false ? cleanedOptions : nil
+
+        if let id, let index = draftQuestions.firstIndex(where: { $0.id == id }) {
+            let existing = draftQuestions[index]
+            existing.text = trimmedText
+            existing.responseType = responseType
+            existing.options = normalizedOptions
+            existing.validationRules = validationRules
+            draftQuestions[index] = existing
+            return existing
+        } else {
+            let question = Question(
+                text: trimmedText,
+                responseType: responseType,
+                options: normalizedOptions,
+                validationRules: validationRules
+            )
+            draftQuestions.append(question)
+            return question
+        }
+    }
+
+    @discardableResult
     func addManualQuestion(
         text: String,
         responseType: ResponseType,
         options: [String]? = nil,
         validationRules: ValidationRules? = nil
     ) -> Question {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let question = Question(
-            text: trimmed,
+        upsertQuestion(
+            id: nil,
+            text: text,
             responseType: responseType,
-            options: options?.isEmpty == true ? nil : options,
+            options: options,
             validationRules: validationRules
         )
-        draftQuestions.append(question)
-        return question
+    }
+
+    func questionDraft(with id: UUID) -> Question? {
+        draftQuestions.first { $0.id == id }
     }
 
     func removeQuestion(_ question: Question) {
@@ -193,8 +233,8 @@ final class GoalCreationViewModel {
     ) {
         scheduleDraft.startDate = startDate ?? dateProvider()
         setFrequency(frequency)
-    let sanitizedTimes = times.compactMap { ScheduleTime(components: $0).validated() }
-    replaceTimes(sanitizedTimes)
+        let sanitizedTimes = times.compactMap { ScheduleTime(components: $0).validated() }
+        replaceTimes(sanitizedTimes)
         scheduleDraft.timezone = timezone
         if let selectedWeekdays {
             scheduleDraft.selectedWeekdays = selectedWeekdays

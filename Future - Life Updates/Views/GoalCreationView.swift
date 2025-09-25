@@ -39,20 +39,27 @@ struct GoalCreationView: View {
         }
     }
 
+    private enum QuestionComposerStage {
+        case prompt
+        case configuration
+    }
+
     @Environment(\.dismiss) private var dismiss
 
     @State private var step: Step = .details
-    @State private var newQuestionText: String = ""
-    @State private var newQuestionOptionsText: String = ""
-    @State private var newQuestionMinimum: Double = 0
-    @State private var newQuestionMaximum: Double = 100
-    @State private var newQuestionAllowsEmpty: Bool = false
-    @State private var newQuestionResponseType: ResponseType = .numeric
+    @State private var composerStage: QuestionComposerStage = .prompt
+    @State private var composerQuestionText: String = ""
+    @State private var composerSelectedType: ResponseType?
+    @State private var composerMinimumValue: Double = 0
+    @State private var composerMaximumValue: Double = 100
+    @State private var composerAllowsEmpty: Bool = false
+    @State private var composerOptionsText: String = ""
+    @State private var composerEditingID: UUID?
+    @State private var composerErrorMessage: String?
     @State private var newReminderTime: Date = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date()
     @State private var conflictMessage: String?
     @State private var errorMessage: String?
     @State private var showingErrorAlert = false
-    @State private var didSeedQuestionDefaults = false
 
     @Bindable private var viewModel: GoalCreationViewModel
 
@@ -118,15 +125,6 @@ struct GoalCreationView: View {
             }, message: {
                 Text(errorMessage ?? "")
             })
-            .task {
-                if !didSeedQuestionDefaults {
-                    didSeedQuestionDefaults = true
-                    applyQuestionDefaults(for: newQuestionResponseType)
-                }
-            }
-            .onChange(of: newQuestionResponseType) { _, newValue in
-                applyQuestionDefaults(for: newValue)
-            }
         }
     }
 
@@ -173,108 +171,533 @@ struct GoalCreationView: View {
     }
 
     private var questionsStep: some View {
-        VStack(spacing: AppTheme.Spacing.lg) {
-            if viewModel.draftQuestions.isEmpty {
-                CardBackground {
-                    VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                        Text("No questions yet")
-                            .font(AppTheme.Typography.sectionHeader)
-                        Text("Add prompts so the app knows what to ask when it reminds you.")
-                            .font(AppTheme.Typography.body)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            } else {
-                LazyVStack(spacing: AppTheme.Spacing.md) {
-                    ForEach(viewModel.draftQuestions, id: \.id) { question in
-                        CardBackground {
-                            VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                                HStack {
-                                    Text(question.text)
-                                        .font(AppTheme.Typography.sectionHeader)
-                                    Spacer()
-                                    Button(role: .destructive) {
-                                        Haptics.warning()
-                                        viewModel.removeQuestion(question)
-                                    } label: {
-                                        Image(systemName: "trash")
-                                            .font(.body.bold())
-                                    }
-                                    .accessibilityLabel("Remove question")
-                                }
-                                Text(question.responseType.displayName)
-                                    .font(AppTheme.Typography.caption)
-                                    .foregroundStyle(.secondary)
-                                if let options = question.options, !options.isEmpty {
-                                    Text(options.joined(separator: ", "))
-                                        .font(AppTheme.Typography.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-                    }
-                }
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.xl) {
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+                Text("What would you like to track?")
+                    .font(AppTheme.Typography.sectionHeader)
+                Text("Add prompts so the app knows what to ask when it reminds you.")
+                    .font(AppTheme.Typography.body)
+                    .foregroundStyle(.secondary)
             }
 
             CardBackground {
+                questionComposerCard
+            }
+
+            if viewModel.hasDraftQuestions {
                 VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-                    Text("Add a question")
+                    Text("Questions ready (\(viewModel.draftQuestions.count))")
                         .font(AppTheme.Typography.sectionHeader)
-
-                    TextField("Ask a question to track", text: $newQuestionText)
-
-                    Picker("Response Type", selection: $newQuestionResponseType) {
-                        ForEach(ResponseType.allCases, id: \.self) { response in
-                            Text(response.displayName).tag(response)
+                    LazyVStack(spacing: AppTheme.Spacing.sm) {
+                        ForEach(viewModel.draftQuestions, id: \.id) { question in
+                            questionSummaryCard(for: question)
                         }
                     }
-                    .pickerStyle(.segmented)
-
-                    questionConfigurationFields
-
-                    Button {
-                        addQuestion()
-                    } label: {
-                        Label("Add Question", systemImage: "plus.circle.fill")
-                    }
-                    .buttonStyle(.primaryProminent)
-                    .disabled(newQuestionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
         }
     }
 
+    private var questionComposerCard: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+                    Text(composerEditingID == nil ? "Add a question" : "Edit question")
+                        .font(AppTheme.Typography.sectionHeader)
+                    Text(composerStage == .prompt ? "Step 1 of 2" : "Step 2 of 2")
+                        .font(AppTheme.Typography.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                if composerEditingID != nil {
+                    Button {
+                        resetComposer()
+                    } label: {
+                        Label("Cancel edit", systemImage: "xmark.circle.fill")
+                            .font(AppTheme.Typography.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Cancel editing question")
+                }
+            }
+
+            switch composerStage {
+            case .prompt:
+                composerPromptStage
+            case .configuration:
+                composerConfigurationStage
+            }
+
+            if let composerErrorMessage {
+                Text(composerErrorMessage)
+                    .font(AppTheme.Typography.caption)
+                    .foregroundStyle(Color.red)
+                    .accessibilityHint("Fix the issue before continuing.")
+            }
+        }
+    }
+
+    private var composerPromptStage: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+            TextField("Ask a question to track", text: $composerQuestionText, axis: .vertical)
+                .textInputAutocapitalization(.sentences)
+                .lineLimit(2, reservesSpace: true)
+
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                Text("Response type")
+                    .font(AppTheme.Typography.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+
+                LazyVGrid(columns: responseTypeGridColumns, spacing: AppTheme.Spacing.sm) {
+                    ForEach(responseTypeOptions) { option in
+                        responseTypeButton(for: option)
+                    }
+                }
+            }
+
+            HStack(spacing: AppTheme.Spacing.sm) {
+                if composerHasContent {
+                    Button("Start over") {
+                        resetComposer()
+                    }
+                    .buttonStyle(.secondaryProminent)
+                }
+
+                Spacer()
+
+                Button("Continue") {
+                    advanceToConfiguration()
+                }
+                .buttonStyle(.primaryProminent)
+                .disabled(!canContinueComposer)
+            }
+        }
+    }
+
+    private var composerConfigurationStage: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+                if composerEditingID != nil {
+                    Text("Editing existing question")
+                        .font(AppTheme.Typography.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Text(composerQuestionText)
+                    .font(AppTheme.Typography.body.weight(.semibold))
+                    .multilineTextAlignment(.leading)
+                if let selectedType = composerSelectedType {
+                    let option = responseTypeOption(for: selectedType)
+                    HStack(spacing: AppTheme.Spacing.xs) {
+                        Image(systemName: option.icon)
+                            .font(.caption)
+                        Text(option.title)
+                    }
+                    .font(AppTheme.Typography.caption)
+                    .foregroundStyle(.secondary)
+                }
+            }
+
+            if let selectedType = composerSelectedType {
+                configurationFields(for: selectedType)
+            }
+
+            HStack(spacing: AppTheme.Spacing.sm) {
+                Button("Back") {
+                    composerStage = .prompt
+                    composerErrorMessage = nil
+                }
+                .buttonStyle(.secondaryProminent)
+
+                Spacer()
+
+                Button(composerEditingID == nil ? "Save question" : "Update question") {
+                    saveComposedQuestion()
+                }
+                .buttonStyle(.primaryProminent)
+                .disabled(!canSaveComposedQuestion)
+            }
+        }
+    }
+
+    private let responseTypeCardMinHeight: CGFloat = 128
+
+    private var responseTypeGridColumns: [GridItem] {
+        [
+            GridItem(.flexible(), spacing: AppTheme.Spacing.sm),
+            GridItem(.flexible(), spacing: AppTheme.Spacing.sm)
+        ]
+    }
+
+    private func responseTypeButton(for option: ResponseTypeOption) -> some View {
+        let isSelected = composerSelectedType == option.type
+        return Button {
+            handleResponseTypeSelection(option.type)
+        } label: {
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+                HStack(spacing: AppTheme.Spacing.xs) {
+                    Image(systemName: option.icon)
+                        .font(.body.weight(.semibold))
+                    Text(option.title)
+                        .font(AppTheme.Typography.bodyStrong)
+                }
+                Text(option.subtitle)
+                    .font(AppTheme.Typography.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(AppTheme.Spacing.md)
+            .frame(maxWidth: .infinity, minHeight: responseTypeCardMinHeight, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(isSelected ? AppTheme.Palette.primary.opacity(0.12) : AppTheme.Palette.surface)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(isSelected ? AppTheme.Palette.primary : AppTheme.Palette.neutralBorder, lineWidth: isSelected ? 2 : 1)
+                    )
+            )
+            .foregroundStyle(isSelected ? AppTheme.Palette.primary : AppTheme.Palette.neutralStrong)
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint(option.subtitle)
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+    }
+
     @ViewBuilder
-    private var questionConfigurationFields: some View {
-        switch newQuestionResponseType {
+    private func configurationFields(for responseType: ResponseType) -> some View {
+        switch responseType {
         case .numeric, .scale, .slider:
             VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                HStack {
+                HStack(spacing: AppTheme.Spacing.sm) {
                     VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
                         Text("Minimum")
                             .font(AppTheme.Typography.caption)
                             .foregroundStyle(.secondary)
-                        TextField("Minimum", value: $newQuestionMinimum, format: .number)
+                        TextField("Minimum", value: $composerMinimumValue, format: .number)
                             .keyboardType(.decimalPad)
                     }
+
                     VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
                         Text("Maximum")
                             .font(AppTheme.Typography.caption)
                             .foregroundStyle(.secondary)
-                        TextField("Maximum", value: $newQuestionMaximum, format: .number)
+                        TextField("Maximum", value: $composerMaximumValue, format: .number)
                             .keyboardType(.decimalPad)
                     }
                 }
-                Toggle("Allow empty response", isOn: $newQuestionAllowsEmpty)
+
+                Text("People will respond within this range.")
+                    .font(AppTheme.Typography.caption)
+                    .foregroundStyle(.secondary)
+
+                Toggle("Allow empty response", isOn: $composerAllowsEmpty)
             }
         case .multipleChoice:
             VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                TextField("Options (comma separated)", text: $newQuestionOptionsText)
-                Toggle("Allow empty response", isOn: $newQuestionAllowsEmpty)
+                TextField("Options (comma separated)", text: $composerOptionsText, axis: .vertical)
+                    .lineLimit(2, reservesSpace: true)
+                Text("We’ll show these as selectable choices.")
+                    .font(AppTheme.Typography.caption)
+                    .foregroundStyle(.secondary)
+                Toggle("Allow empty response", isOn: $composerAllowsEmpty)
             }
         case .text, .boolean, .time:
-            Toggle("Allow empty response", isOn: $newQuestionAllowsEmpty)
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                Toggle("Allow empty response", isOn: $composerAllowsEmpty)
+                Text("Optional responses can be skipped when logging.")
+                    .font(AppTheme.Typography.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
+    }
+
+    private func questionSummaryCard(for question: Question) -> some View {
+        CardBackground {
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                HStack(alignment: .firstTextBaseline, spacing: AppTheme.Spacing.sm) {
+                    Text(question.text)
+                        .font(AppTheme.Typography.body.weight(.semibold))
+                        .multilineTextAlignment(.leading)
+                    Spacer()
+                    HStack(spacing: AppTheme.Spacing.xs) {
+                        Button {
+                            loadQuestionForEditing(question)
+                        } label: {
+                            Image(systemName: "pencil")
+                                .font(.body.bold())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Edit question")
+
+                        Button(role: .destructive) {
+                            Haptics.warning()
+                            viewModel.removeQuestion(question)
+                            if composerEditingID == question.id {
+                                resetComposer()
+                            }
+                        } label: {
+                            Image(systemName: "trash")
+                                .font(.body.bold())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Remove question")
+                    }
+                }
+
+                Text(question.responseType.displayName)
+                    .font(AppTheme.Typography.caption)
+                    .foregroundStyle(.secondary)
+
+                if let detail = questionDetail(for: question) {
+                    Text(detail)
+                        .font(AppTheme.Typography.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            loadQuestionForEditing(question)
+        }
+    }
+
+    private func questionDetail(for question: Question) -> String? {
+        var parts: [String] = []
+
+        switch question.responseType {
+        case .numeric, .scale, .slider:
+            let defaults = defaultRange(for: question.responseType)
+            let minimum = question.validationRules?.minimumValue ?? defaults.min
+            let maximum = question.validationRules?.maximumValue ?? defaults.max
+            parts.append("Range: \(formattedValue(minimum)) – \(formattedValue(maximum))")
+        case .multipleChoice:
+            if let options = question.options, !options.isEmpty {
+                let preview = options.prefix(3).joined(separator: ", ")
+                let suffix = options.count > 3 ? "…" : ""
+                parts.append("Options: \(preview)\(suffix)")
+            }
+        case .text, .boolean, .time:
+            break
+        }
+
+        if question.validationRules?.allowsEmpty == true {
+            parts.append("Optional response")
+        }
+
+        return parts.isEmpty ? nil : parts.joined(separator: " • ")
+    }
+
+    private func formattedValue(_ value: Double) -> String {
+        if value.rounded() == value {
+            return String(Int(value))
+        }
+        return value.formatted(.number.precision(.fractionLength(0...2)))
+    }
+
+    private func handleResponseTypeSelection(_ responseType: ResponseType) {
+        composerErrorMessage = nil
+        let shouldReset = composerSelectedType != responseType
+        composerSelectedType = responseType
+        if composerEditingID == nil || shouldReset {
+            applyComposerDefaults(for: responseType, resetOptions: shouldReset || composerEditingID == nil)
+        }
+    }
+
+    private func advanceToConfiguration() {
+        composerErrorMessage = nil
+        let trimmed = composerQuestionText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            composerErrorMessage = "Enter a prompt before continuing."
+            Haptics.warning()
+            return
+        }
+        guard let selectedType = composerSelectedType else {
+            composerErrorMessage = "Choose a response type."
+            Haptics.warning()
+            return
+        }
+        if composerEditingID == nil {
+            applyComposerDefaults(for: selectedType)
+        }
+        withAnimation(.easeInOut) {
+            composerStage = .configuration
+        }
+        Haptics.selection()
+    }
+
+    private func saveComposedQuestion() {
+        composerErrorMessage = nil
+        guard canSaveComposedQuestion, let selectedType = composerSelectedType else {
+            composerErrorMessage = "Check the fields above before saving."
+            Haptics.warning()
+            return
+        }
+
+        let trimmed = composerQuestionText.trimmingCharacters(in: .whitespacesAndNewlines)
+        var options: [String]? = nil
+        var validation: ValidationRules? = nil
+
+        switch selectedType {
+        case .multipleChoice:
+            let uniqueOptions = currentOptions()
+            guard !uniqueOptions.isEmpty else {
+                composerErrorMessage = "Add at least one option."
+                Haptics.warning()
+                return
+            }
+            options = uniqueOptions
+            validation = ValidationRules(allowsEmpty: composerAllowsEmpty)
+        case .numeric, .scale, .slider:
+            let minimum = min(composerMinimumValue, composerMaximumValue)
+            let maximum = max(composerMinimumValue, composerMaximumValue)
+            guard minimum <= maximum else {
+                composerErrorMessage = "Minimum should be less than maximum."
+                Haptics.warning()
+                return
+            }
+            validation = ValidationRules(minimumValue: minimum, maximumValue: maximum, allowsEmpty: composerAllowsEmpty)
+        case .text, .boolean, .time:
+            if composerAllowsEmpty {
+                validation = ValidationRules(allowsEmpty: true)
+            }
+        }
+
+        viewModel.upsertQuestion(
+            id: composerEditingID,
+            text: trimmed,
+            responseType: selectedType,
+            options: options,
+            validationRules: validation
+        )
+
+        Haptics.selection()
+        resetComposer()
+    }
+
+    private func resetComposer() {
+        composerStage = .prompt
+        composerQuestionText = ""
+        composerSelectedType = nil
+        composerMinimumValue = 0
+        composerMaximumValue = 100
+        composerAllowsEmpty = false
+        composerOptionsText = ""
+        composerEditingID = nil
+        composerErrorMessage = nil
+    }
+
+    private func applyComposerDefaults(for responseType: ResponseType, resetOptions: Bool = true) {
+        switch responseType {
+        case .numeric, .slider:
+            composerMinimumValue = 0
+            composerMaximumValue = 100
+            composerAllowsEmpty = false
+            if resetOptions {
+                composerOptionsText = ""
+            }
+        case .scale:
+            composerMinimumValue = 1
+            composerMaximumValue = 10
+            composerAllowsEmpty = false
+            if resetOptions {
+                composerOptionsText = ""
+            }
+        case .multipleChoice:
+            composerAllowsEmpty = false
+            if resetOptions {
+                composerOptionsText = ""
+            }
+        case .text, .boolean, .time:
+            composerAllowsEmpty = false
+            if resetOptions {
+                composerOptionsText = ""
+            }
+        }
+    }
+
+    private func loadQuestionForEditing(_ question: Question) {
+        Haptics.selection()
+        composerQuestionText = question.text
+        composerSelectedType = question.responseType
+        composerEditingID = question.id
+        composerErrorMessage = nil
+
+        let defaults = defaultRange(for: question.responseType)
+        composerMinimumValue = question.validationRules?.minimumValue ?? defaults.min
+        composerMaximumValue = question.validationRules?.maximumValue ?? defaults.max
+        composerAllowsEmpty = question.validationRules?.allowsEmpty ?? false
+        composerOptionsText = question.options?.joined(separator: ", ") ?? ""
+
+        withAnimation(.easeInOut) {
+            composerStage = .configuration
+        }
+    }
+
+    private func currentOptions() -> [String] {
+        let rawOptions = composerOptionsText
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        var unique: [String] = []
+        var seen: Set<String> = []
+        for option in rawOptions {
+            let key = option.lowercased()
+            if !seen.contains(key) {
+                seen.insert(key)
+                unique.append(option)
+            }
+        }
+        return unique
+    }
+
+    private func defaultRange(for responseType: ResponseType) -> (min: Double, max: Double) {
+        switch responseType {
+        case .scale:
+            return (1, 10)
+        case .numeric, .slider:
+            return (0, 100)
+        default:
+            return (0, 100)
+        }
+    }
+
+    private var canContinueComposer: Bool {
+        !composerQuestionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && composerSelectedType != nil
+    }
+
+    private var composerHasContent: Bool {
+        !composerQuestionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || composerSelectedType != nil || composerEditingID != nil
+    }
+
+    private var canSaveComposedQuestion: Bool {
+        guard let selectedType = composerSelectedType else { return false }
+        let trimmed = composerQuestionText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+
+        switch selectedType {
+        case .multipleChoice:
+            return !currentOptions().isEmpty
+        case .numeric, .scale, .slider:
+            return composerMinimumValue <= composerMaximumValue
+        case .text, .boolean, .time:
+            return true
+        }
+    }
+
+    private var responseTypeOptions: [ResponseTypeOption] {
+        [
+            ResponseTypeOption(type: .numeric, icon: "chart.bar", title: ResponseType.numeric.displayName, subtitle: "Track counts or totals."),
+            ResponseTypeOption(type: .scale, icon: "line.3.horizontal.decrease.circle", title: ResponseType.scale.displayName, subtitle: "Capture ratings on a fixed scale."),
+            ResponseTypeOption(type: .slider, icon: "slider.horizontal.3", title: ResponseType.slider.displayName, subtitle: "Quickly drag a value between two numbers."),
+            ResponseTypeOption(type: .multipleChoice, icon: "list.bullet", title: ResponseType.multipleChoice.displayName, subtitle: "Present a short list of options."),
+            ResponseTypeOption(type: .boolean, icon: "checkmark.circle", title: ResponseType.boolean.displayName, subtitle: "Simple yes or no questions."),
+            ResponseTypeOption(type: .text, icon: "text.alignleft", title: ResponseType.text.displayName, subtitle: "Let people answer in their own words."),
+            ResponseTypeOption(type: .time, icon: "clock", title: ResponseType.time.displayName, subtitle: "Capture a time of day.")
+        ]
+    }
+
+    private func responseTypeOption(for type: ResponseType) -> ResponseTypeOption {
+        responseTypeOptions.first { $0.type == type } ?? responseTypeOptions[0]
     }
 
     private var scheduleStep: some View {
@@ -458,6 +881,11 @@ struct GoalCreationView: View {
                             Text(question.responseType.displayName)
                                 .font(AppTheme.Typography.caption)
                                 .foregroundStyle(.secondary)
+                            if let detail = questionDetail(for: question) {
+                                Text(detail)
+                                    .font(AppTheme.Typography.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                         .padding(.vertical, AppTheme.Spacing.xs)
                     }
@@ -501,86 +929,12 @@ struct GoalCreationView: View {
         }
     }
 
-    private func addQuestion() {
-        let trimmed = newQuestionText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-
-        var options: [String]? = nil
-        var validation: ValidationRules? = nil
-
-        switch newQuestionResponseType {
-        case .multipleChoice:
-            let parsedOptions = newQuestionOptionsText
-                .split(separator: ",")
-                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                .filter { !$0.isEmpty }
-            var unique: [String] = []
-            var seen: Set<String> = []
-            for option in parsedOptions where !seen.contains(option.lowercased()) {
-                seen.insert(option.lowercased())
-                unique.append(option)
-            }
-            guard !unique.isEmpty else {
-                conflictMessage = "Add at least one option before saving."
-                Haptics.warning()
-                return
-            }
-            options = unique
-            validation = ValidationRules(allowsEmpty: newQuestionAllowsEmpty)
-        case .numeric, .scale, .slider:
-            let minimum = min(newQuestionMinimum, newQuestionMaximum)
-            let maximum = max(newQuestionMinimum, newQuestionMaximum)
-            validation = ValidationRules(minimumValue: minimum, maximumValue: maximum, allowsEmpty: newQuestionAllowsEmpty)
-        case .text, .boolean, .time:
-            if newQuestionAllowsEmpty {
-                validation = ValidationRules(allowsEmpty: true)
-            }
-        }
-
-        viewModel.addManualQuestion(
-            text: trimmed,
-            responseType: newQuestionResponseType,
-            options: options,
-            validationRules: validation
-        )
-
-        Haptics.selection()
-        resetNewQuestionFields()
-        conflictMessage = nil
-    }
-
-    private func resetNewQuestionFields() {
-        newQuestionText = ""
-        newQuestionOptionsText = ""
-        newQuestionMinimum = newQuestionResponseType == .scale ? 1 : 0
-        newQuestionMaximum = newQuestionResponseType == .scale ? 10 : 100
-        newQuestionAllowsEmpty = false
-        applyQuestionDefaults(for: newQuestionResponseType)
-    }
-
-    private func applyQuestionDefaults(for responseType: ResponseType) {
-        switch responseType {
-        case .numeric, .slider:
-            newQuestionMinimum = 0
-            newQuestionMaximum = 100
-            newQuestionAllowsEmpty = false
-        case .scale:
-            newQuestionMinimum = 1
-            newQuestionMaximum = 10
-            newQuestionAllowsEmpty = false
-            newQuestionOptionsText = ""
-        case .multipleChoice, .text, .boolean, .time:
-            newQuestionOptionsText = ""
-            newQuestionAllowsEmpty = false
-        }
-    }
-
     private func canAdvance(_ step: Step) -> Bool {
         switch step {
         case .details:
             return !viewModel.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         case .questions:
-            return !viewModel.draftQuestions.isEmpty
+            return viewModel.hasDraftQuestions
         case .schedule:
             guard viewModel.hasScheduleTimes else { return false }
             switch viewModel.scheduleDraft.frequency {
@@ -643,6 +997,15 @@ private extension GoalCreationView {
             }
         }
         return viewModel.selectedCategory.displayName
+    }
+
+    struct ResponseTypeOption: Identifiable {
+        let type: ResponseType
+        let icon: String
+        let title: String
+        let subtitle: String
+
+        var id: ResponseType { type }
     }
 }
 

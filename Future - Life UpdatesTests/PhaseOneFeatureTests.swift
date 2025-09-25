@@ -84,6 +84,50 @@ struct PhaseOneFeatureTests {
         #expect(fetchedGoal.schedule.startDate == fixedStartDate)
     }
 
+    @Test("Question upsert replaces existing draft while preserving identity")
+    func questionComposerUpsertUpdatesExistingQuestions() throws {
+        let container = try makeInMemoryContainer()
+        let context = container.mainContext
+        let viewModel = GoalCreationViewModel(modelContext: context)
+
+        let original = viewModel.addManualQuestion(
+            text: "How many glasses did you drink today?",
+            responseType: .numeric,
+            validationRules: ValidationRules(minimumValue: 0, maximumValue: 12, allowsEmpty: false)
+        )
+
+        #expect(viewModel.hasDraftQuestions)
+        #expect(viewModel.draftQuestions.count == 1)
+
+        let updated = viewModel.upsertQuestion(
+            id: original.id,
+            text: "Which beverage did you enjoy?",
+            responseType: .multipleChoice,
+            options: ["Water", "Tea", "Juice"],
+            validationRules: ValidationRules(allowsEmpty: true)
+        )
+
+        #expect(viewModel.draftQuestions.count == 1)
+        #expect(updated.id == original.id)
+        #expect(updated.text == "Which beverage did you enjoy?")
+        #expect(updated.responseType == .multipleChoice)
+        #expect(updated.options == ["Water", "Tea", "Juice"])
+        #expect(updated.validationRules?.allowsEmpty == true)
+
+        let numericReset = viewModel.upsertQuestion(
+            id: updated.id,
+            text: "How many ounces did you drink?",
+            responseType: .numeric,
+            options: nil,
+            validationRules: ValidationRules(minimumValue: 0, maximumValue: 64, allowsEmpty: false)
+        )
+
+        #expect(viewModel.draftQuestions.count == 1)
+        #expect(numericReset.options == nil)
+        #expect(numericReset.validationRules?.maximumValue == 64)
+        #expect(numericReset.responseType == .numeric)
+    }
+
     @Test("GoalCreationViewModel surfaces scheduling conflicts")
     func goalCreationDetectsSchedulingConflicts() throws {
         let container = try makeInMemoryContainer()
