@@ -32,11 +32,16 @@ final class NotificationScheduler: @unchecked Sendable {
                 var dateComponents = scheduleTime.dateComponents
                 dateComponents.timeZone = timezone
 
+                let activeQuestion = nextActiveQuestion(for: goal)
                 let content = UNMutableNotificationContent()
                 content.title = goal.title
-                content.body = nextQuestionBody(for: goal)
+                content.body = activeQuestion?.text ?? defaultQuestionPrompt()
                 content.sound = .default
-                content.userInfo = ["goalId": goal.id.uuidString]
+                var userInfo: [AnyHashable: Any] = ["goalId": goal.id.uuidString]
+                if let question = activeQuestion {
+                    userInfo["questionId"] = question.id.uuidString
+                }
+                content.userInfo = userInfo
 
                 let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: goal.schedule.frequency == .daily || goal.schedule.frequency == .weekly || goal.schedule.frequency == .monthly)
                 let identifier = requestIdentifiers[index]
@@ -60,14 +65,19 @@ final class NotificationScheduler: @unchecked Sendable {
                 return
             }
 
+            let activeQuestion = nextActiveQuestion(for: goal)
             let content = UNMutableNotificationContent()
             content.title = "Test: \(goal.title)"
-            content.body = nextQuestionBody(for: goal)
+            content.body = activeQuestion?.text ?? defaultQuestionPrompt()
             content.sound = .default
-            content.userInfo = [
+            var userInfo: [AnyHashable: Any] = [
                 "goalId": goal.id.uuidString,
                 "isTest": true
             ]
+            if let question = activeQuestion {
+                userInfo["questionId"] = question.id.uuidString
+            }
+            content.userInfo = userInfo
 
             let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
             let identifier = "goal-\(goal.id.uuidString)-test-\(UUID().uuidString)"
@@ -110,10 +120,11 @@ final class NotificationScheduler: @unchecked Sendable {
         }
     }
 
-    private func nextQuestionBody(for goal: TrackingGoal) -> String {
-        if let activeQuestion = goal.questions.first(where: { $0.isActive }) {
-            return activeQuestion.text
-        }
-        return "How is your progress going today?"
+    private func nextActiveQuestion(for goal: TrackingGoal) -> Question? {
+        goal.questions.first(where: { $0.isActive })
+    }
+
+    private func defaultQuestionPrompt() -> String {
+        "How is your progress going today?"
     }
 }

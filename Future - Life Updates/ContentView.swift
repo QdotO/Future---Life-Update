@@ -10,7 +10,9 @@ import SwiftData
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var notificationRouter: NotificationRoutingController
     @State private var showingCreateGoal = false
+    @State private var notificationRoute: NotificationRoutingController.Route?
 
     @Query(sort: \TrackingGoal.updatedAt, order: .reverse)
     private var goals: [TrackingGoal]
@@ -36,6 +38,23 @@ struct ContentView: View {
             }
             .sheet(isPresented: $showingCreateGoal) {
                 GoalCreationView(viewModel: GoalCreationViewModel(modelContext: modelContext))
+            }
+            .onReceive(notificationRouter.$activeRoute) { route in
+                notificationRoute = route
+            }
+            .sheet(item: $notificationRoute, onDismiss: {
+                notificationRouter.reset()
+            }) { route in
+                if let goal = goal(for: route.goalID) {
+                    NotificationLogEntryView(
+                        goal: goal,
+                        questionID: route.questionID,
+                        isTest: route.isTest,
+                        modelContext: modelContext
+                    )
+                } else {
+                    MissingGoalPlaceholder()
+                }
             }
         }
     }
@@ -70,6 +89,20 @@ struct ContentView: View {
         } catch {
             print("Failed to delete goals: \(error)")
         }
+    }
+
+    private func goal(for id: UUID) -> TrackingGoal? {
+        if let match = goals.first(where: { $0.id == id }) {
+            return match
+        }
+
+        var descriptor = FetchDescriptor<TrackingGoal>(
+            predicate: #Predicate { $0.id == id },
+            sortBy: []
+        )
+        descriptor.fetchLimit = 1
+
+        return try? modelContext.fetch(descriptor).first
     }
 }
 
@@ -114,6 +147,16 @@ private struct GoalCardView: View {
             }
         }
         .padding(.vertical, 8)
+    }
+}
+
+private struct MissingGoalPlaceholder: View {
+    var body: some View {
+        ContentUnavailableView(
+            "Goal Not Found",
+            systemImage: "exclamationmark.triangle",
+            description: Text("We couldn't find the goal for this reminder.")
+        )
     }
 }
 

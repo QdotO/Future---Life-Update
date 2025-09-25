@@ -22,6 +22,17 @@ final class DataEntryViewModel {
     private var dailyTotals: [UUID: Double] = [:]
     private var totalsDate: Date?
 
+    struct NumericChangePreview: Equatable {
+        let previousValue: Double?
+        let resultingValue: Double
+        let delta: Double?
+        let responseType: ResponseType
+
+        var isDeltaBaseline: Bool {
+            responseType == .scale || responseType == .slider
+        }
+    }
+
     init(
         goal: TrackingGoal,
         modelContext: ModelContext,
@@ -122,6 +133,40 @@ final class DataEntryViewModel {
             return date
         }
         return fallback
+    }
+
+    func numericChangePreview(for question: Question) -> NumericChangePreview? {
+        guard question.isActive else { return nil }
+
+        guard
+            let response = responses[question.id],
+            case let .numeric(value) = response
+        else {
+            return nil
+        }
+
+        switch question.responseType {
+        case .numeric:
+            let previous = mostRecentNumericValue(for: question)
+            let delta = previous.map { value - $0 }
+            return NumericChangePreview(
+                previousValue: previous,
+                resultingValue: value,
+                delta: delta,
+                responseType: .numeric
+            )
+        case .scale, .slider:
+            let currentTotal = runningTotal(for: question)
+            let resulting = currentTotal + value
+            return NumericChangePreview(
+                previousValue: currentTotal,
+                resultingValue: resulting,
+                delta: value,
+                responseType: question.responseType
+            )
+        default:
+            return nil
+        }
     }
 
     func clearResponses() {
@@ -358,6 +403,13 @@ final class DataEntryViewModel {
 
         dailyTotals[question.id] = 0
         return 0
+    }
+
+    private func mostRecentNumericValue(for question: Question) -> Double? {
+        question.dataPoints
+            .filter { $0.numericValue != nil }
+            .max(by: { $0.timestamp < $1.timestamp })?
+            .numericValue
     }
 
     private func applyDelta(_ deltaValue: Double, for question: Question, timestamp: Date) throws -> Double? {
