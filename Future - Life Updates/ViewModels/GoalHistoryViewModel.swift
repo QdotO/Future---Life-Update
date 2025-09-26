@@ -1,4 +1,5 @@
 import Foundation
+import os
 import Observation
 import SwiftData
 
@@ -41,21 +42,39 @@ final class GoalHistoryViewModel {
     }
 
     func refresh() {
+        let trace = PerformanceMetrics.trace("GoalHistory.refresh", metadata: ["goal": goal.id.uuidString])
         do {
             try reloadEntries()
         } catch {
             sections = []
+            PerformanceMetrics.logger.error("GoalHistory refresh failed: \(error.localizedDescription, privacy: .public)")
         }
+        trace.end(extraMetadata: ["sections": "\(sections.count)"])
     }
 
     private func reloadEntries() throws {
+        let trace = PerformanceMetrics.trace("GoalHistory.reloadEntries", metadata: ["goal": goal.id.uuidString])
         let goalIdentifier = goal.persistentModelID
-        let descriptor = FetchDescriptor<DataPoint>(
+        var descriptor = FetchDescriptor<DataPoint>(
             predicate: #Predicate<DataPoint> { dataPoint in
                 dataPoint.goal?.persistentModelID == goalIdentifier
             },
             sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
         )
+
+        descriptor.propertiesToFetch = [
+            \.timestamp,
+            \.numericValue,
+            \.textValue,
+            \.boolValue,
+            \.selectedOptions,
+            \.timeValue,
+            \.numericDelta,
+            \.mood,
+            \.location
+        ]
+        descriptor.relationshipKeyPathsForPrefetching = [\.question]
+        descriptor.includePendingChanges = true
 
         let dataPoints = try modelContext.fetch(descriptor)
         let grouped = Dictionary(grouping: dataPoints) { dataPoint in
@@ -77,6 +96,11 @@ final class GoalHistoryViewModel {
             }
             return DaySection(id: day, date: day, entries: entries)
         }
+        trace.end(extraMetadata: [
+            "dataPoints": "\(dataPoints.count)",
+            "sections": "\(sections.count)",
+            "entries": "\(sections.reduce(0) { $0 + $1.entries.count })"
+        ])
     }
 
     private func summary(for dataPoint: DataPoint) -> String {

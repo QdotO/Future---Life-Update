@@ -152,6 +152,54 @@ struct PhaseOneFeatureTests {
         #expect(conflictDescription?.contains("Existing") == true)
     }
 
+    @Test("GoalCreationViewModel suggests conflict-free reminder times")
+    func goalCreationSuggestsConflictFreeTimes() throws {
+        let container = try makeInMemoryContainer()
+        let context = container.mainContext
+
+        let timezone = TimeZone.current
+
+        let competingSchedule = Schedule(
+            startDate: Date(),
+            frequency: .daily,
+            times: [
+                ScheduleTime(hour: 9, minute: 0),
+                ScheduleTime(hour: 9, minute: 10)
+            ],
+            timezoneIdentifier: timezone.identifier
+        )
+        let existingGoal = TrackingGoal(
+            title: "Morning Stretch",
+            description: "",
+            category: .health,
+            schedule: competingSchedule
+        )
+        competingSchedule.goal = existingGoal
+        context.insert(existingGoal)
+        try context.save()
+
+    let viewModel = GoalCreationViewModel(modelContext: context)
+    viewModel.setTimezone(timezone)
+
+        let baseline = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date()
+        let suggested = viewModel.suggestedReminderDate(startingAt: baseline)
+
+    let suggestedComponents = Calendar.current.dateComponents([.hour, .minute], from: suggested)
+    let suggestedScheduleTime = ScheduleTime(components: suggestedComponents)
+    #expect(suggestedScheduleTime.isWithin(window: 5 * 60, of: ScheduleTime(hour: 9, minute: 0)) == false)
+    #expect(suggestedScheduleTime.isWithin(window: 5 * 60, of: ScheduleTime(hour: 9, minute: 10)) == false)
+
+        let didAdd = viewModel.addScheduleTime(from: suggested)
+        #expect(didAdd)
+
+        let followUp = viewModel.suggestedReminderDate(startingAt: suggested)
+        let followUpComponents = Calendar.current.dateComponents([.hour, .minute], from: followUp)
+        let followUpScheduleTime = ScheduleTime(components: followUpComponents)
+        #expect(followUpScheduleTime != suggestedScheduleTime)
+        #expect(followUpScheduleTime.isWithin(window: 5 * 60, of: suggestedScheduleTime) == false)
+        #expect(competingSchedule.times.allSatisfy { followUpScheduleTime.isWithin(window: 5 * 60, of: $0) == false })
+    }
+
     @Test("Category picker exposes custom options and persists labels")
     func categoryPickerSupportsCustomLabels() async throws {
         let container = try makeInMemoryContainer()

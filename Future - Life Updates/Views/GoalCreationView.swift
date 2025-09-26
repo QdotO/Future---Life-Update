@@ -55,16 +55,18 @@ struct GoalCreationView: View {
     @State private var composerOptionsText: String = ""
     @State private var composerEditingID: UUID?
     @State private var composerErrorMessage: String?
-    @State private var newReminderTime: Date = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date()
+    @State private var newReminderTime: Date
     @State private var conflictMessage: String?
     @State private var errorMessage: String?
     @State private var showingErrorAlert = false
     @FocusState private var activeDetailsField: DetailsField?
+    @FocusState private var isComposerQuestionFocused: Bool
 
     @Bindable private var viewModel: GoalCreationViewModel
 
     init(viewModel: GoalCreationViewModel) {
         self._viewModel = Bindable(viewModel)
+        self._newReminderTime = State(initialValue: viewModel.suggestedReminderDate())
     }
 
     var body: some View {
@@ -86,14 +88,7 @@ struct GoalCreationView: View {
                     .frame(minHeight: geometry.size.height, alignment: .top)
                 }
             }
-            .background(
-                LinearGradient(
-                    colors: [AppTheme.Palette.background, AppTheme.Palette.surface],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .ignoresSafeArea()
-            )
+            .background(AppTheme.Palette.background.ignoresSafeArea())
             .navigationTitle("New Tracking Goal")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -102,20 +97,24 @@ struct GoalCreationView: View {
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                    if let conflictMessage {
-                        ConflictBanner(message: conflictMessage)
+                if conflictMessage != nil || !shouldHideWizardNavigation {
+                    VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                        if let conflictMessage {
+                            ConflictBanner(message: conflictMessage)
+                        }
+                        if !shouldHideWizardNavigation {
+                            WizardNavigationButtons(
+                                canGoBack: step.previous() != nil,
+                                isFinalStep: step.isFinal,
+                                isForwardEnabled: canAdvance(step),
+                                onBack: moveBackward,
+                                onNext: moveForward
+                            )
+                            .padding(.horizontal, AppTheme.Spacing.xl)
+                            .padding(.vertical, AppTheme.Spacing.lg)
+                            .background(.thinMaterial)
+                        }
                     }
-                    WizardNavigationButtons(
-                        canGoBack: step.previous() != nil,
-                        isFinalStep: step.isFinal,
-                        isForwardEnabled: canAdvance(step),
-                        onBack: moveBackward,
-                        onNext: moveForward
-                    )
-                    .padding(.horizontal, AppTheme.Spacing.xl)
-                    .padding(.vertical, AppTheme.Spacing.lg)
-                    .background(.thinMaterial)
                 }
             }
             .alert("Unable to Create Goal", isPresented: $showingErrorAlert, actions: {
@@ -125,6 +124,31 @@ struct GoalCreationView: View {
             }, message: {
                 Text(errorMessage ?? "")
             })
+            .onChange(of: step) { newStep in
+                switch newStep {
+                case .questions:
+                    DispatchQueue.main.async {
+                        isComposerQuestionFocused = true
+                    }
+                case .schedule:
+                    isComposerQuestionFocused = false
+                    if viewModel.scheduleDraft.times.isEmpty {
+                        newReminderTime = viewModel.suggestedReminderDate(startingAt: newReminderTime)
+                    }
+                default:
+                    isComposerQuestionFocused = false
+                }
+            }
+            .onChange(of: viewModel.scheduleDraft.times) { times in
+                if step == .schedule, times.isEmpty {
+                    newReminderTime = viewModel.suggestedReminderDate(startingAt: newReminderTime)
+                }
+            }
+            .onChange(of: viewModel.scheduleDraft.timezone) { _ in
+                if step == .schedule, viewModel.scheduleDraft.times.isEmpty {
+                    newReminderTime = viewModel.suggestedReminderDate(startingAt: newReminderTime)
+                }
+            }
         }
     }
 
@@ -235,6 +259,7 @@ struct GoalCreationView: View {
                 TextField("Ask a question to track", text: $composerQuestionText, axis: .vertical)
                     .textInputAutocapitalization(.sentences)
                     .lineLimit(2, reservesSpace: true)
+                    .focused($isComposerQuestionFocused)
 
                 VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
                     Text("Response type")
@@ -551,6 +576,9 @@ struct GoalCreationView: View {
         composerOptionsText = ""
         composerEditingID = nil
         composerErrorMessage = nil
+        DispatchQueue.main.async {
+            isComposerQuestionFocused = true
+        }
     }
 
     private func applyComposerDefaults(for responseType: ResponseType, resetOptions: Bool = true) {
@@ -594,6 +622,9 @@ struct GoalCreationView: View {
         composerMaximumValue = question.validationRules?.maximumValue ?? defaults.max
         composerAllowsEmpty = question.validationRules?.allowsEmpty ?? false
         composerOptionsText = question.options?.joined(separator: ", ") ?? ""
+        DispatchQueue.main.async {
+            isComposerQuestionFocused = true
+        }
     }
 
     private func currentOptions() -> [String] {
@@ -627,6 +658,10 @@ struct GoalCreationView: View {
 
     private var composerHasContent: Bool {
         !composerQuestionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || composerSelectedType != nil || composerEditingID != nil
+    }
+
+    private var shouldHideWizardNavigation: Bool {
+        step == .questions && !composerQuestionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private var canSaveComposedQuestion: Bool {
@@ -772,7 +807,8 @@ struct GoalCreationView: View {
                             } else {
                                 Haptics.selection()
                             }
-                            newReminderTime = Calendar.current.date(byAdding: .minute, value: 30, to: newReminderTime) ?? newReminderTime
+                            let nextBaseline = Calendar.current.date(byAdding: .minute, value: 30, to: newReminderTime) ?? newReminderTime
+                            newReminderTime = viewModel.suggestedReminderDate(startingAt: nextBaseline)
                         } else {
                             conflictMessage = "Reminders must be at least 5 minutes apart."
                             Haptics.warning()
@@ -801,11 +837,9 @@ struct GoalCreationView: View {
                             }
                         }
                     )) {
-                        ForEach(TimeZone.knownTimeZoneIdentifiers.sorted(), id: \.self) { identifier in
-                            if let timezone = TimeZone(identifier: identifier) {
-                                Text(timezone.localizedName(for: .shortGeneric, locale: .current) ?? identifier)
-                                    .tag(timezone)
-                            }
+                        ForEach(TimeZone.pickerOptions, id: \.identifier) { timezone in
+                            Text(timezone.localizedDisplayName())
+                                .tag(timezone)
                         }
                     }
                 }

@@ -1,4 +1,5 @@
 import Foundation
+import os
 import Observation
 import SwiftData
 
@@ -50,21 +51,30 @@ final class GoalTrendsViewModel {
     }
 
     func refresh() {
+        let trace = PerformanceMetrics.trace("GoalTrends.refresh", metadata: ["goal": goal.id.uuidString])
         do {
             try rebuildNumericTrends()
         } catch {
             dailySeries = []
             currentStreakDays = 0
+            PerformanceMetrics.logger.error("GoalTrends numeric refresh failed: \(error.localizedDescription, privacy: .public)")
         }
 
         do {
             try rebuildBooleanStreaks()
         } catch {
             booleanStreaks = []
+            PerformanceMetrics.logger.error("GoalTrends boolean refresh failed: \(error.localizedDescription, privacy: .public)")
         }
+        trace.end(extraMetadata: [
+            "dailySeries": "\(dailySeries.count)",
+            "booleanStreaks": "\(booleanStreaks.count)",
+            "streakDays": "\(currentStreakDays)"
+        ])
     }
 
     private func rebuildNumericTrends() throws {
+        let trace = PerformanceMetrics.trace("GoalTrends.rebuildNumeric", metadata: ["goal": goal.id.uuidString])
         let goalIdentifier = goal.persistentModelID
         var descriptor = FetchDescriptor<DataPoint>(
             predicate: #Predicate<DataPoint> { dataPoint in
@@ -78,34 +88,56 @@ final class GoalTrendsViewModel {
         let dataPoints = try modelContext.fetch(descriptor)
         buildDailySeries(from: dataPoints)
         computeCurrentStreak(using: dataPoints)
+        trace.end(extraMetadata: ["samples": "\(dataPoints.count)"])
     }
 
     private func rebuildBooleanStreaks() throws {
+        let trace = PerformanceMetrics.trace("GoalTrends.rebuildBoolean", metadata: ["goal": goal.id.uuidString])
+        let booleanQuestions = goal.questions.filter { $0.responseType == .boolean }
+        guard !booleanQuestions.isEmpty else {
+            booleanStreaks = []
+            trace.end(extraMetadata: ["result": "no-boolean-questions"])
+            return
+        }
+
         let goalIdentifier = goal.persistentModelID
+        let allowedQuestionIDs = Set(booleanQuestions.map(\.id))
+
+        var descriptor = FetchDescriptor<DataPoint>(
+            predicate: #Predicate<DataPoint> { dataPoint in
+                dataPoint.goal?.persistentModelID == goalIdentifier &&
+                dataPoint.boolValue != nil
+            },
+            sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+        )
+        descriptor.propertiesToFetch = [\.timestamp, \.boolValue]
+        descriptor.relationshipKeyPathsForPrefetching = [\.question]
+        descriptor.includePendingChanges = true
+
+        let points = try modelContext.fetch(descriptor).filter { point in
+            guard let questionID = point.question?.id else { return false }
+            return allowedQuestionIDs.contains(questionID)
+        }
+
+        var pointsByQuestion: [UUID: [DataPoint]] = [:]
+        for point in points {
+            guard let questionID = point.question?.id else { continue }
+            pointsByQuestion[questionID, default: []].append(point)
+        }
+
         var streaks: [BooleanStreak] = []
+        streaks.reserveCapacity(booleanQuestions.count)
 
-        for question in goal.questions where question.responseType == .boolean {
-            let questionIdentifier = question.persistentModelID
-            var descriptor = FetchDescriptor<DataPoint>(
-                predicate: #Predicate<DataPoint> { dataPoint in
-                    dataPoint.goal?.persistentModelID == goalIdentifier &&
-                    dataPoint.question?.persistentModelID == questionIdentifier &&
-                    dataPoint.boolValue != nil
-                },
-                sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
-            )
-            descriptor.propertiesToFetch = [\.timestamp, \.boolValue]
-
-            let points = try modelContext.fetch(descriptor)
-
-            let successDays: Set<Date> = Set(points.compactMap { point in
+        for question in booleanQuestions {
+            let questionPoints = pointsByQuestion[question.id] ?? []
+            let successDays: Set<Date> = Set(questionPoints.compactMap { point in
                 guard point.boolValue == true else { return nil }
                 return calendar.startOfDay(for: point.timestamp)
             })
 
             let currentStreak = computeCurrentBooleanStreak(from: successDays)
             let bestStreak = computeBestBooleanStreak(from: successDays)
-            let latestResponse = points.first
+            let latestResponse = questionPoints.first
 
             let streak = BooleanStreak(
                 questionID: question.id,
@@ -125,6 +157,10 @@ final class GoalTrendsViewModel {
             }
             return lhs.currentStreak > rhs.currentStreak
         }
+        trace.end(extraMetadata: [
+            "questions": "\(booleanQuestions.count)",
+            "streaks": "\(booleanStreaks.count)"
+        ])
     }
 
     private func buildDailySeries(from dataPoints: [DataPoint]) {

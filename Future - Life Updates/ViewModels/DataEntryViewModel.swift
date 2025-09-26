@@ -393,10 +393,9 @@ final class DataEntryViewModel {
             return cached
         }
 
-          let today = totalsDate ?? calendar.startOfDay(for: dateProvider())
-          let latestPointOptional: DataPoint? = try? latestDataPoint(for: question, on: today)
-          if let latestPoint = latestPointOptional,
-              let numericValue = latestPoint.numericValue {
+        let today = totalsDate ?? calendar.startOfDay(for: dateProvider())
+        if let latestPoint = try? latestDataPoint(for: question, on: today),
+           let numericValue = latestPoint.numericValue {
             dailyTotals[question.id] = numericValue
             return numericValue
         }

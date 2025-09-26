@@ -5,24 +5,29 @@ import SwiftData
 @MainActor
 @Observable
 final class TodayDashboardViewModel {
-    struct UpcomingReminder: Identifiable {
-        let id = UUID()
-        let goal: TrackingGoal
-        let scheduledDate: Date
-
-        var timezoneIdentifier: String {
-            goal.schedule.timezoneIdentifier
-        }
+    struct GoalSummary: Identifiable, Hashable {
+        let id: UUID
+        let title: String
+        let categoryDisplayName: String?
+        let timezoneIdentifier: String
     }
 
-    struct GoalQuestionMetrics: Identifiable {
-        let goal: TrackingGoal
+    struct UpcomingReminder: Identifiable, Hashable {
+        let id = UUID()
+        let goal: GoalSummary
+        let scheduledDate: Date
+
+        var timezoneIdentifier: String { goal.timezoneIdentifier }
+    }
+
+    struct GoalQuestionMetrics: Identifiable, Hashable {
+        let goal: GoalSummary
         let metrics: [QuestionMetric]
 
         var id: UUID { goal.id }
     }
 
-    struct QuestionMetric: Identifiable {
+    struct QuestionMetric: Identifiable, Hashable {
         enum MetricStatus {
             case numeric
             case boolean(isComplete: Bool)
@@ -31,14 +36,14 @@ final class TodayDashboardViewModel {
             case time
         }
 
-        let question: Question
+        let id: UUID
+        let questionText: String
+        let responseType: ResponseType
         let primaryValue: String
         let detail: String
         let status: MetricStatus
         let progressFraction: Double?
         let targetValue: String?
-
-        var id: UUID { question.id }
     }
 
     private let modelContext: ModelContext
@@ -60,6 +65,8 @@ final class TodayDashboardViewModel {
 
     private(set) var upcomingReminders: [UpcomingReminder] = []
     private(set) var goalQuestionMetrics: [GoalQuestionMetrics] = []
+    private var snapshotCache: DashboardSnapshot?
+    private static let cacheTTL: TimeInterval = 20
 
     init(
         modelContext: ModelContext,
@@ -72,33 +79,78 @@ final class TodayDashboardViewModel {
     }
 
     func refresh() {
+        let trace = PerformanceMetrics.trace("TodayDashboard.refresh")
         let now = dateProvider()
         let startOfDay = calendar.startOfDay(for: now)
-        guard let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) else { return }
+        guard let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) else {
+            trace.end(extraMetadata: ["error": "endOfDay"])
+            return
+        }
 
         let activeGoals = fetchActiveGoals()
+        let activeGoalIDs = Set(activeGoals.map(\.id))
+        let newestGoalUpdate = activeGoals.map(\.updatedAt).max() ?? .distantPast
+
+        if let cache = snapshotCache,
+           calendar.isDate(cache.timestamp, inSameDayAs: now),
+           now.timeIntervalSince(cache.timestamp) < Self.cacheTTL,
+           cache.goalIDs == activeGoalIDs,
+           cache.newestGoalUpdate == newestGoalUpdate,
+           !modelContext.hasChanges {
+            upcomingReminders = cache.reminders
+            goalQuestionMetrics = cache.metrics
+            trace.end(extraMetadata: [
+                "goals": "\(activeGoals.count)",
+                "reminders": "\(upcomingReminders.count)",
+                "metrics": "\(goalQuestionMetrics.reduce(0) { $0 + $1.metrics.count })",
+                "source": "cache"
+            ])
+            return
+        }
+
         upcomingReminders = computeUpcomingReminders(for: activeGoals, referenceDate: now)
         goalQuestionMetrics = computeGoalQuestionMetrics(
             for: activeGoals,
             startOfDay: startOfDay,
             endOfDay: endOfDay
         )
+
+        trace.end(extraMetadata: [
+            "goals": "\(activeGoals.count)",
+            "reminders": "\(upcomingReminders.count)",
+            "metrics": "\(goalQuestionMetrics.reduce(0) { $0 + $1.metrics.count })",
+            "source": "fresh"
+        ])
+
+        snapshotCache = DashboardSnapshot(
+            timestamp: now,
+            newestGoalUpdate: newestGoalUpdate,
+            goalIDs: activeGoalIDs,
+            reminders: upcomingReminders,
+            metrics: goalQuestionMetrics
+        )
     }
 
     private func fetchActiveGoals() -> [TrackingGoal] {
+        let trace = PerformanceMetrics.trace("TodayDashboard.fetchActiveGoals")
         var descriptor = FetchDescriptor<TrackingGoal>(predicate: #Predicate { goal in
             goal.isActive
         })
         descriptor.includePendingChanges = true
         descriptor.sortBy = [SortDescriptor(\TrackingGoal.updatedAt, order: .reverse)]
-        return (try? modelContext.fetch(descriptor)) ?? []
+        let goals = (try? modelContext.fetch(descriptor)) ?? []
+        trace.end(extraMetadata: ["goals": "\(goals.count)"])
+        return goals
     }
 
     private func computeUpcomingReminders(for goals: [TrackingGoal], referenceDate: Date) -> [UpcomingReminder] {
-        goals.flatMap { goal in
+        let trace = PerformanceMetrics.trace("TodayDashboard.computeUpcomingReminders", metadata: ["goalCount": "\(goals.count)"])
+        let reminderItems = goals.flatMap { goal in
             reminders(for: goal, referenceDate: referenceDate)
         }
         .sorted { $0.scheduledDate < $1.scheduledDate }
+        trace.end(extraMetadata: ["reminders": "\(reminderItems.count)"])
+        return reminderItems
     }
 
     private func reminders(for goal: TrackingGoal, referenceDate: Date) -> [UpcomingReminder] {
@@ -109,13 +161,14 @@ final class TodayDashboardViewModel {
 
         guard occurs(on: referenceDate, schedule: goal.schedule, calendar: goalCalendar) else { return [] }
 
+        let summary = makeSummary(for: goal)
         let startOfDay = goalCalendar.startOfDay(for: referenceDate)
         return goal.schedule.times.compactMap { scheduleTime in
             guard let occurrence = scheduleTime.date(on: startOfDay, calendar: goalCalendar) else {
                 return nil
             }
             guard occurrence >= referenceDate else { return nil }
-            return UpcomingReminder(goal: goal, scheduledDate: occurrence)
+            return UpcomingReminder(goal: summary, scheduledDate: occurrence)
         }
     }
 
@@ -147,11 +200,32 @@ final class TodayDashboardViewModel {
     }
 
     private func computeGoalQuestionMetrics(for goals: [TrackingGoal], startOfDay: Date, endOfDay: Date) -> [GoalQuestionMetrics] {
+        let trace = PerformanceMetrics.trace("TodayDashboard.computeMetrics", metadata: ["goalCount": "\(goals.count)"])
+        guard !goals.isEmpty else {
+            trace.end(extraMetadata: ["result": "no-goals"])
+            return []
+        }
+
+        let allowedGoalIDs = Set(goals.map(\.id))
+
         var descriptor = FetchDescriptor<DataPoint>(predicate: #Predicate { dataPoint in
             dataPoint.timestamp >= startOfDay && dataPoint.timestamp < endOfDay
         })
         descriptor.includePendingChanges = true
-        let todaysDataPoints = (try? modelContext.fetch(descriptor)) ?? []
+        descriptor.propertiesToFetch = [
+            \.timestamp,
+            \.numericValue,
+            \.boolValue,
+            \.selectedOptions,
+            \.textValue,
+            \.timeValue
+        ]
+        descriptor.relationshipKeyPathsForPrefetching = [\.question, \.goal]
+
+        let todaysDataPoints = (try? modelContext.fetch(descriptor))?.filter { dataPoint in
+            guard let goalID = dataPoint.goal?.id else { return false }
+            return allowedGoalIDs.contains(goalID)
+        } ?? []
 
         var pointsByQuestion: [UUID: [DataPoint]] = [:]
         for dataPoint in todaysDataPoints {
@@ -159,76 +233,115 @@ final class TodayDashboardViewModel {
             pointsByQuestion[question.id, default: []].append(dataPoint)
         }
 
-        return goals.map { goal in
-            let metrics = goal.questions
+        let goalMetrics = goals.map { goal in
+            let summary = makeSummary(for: goal)
+            let questionMetrics = goal.questions
                 .filter { $0.isActive }
                 .compactMap { question in
-                    metric(for: question, dataPoints: pointsByQuestion[question.id] ?? [])
+                    metric(
+                        for: question,
+                        dataPoints: pointsByQuestion[question.id] ?? [],
+                        goalTimezoneIdentifier: summary.timezoneIdentifier
+                    )
                 }
 
-            return GoalQuestionMetrics(goal: goal, metrics: metrics)
+            return GoalQuestionMetrics(goal: summary, metrics: questionMetrics)
         }
+
+        trace.end(extraMetadata: [
+            "dataPoints": "\(todaysDataPoints.count)",
+            "questions": "\(pointsByQuestion.count)",
+            "metrics": "\(goalMetrics.reduce(0) { $0 + $1.metrics.count })"
+        ])
+        return goalMetrics
     }
 
-    private func metric(for question: Question, dataPoints: [DataPoint]) -> QuestionMetric? {
+    private func metric(
+        for question: Question,
+        dataPoints: [DataPoint],
+        goalTimezoneIdentifier: String
+    ) -> QuestionMetric? {
+        let trace = PerformanceMetrics.trace("TodayDashboard.metric", metadata: [
+            "question": question.id.uuidString,
+            "type": question.responseType.displayName
+        ])
         let latest = dataPoints.max(by: { $0.timestamp < $1.timestamp })
+        var result: QuestionMetric?
 
         switch question.responseType {
         case .numeric, .scale, .slider:
-            guard let value = latest?.numericValue else { return nil }
-            let detail = question.responseType == .numeric ? "Today's total" : "So far today"
-            let (progress, target) = progressInfo(for: value, rules: question.validationRules)
-            return QuestionMetric(
-                question: question,
-                primaryValue: formatNumber(value),
-                detail: detail,
-                status: .numeric,
-                progressFraction: progress,
-                targetValue: target
-            )
+            if let value = latest?.numericValue {
+                let detail = question.responseType == .numeric ? "Today's total" : "So far today"
+                let (progress, target) = progressInfo(for: value, rules: question.validationRules)
+                result = QuestionMetric(
+                    id: question.id,
+                    questionText: question.text,
+                    responseType: question.responseType,
+                    primaryValue: formatNumber(value),
+                    detail: detail,
+                    status: .numeric,
+                    progressFraction: progress,
+                    targetValue: target
+                )
+            }
         case .boolean:
-            guard let value = latest?.boolValue else { return nil }
-            let detail = value ? "Completed" : "Not yet"
-            return QuestionMetric(
-                question: question,
-                primaryValue: value ? "Yes" : "No",
-                detail: detail,
-                status: .boolean(isComplete: value),
-                progressFraction: nil,
-                targetValue: nil
-            )
+            if let value = latest?.boolValue {
+                let detail = value ? "Completed" : "Not yet"
+                result = QuestionMetric(
+                    id: question.id,
+                    questionText: question.text,
+                    responseType: question.responseType,
+                    primaryValue: value ? "Yes" : "No",
+                    detail: detail,
+                    status: .boolean(isComplete: value),
+                    progressFraction: nil,
+                    targetValue: nil
+                )
+            }
         case .multipleChoice:
-            guard let selections = latest?.selectedOptions, !selections.isEmpty else { return nil }
-            let detail = selections.count == 1 ? "1 choice" : "\(selections.count) choices"
-            return QuestionMetric(
-                question: question,
-                primaryValue: selections.joined(separator: ", "),
-                detail: detail,
-                status: .options,
-                progressFraction: nil,
-                targetValue: nil
-            )
+            if let selections = latest?.selectedOptions, !selections.isEmpty {
+                let detail = selections.count == 1 ? "1 choice" : "\(selections.count) choices"
+                result = QuestionMetric(
+                    id: question.id,
+                    questionText: question.text,
+                    responseType: question.responseType,
+                    primaryValue: selections.joined(separator: ", "),
+                    detail: detail,
+                    status: .options,
+                    progressFraction: nil,
+                    targetValue: nil
+                )
+            }
         case .text:
-            guard let text = latest?.textValue?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return nil }
-            return QuestionMetric(
-                question: question,
-                primaryValue: text,
-                detail: "Latest entry",
-                status: .text,
-                progressFraction: nil,
-                targetValue: nil
-            )
+            if let text = latest?.textValue?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty {
+                result = QuestionMetric(
+                    id: question.id,
+                    questionText: question.text,
+                    responseType: question.responseType,
+                    primaryValue: text,
+                    detail: "Latest entry",
+                    status: .text,
+                    progressFraction: nil,
+                    targetValue: nil
+                )
+            }
         case .time:
-            guard let date = latest?.timeValue else { return nil }
-            return QuestionMetric(
-                question: question,
-                primaryValue: formatTime(date, timezoneIdentifier: question.goal?.schedule.timezoneIdentifier),
-                detail: "Logged time",
-                status: .time,
-                progressFraction: nil,
-                targetValue: nil
-            )
+            if let date = latest?.timeValue {
+                result = QuestionMetric(
+                    id: question.id,
+                    questionText: question.text,
+                    responseType: question.responseType,
+                    primaryValue: formatTime(date, timezoneIdentifier: question.goal?.schedule.timezoneIdentifier),
+                    detail: "Logged time",
+                    status: .time,
+                    progressFraction: nil,
+                    targetValue: nil
+                )
+            }
         }
+
+        trace.end(extraMetadata: ["result": result == nil ? "nil" : "value"])
+        return result
     }
 
     private func progressInfo(for value: Double, rules: ValidationRules?) -> (Double?, String?) {
@@ -258,4 +371,16 @@ final class TodayDashboardViewModel {
         }
         return timeFormatter.string(from: date)
     }
+
+    func invalidateCache() {
+        snapshotCache = nil
+    }
+}
+
+private struct DashboardSnapshot {
+    let timestamp: Date
+    let newestGoalUpdate: Date
+    let goalIDs: Set<UUID>
+    let reminders: [TodayDashboardViewModel.UpcomingReminder]
+    let metrics: [TodayDashboardViewModel.GoalQuestionMetrics]
 }

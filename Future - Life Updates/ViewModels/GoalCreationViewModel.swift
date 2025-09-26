@@ -9,6 +9,9 @@ final class GoalCreationViewModel {
         static let minimumReminderSpacing: TimeInterval = 5 * 60
         static let defaultIntervalDays: Int = 3
         static let primaryCategoryLimit: Int = 6
+        static let defaultReminderHour: Int = 9
+        static let defaultReminderMinute: Int = 0
+        static let reminderSearchStepMinutes: Int = 5
     }
 
     static var primaryCategoryLimit: Int { Constants.primaryCategoryLimit }
@@ -85,6 +88,7 @@ final class GoalCreationViewModel {
     private let modelContext: ModelContext
     private let dateProvider: () -> Date
     private let calendar: Calendar
+    private static let scheduleCacheTTL: TimeInterval = 30
 
     var title: String = ""
     var goalDescription: String = ""
@@ -93,6 +97,7 @@ final class GoalCreationViewModel {
     private(set) var draftQuestions: [Question] = []
     private(set) var scheduleDraft: ScheduleDraft
     private(set) var recentCustomCategories: [String]
+    private var cachedSchedules: ScheduleCache?
 
     var hasDraftQuestions: Bool {
         !draftQuestions.isEmpty
@@ -286,6 +291,94 @@ final class GoalCreationViewModel {
         scheduleDraft.startDate = date
     }
 
+    func suggestedReminderDate(
+        startingAt referenceDate: Date? = nil,
+        stepMinutes: Int = Constants.reminderSearchStepMinutes
+    ) -> Date {
+        let timezone = scheduleDraft.timezone
+        var workingCalendar = calendar
+        workingCalendar.timeZone = timezone
+
+        let trace = PerformanceMetrics.trace("GoalCreation.suggestReminder", metadata: [
+            "timezone": timezone.identifier,
+            "existingTimes": "\(scheduleDraft.times.count)"
+        ])
+
+        let minutesInDay = 24 * 60
+        let searchStep = max(1, stepMinutes)
+        let now = dateProvider()
+
+        let baselineDate = referenceDate ?? workingCalendar.date(
+            bySettingHour: Constants.defaultReminderHour,
+            minute: Constants.defaultReminderMinute,
+            second: 0,
+            of: now
+        ) ?? now
+
+        let baselineComponents = workingCalendar.dateComponents([.hour, .minute], from: baselineDate)
+        let baselineMinutes = ((baselineComponents.hour ?? Constants.defaultReminderHour) * 60)
+            + (baselineComponents.minute ?? Constants.defaultReminderMinute)
+
+        let existingDraftTimes = scheduleDraft.times
+        let externalSchedules = activeSchedules(in: timezone)
+        let externalTimes = externalSchedules.flatMap(\.times)
+
+        let iterations = max(1, minutesInDay / searchStep)
+        var attempts = 0
+        var suggestion: Date?
+
+        for offset in 0..<iterations {
+            attempts += 1
+            let candidateMinutes = (baselineMinutes + offset * searchStep) % minutesInDay
+            let candidate = ScheduleTime(
+                hour: candidateMinutes / 60,
+                minute: candidateMinutes % 60
+            )
+
+            guard candidate.validated() != nil else { continue }
+
+            if existingDraftTimes.contains(where: { $0.isWithin(window: Constants.minimumReminderSpacing, of: candidate) }) {
+                continue
+            }
+
+            if externalTimes.contains(where: { $0.isWithin(window: Constants.minimumReminderSpacing, of: candidate) }) {
+                continue
+            }
+
+            if let suggested = workingCalendar.date(
+                bySettingHour: candidate.hour,
+                minute: candidate.minute,
+                second: 0,
+                of: now
+            ) {
+                suggestion = suggested
+                break
+            }
+        }
+
+        let fallback = workingCalendar.date(
+            bySettingHour: baselineComponents.hour ?? Constants.defaultReminderHour,
+            minute: baselineComponents.minute ?? Constants.defaultReminderMinute,
+            second: 0,
+            of: now
+        ) ?? now
+
+        let result = suggestion ?? fallback
+        let resultComponents = workingCalendar.dateComponents([.hour, .minute], from: result)
+        let formattedResult = String(
+            format: "%02d:%02d",
+            resultComponents.hour ?? Constants.defaultReminderHour,
+            resultComponents.minute ?? Constants.defaultReminderMinute
+        )
+
+        trace.end(extraMetadata: [
+            "attempts": "\(attempts)",
+            "externalSchedules": "\(externalSchedules.count)",
+            "result": formattedResult
+        ])
+        return result
+    }
+
     func replaceTimes(_ times: [ScheduleTime]) {
         scheduleDraft.times = times.sorted(by: { $0.totalMinutes < $1.totalMinutes })
     }
@@ -332,16 +425,10 @@ final class GoalCreationViewModel {
     func conflictDescription(window: TimeInterval = Constants.minimumReminderSpacing) -> String? {
         guard !scheduleDraft.times.isEmpty else { return nil }
 
-        let fetchDescriptor = FetchDescriptor<TrackingGoal>(predicate: #Predicate { goal in
-            goal.isActive
-        })
-
-        let existingGoals = (try? modelContext.fetch(fetchDescriptor)) ?? []
-        for goal in existingGoals {
-            guard goal.schedule.timezoneIdentifier == scheduleDraft.timezone.identifier else { continue }
-            for existingTime in goal.schedule.times {
+        for schedule in activeSchedules(in: scheduleDraft.timezone) {
+            for existingTime in schedule.times {
                 for newTime in scheduleDraft.times where existingTime.isWithin(window: window, of: newTime) {
-                    return "Clashes with \(goal.title) near \(existingTime.formattedTime(in: scheduleDraft.timezone))."
+                    return "Clashes with \(schedule.title) near \(existingTime.formattedTime(in: scheduleDraft.timezone))."
                 }
             }
         }
@@ -350,6 +437,10 @@ final class GoalCreationViewModel {
     }
 
     func createGoal() throws -> TrackingGoal {
+        let trace = PerformanceMetrics.trace("GoalCreation.createGoal")
+        var metadata: [String: String] = [:]
+        defer { trace.end(extraMetadata: metadata) }
+
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedTitle.isEmpty else { throw CreationError.missingTitle }
         guard !draftQuestions.isEmpty else { throw CreationError.missingQuestions }
@@ -393,6 +484,12 @@ final class GoalCreationViewModel {
 
         modelContext.insert(goal)
         try modelContext.save()
+        invalidateScheduleCache()
+        metadata = [
+            "questions": "\(goal.questions.count)",
+            "times": "\(goal.schedule.times.count)",
+            "category": goal.categoryDisplayName
+        ]
         recentCustomCategories = GoalCreationViewModel.loadCustomCategories(from: modelContext)
         draftQuestions.removeAll()
         scheduleDraft = ScheduleDraft(startDate: dateProvider())
@@ -401,6 +498,50 @@ final class GoalCreationViewModel {
         selectedCategory = nil
         customCategoryLabel = ""
         return goal
+    }
+
+    private func activeSchedules(in timezone: TimeZone) -> [ScheduleSnapshot] {
+        let trace = PerformanceMetrics.trace("GoalCreation.activeSchedules", metadata: ["timezone": timezone.identifier])
+        let now = dateProvider()
+        if let cache = cachedSchedules,
+           now.timeIntervalSince(cache.timestamp) < Self.scheduleCacheTTL,
+           let snapshots = cache.schedulesByTimezone[timezone.identifier] {
+            trace.end(extraMetadata: [
+                "source": "cache",
+                "count": "\(snapshots.count)"
+            ])
+            return snapshots
+        }
+
+        var descriptor = FetchDescriptor<TrackingGoal>(predicate: #Predicate { goal in
+            goal.isActive
+        })
+        descriptor.includePendingChanges = true
+        let fetchedGoals = (try? modelContext.fetch(descriptor)) ?? []
+        let snapshots = fetchedGoals
+            .filter { !$0.schedule.times.isEmpty }
+            .map { goal in
+                ScheduleSnapshot(
+                    goalID: goal.id,
+                    title: goal.title,
+                    timezoneIdentifier: goal.schedule.timezoneIdentifier,
+                    times: goal.schedule.times
+                )
+            }
+
+        let grouped = Dictionary(grouping: snapshots, by: \.timezoneIdentifier)
+        cachedSchedules = ScheduleCache(timestamp: now, schedulesByTimezone: grouped)
+        let result = grouped[timezone.identifier] ?? []
+        trace.end(extraMetadata: [
+            "source": "fetch",
+            "count": "\(result.count)",
+            "fetchedGoals": "\(fetchedGoals.count)"
+        ])
+        return result
+    }
+
+    private func invalidateScheduleCache() {
+        cachedSchedules = nil
     }
 }
 
@@ -423,4 +564,16 @@ extension GoalCreationViewModel {
         }
         return labels
     }
+}
+
+private struct ScheduleSnapshot: Sendable {
+    let goalID: UUID
+    let title: String
+    let timezoneIdentifier: String
+    let times: [ScheduleTime]
+}
+
+private struct ScheduleCache {
+    let timestamp: Date
+    let schedulesByTimezone: [String: [ScheduleSnapshot]]
 }

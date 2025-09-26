@@ -51,6 +51,66 @@ final class FutureLifeUpdatesUITests: XCTestCase {
     }
 
     @MainActor
+    func testQuestionComposerHidesNavigationWhileTyping() throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        let goalsTab = app.tabBars.buttons["Goals"]
+        XCTAssertTrue(goalsTab.waitForExistence(timeout: 5), "Goals tab should be visible on launch")
+        goalsTab.tap()
+
+        let addGoalButton = app.buttons["Add Goal"]
+        XCTAssertTrue(addGoalButton.waitForExistence(timeout: 5), "Add Goal button should be present on launch")
+        addGoalButton.tap()
+
+        let scrollView = app.scrollViews.firstMatch
+        XCTAssertTrue(scrollView.waitForExistence(timeout: 3), "Goal creation content should be contained in a scroll view")
+
+        let titleField = scrollView.textFields["Goal title"]
+        XCTAssertTrue(titleField.waitForExistence(timeout: 2), "Goal title field should be available")
+        titleField.tap()
+        titleField.typeText("Sleep quality")
+
+        let categoryLabels = ["Health", "Fitness", "Productivity", "Habits", "Mood", "Learning"]
+        var didSelectCategory = false
+        for label in categoryLabels {
+            let chip = scrollView.buttons[label]
+            if chip.waitForExistence(timeout: 0.5) {
+                _ = scrollToElement(chip, in: scrollView)
+                if chip.isHittable {
+                    chip.tap()
+                    didSelectCategory = true
+                    break
+                }
+            }
+        }
+        XCTAssertTrue(didSelectCategory, "Should be able to select a primary category")
+
+        var nextButton = app.buttons["Next"]
+        XCTAssertTrue(nextButton.waitForExistence(timeout: 2), "Next button should be visible before proceeding")
+        nextButton.tap()
+
+        nextButton = app.buttons["Next"]
+        XCTAssertTrue(nextButton.waitForExistence(timeout: 2), "Next button should appear on the questions step before typing")
+
+        let questionTextView = scrollView.textViews["Ask a question to track"]
+        let questionField: XCUIElement
+        if questionTextView.waitForExistence(timeout: 2) {
+            questionField = questionTextView
+        } else {
+            let fallbackField = scrollView.textFields["Ask a question to track"]
+            XCTAssertTrue(fallbackField.waitForExistence(timeout: 2), "Question field should be available for input")
+            questionField = fallbackField
+        }
+
+        questionField.tap()
+        questionField.typeText("How many hours did you sleep?")
+
+        let disappearanceExpectation = expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: nextButton, handler: nil)
+        wait(for: [disappearanceExpectation], timeout: 2.0)
+    }
+
+    @MainActor
     func testLaunchPerformance() throws {
         // This measures how long it takes to launch your application.
         measure(metrics: [XCTApplicationLaunchMetric()]) {

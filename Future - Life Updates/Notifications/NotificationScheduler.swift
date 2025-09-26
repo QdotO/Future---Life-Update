@@ -1,10 +1,15 @@
 import Foundation
 import UserNotifications
 import SwiftData
+import os
 
 final class NotificationScheduler: @unchecked Sendable {
     static let shared = NotificationScheduler()
     private let center = UNUserNotificationCenter.current()
+    private let authorizationCache = AuthorizationCache()
+#if DEBUG
+    private let logger = Logger(subsystem: "com.quincy.Future-Life-Updates", category: "NotificationScheduler")
+#endif
 
     private init() {
         let currentCenter = center
@@ -18,7 +23,7 @@ final class NotificationScheduler: @unchecked Sendable {
             guard let self else { return }
             let authorized = await ensureAuthorization()
             guard authorized else {
-                print("[Notifications] Skipping schedule – authorization not granted")
+                debugLog("Skipping schedule – authorization not granted")
                 return
             }
 
@@ -32,7 +37,7 @@ final class NotificationScheduler: @unchecked Sendable {
                 do {
                     try await center.add(request)
                 } catch {
-                    print("Failed to schedule notification: \(error)")
+                    errorLog("Failed to schedule notification: \(error.localizedDescription)")
                 }
             }
         }
@@ -43,7 +48,7 @@ final class NotificationScheduler: @unchecked Sendable {
             guard let self else { return }
             let authorized = await ensureAuthorization()
             guard authorized else {
-                print("[Notifications] Skipping test notification – authorization not granted")
+                debugLog("Skipping test notification – authorization not granted")
                 return
             }
 
@@ -68,7 +73,7 @@ final class NotificationScheduler: @unchecked Sendable {
             do {
                 try await center.add(request)
             } catch {
-                print("Failed to schedule test notification: \(error)")
+                errorLog("Failed to schedule test notification: \(error.localizedDescription)")
             }
         }
     }
@@ -207,31 +212,33 @@ final class NotificationScheduler: @unchecked Sendable {
     }
 
     private func ensureAuthorization() async -> Bool {
-        let settings = await center.notificationSettings()
-        switch settings.authorizationStatus {
-        case .authorized, .provisional, .ephemeral:
-            print("[Notifications] Authorization already granted: \(settings.authorizationStatus.rawValue)")
-            return true
-        case .denied:
-            print("[Notifications] Authorization denied by user")
-            return false
-        case .notDetermined:
-            do {
-                print("[Notifications] Requesting notification authorization")
-                let granted = try await center.requestAuthorization(options: [.alert, .sound, .badge])
-                if granted {
-                    print("[Notifications] Authorization granted on request")
-                } else {
-                    print("[Notifications] Authorization request declined")
+        await authorizationCache.getOrCreate { [center] in
+            let settings = await center.notificationSettings()
+            switch settings.authorizationStatus {
+            case .authorized, .provisional, .ephemeral:
+                self.debugLog("Authorization already granted: \(settings.authorizationStatus.rawValue)")
+                return true
+            case .denied:
+                self.debugLog("Authorization denied by user")
+                return false
+            case .notDetermined:
+                do {
+                    self.debugLog("Requesting notification authorization")
+                    let granted = try await center.requestAuthorization(options: [.alert, .sound, .badge])
+                    if granted {
+                        self.debugLog("Authorization granted on request")
+                    } else {
+                        self.debugLog("Authorization request declined")
+                    }
+                    return granted
+                } catch {
+                    self.errorLog("Authorization request failed: \(error.localizedDescription)")
+                    return false
                 }
-                return granted
-            } catch {
-                print("[Notifications] Authorization request failed: \(error)")
+            @unknown default:
+                self.errorLog("Unknown authorization status: \(settings.authorizationStatus.rawValue)")
                 return false
             }
-        @unknown default:
-            print("[Notifications] Unknown authorization status: \(settings.authorizationStatus.rawValue)")
-            return false
         }
     }
 
@@ -241,5 +248,39 @@ final class NotificationScheduler: @unchecked Sendable {
 
     private func defaultQuestionPrompt() -> String {
         "How is your progress going today?"
+    }
+}
+
+private actor AuthorizationCache {
+    private var task: Task<Bool, Never>?
+
+    func getOrCreate(_ factory: @escaping () async -> Bool) async -> Bool {
+        if let task {
+            return await task.value
+        }
+
+        let newTask = Task { await factory() }
+        task = newTask
+        let result = await newTask.value
+
+        if !result {
+            task = nil
+        }
+
+        return result
+    }
+}
+
+private extension NotificationScheduler {
+    func debugLog(_ message: String) {
+#if DEBUG
+        logger.debug("\(message, privacy: .public)")
+#endif
+    }
+
+    func errorLog(_ message: String) {
+#if DEBUG
+        logger.error("\(message, privacy: .public)")
+#endif
     }
 }

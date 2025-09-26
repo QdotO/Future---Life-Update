@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import os
 
 struct GoalDetailView: View {
     @Environment(\.modelContext) private var modelContext
@@ -9,6 +10,7 @@ struct GoalDetailView: View {
     @State private var trendsViewModel: GoalTrendsViewModel?
     @State private var presentingEditor = false
     @State private var showingNotificationTestAlert = false
+    @State private var recentResponses: [DataPoint] = []
 
     var body: some View {
         List {
@@ -51,9 +53,9 @@ struct GoalDetailView: View {
                 }
             }
 
-            if !goal.dataPoints.isEmpty {
+            if !recentResponses.isEmpty {
                 Section("Recent Responses") {
-                    ForEach(goal.dataPoints.sorted(by: { $0.timestamp > $1.timestamp }).prefix(5)) { point in
+                    ForEach(recentResponses) { point in
                         VStack(alignment: .leading, spacing: 4) {
                             if let question = point.question {
                                 Text(question.text)
@@ -110,9 +112,11 @@ struct GoalDetailView: View {
             } else {
                 trendsViewModel = GoalTrendsViewModel(goal: goal, modelContext: modelContext)
             }
+            loadRecentResponses()
         }
         .onChange(of: goal.updatedAt) { _, _ in
             trendsViewModel?.refresh()
+            loadRecentResponses()
         }
     }
 
@@ -206,6 +210,37 @@ struct GoalDetailView: View {
             return "Recorded for \(time.formatted(date: .omitted, time: .shortened))"
         }
         return "No response recorded"
+    }
+
+    private func loadRecentResponses(limit: Int = 5) {
+        let trace = PerformanceMetrics.trace("GoalDetail.loadRecent", metadata: ["goal": goal.id.uuidString])
+        let goalIdentifier = goal.persistentModelID
+        var descriptor = FetchDescriptor<DataPoint>(
+            predicate: #Predicate<DataPoint> { dataPoint in
+                dataPoint.goal?.persistentModelID == goalIdentifier
+            },
+            sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+        )
+        descriptor.fetchLimit = limit
+        descriptor.includePendingChanges = true
+        descriptor.propertiesToFetch = [
+            \.timestamp,
+            \.numericValue,
+            \.textValue,
+            \.boolValue,
+            \.selectedOptions,
+            \.timeValue
+        ]
+        descriptor.relationshipKeyPathsForPrefetching = [\.question]
+
+        do {
+            recentResponses = try modelContext.fetch(descriptor)
+            trace.end(extraMetadata: ["count": "\(recentResponses.count)"])
+        } catch {
+            recentResponses = []
+            PerformanceMetrics.logger.error("GoalDetail recent fetch failed: \(error.localizedDescription, privacy: .public)")
+            trace.end(extraMetadata: ["error": error.localizedDescription])
+        }
     }
 }
 
