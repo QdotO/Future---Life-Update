@@ -31,16 +31,23 @@ final class FutureLifeUpdatesUITests: XCTestCase {
         let app = XCUIApplication()
         app.launch()
 
-        let addGoalButton = app.buttons["Add Goal"]
-        XCTAssertTrue(addGoalButton.waitForExistence(timeout: 2), "Add Goal button should be present on launch")
+    let goalsTab = app.tabBars.buttons["Goals"]
+    XCTAssertTrue(goalsTab.waitForExistence(timeout: 5), "Goals tab should be visible on launch")
+    goalsTab.tap()
+
+    let addGoalButton = app.buttons["Add Goal"]
+    XCTAssertTrue(addGoalButton.waitForExistence(timeout: 5), "Add Goal button should be present on launch")
         addGoalButton.tap()
 
+        let scrollView = app.scrollViews.firstMatch
+        XCTAssertTrue(scrollView.waitForExistence(timeout: 2), "Goal creation content should be contained in a scroll view")
+
         let moreCategoriesButton = app.buttons["More categories"]
-        XCTAssertTrue(moreCategoriesButton.waitForExistence(timeout: 2), "More categories control should appear in creation flow")
+        XCTAssertTrue(scrollToElement(moreCategoriesButton, in: scrollView), "More categories control should appear in creation flow")
         moreCategoriesButton.tap()
 
-    let financeChip = app.buttons["Finance"]
-        XCTAssertTrue(financeChip.waitForExistence(timeout: 2), "Finance chip should be visible after expanding overflow")
+        let financeChip = app.buttons["Finance"]
+        XCTAssertTrue(scrollToElement(financeChip, in: scrollView), "Finance chip should be visible after expanding overflow")
     }
 
     @MainActor
@@ -49,5 +56,21 @@ final class FutureLifeUpdatesUITests: XCTestCase {
         measure(metrics: [XCTApplicationLaunchMetric()]) {
             XCUIApplication().launch()
         }
+    }
+}
+
+private extension FutureLifeUpdatesUITests {
+    @discardableResult
+    func scrollToElement(_ element: XCUIElement, in container: XCUIElement, maxSwipes: Int = 6) -> Bool {
+        guard container.exists else { return element.exists }
+
+        if element.exists && element.isHittable { return true }
+
+        for _ in 0..<maxSwipes {
+            container.swipeUp()
+            if element.exists && element.isHittable { return true }
+        }
+
+        return element.exists
     }
 }

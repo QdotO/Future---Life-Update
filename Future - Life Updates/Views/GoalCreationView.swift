@@ -39,11 +39,6 @@ struct GoalCreationView: View {
         }
     }
 
-    private enum QuestionComposerStage {
-        case prompt
-        case configuration
-    }
-
     private enum DetailsField: Hashable {
         case title
         case description
@@ -52,7 +47,6 @@ struct GoalCreationView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var step: Step = .details
-    @State private var composerStage: QuestionComposerStage = .prompt
     @State private var composerQuestionText: String = ""
     @State private var composerSelectedType: ResponseType?
     @State private var composerMinimumValue: Double = 0
@@ -197,6 +191,7 @@ struct GoalCreationView: View {
             CardBackground {
                 questionComposerCard
             }
+            .padding(.bottom, AppTheme.Spacing.sm)
 
             if viewModel.hasDraftQuestions {
                 VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
@@ -213,12 +208,12 @@ struct GoalCreationView: View {
     }
 
     private var questionComposerCard: some View {
-        VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-            HStack(alignment: .firstTextBaseline) {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
+            HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
                     Text(composerEditingID == nil ? "Add a question" : "Edit question")
                         .font(AppTheme.Typography.sectionHeader)
-                    Text(composerStage == .prompt ? "Step 1 of 2" : "Step 2 of 2")
+                    Text("Fill in the prompt and the responses people will give.")
                         .font(AppTheme.Typography.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -236,92 +231,67 @@ struct GoalCreationView: View {
                 }
             }
 
-            switch composerStage {
-            case .prompt:
-                composerPromptStage
-            case .configuration:
-                composerConfigurationStage
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+                TextField("Ask a question to track", text: $composerQuestionText, axis: .vertical)
+                    .textInputAutocapitalization(.sentences)
+                    .lineLimit(2, reservesSpace: true)
+
+                VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                    Text("Response type")
+                        .font(AppTheme.Typography.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+
+                    LazyVGrid(columns: responseTypeGridColumns, spacing: AppTheme.Spacing.sm) {
+                        ForEach(responseTypeOptions) { option in
+                            responseTypeButton(for: option)
+                        }
+                    }
+                }
+
+                if let selectedType = composerSelectedType {
+                    VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                        HStack {
+                            Text("Configure responses")
+                                .font(AppTheme.Typography.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            let option = responseTypeOption(for: selectedType)
+                            Label(option.title, systemImage: option.icon)
+                                .font(AppTheme.Typography.caption)
+                                .foregroundStyle(.secondary)
+                                .labelStyle(.titleAndIcon)
+                                .accessibilityHidden(true)
+                        }
+
+                        configurationFields(for: selectedType)
+                    }
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                } else {
+                    Text("Choose a response type to unlock configuration details.")
+                        .font(AppTheme.Typography.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             if let composerErrorMessage {
                 Text(composerErrorMessage)
                     .font(AppTheme.Typography.caption)
                     .foregroundStyle(Color.red)
-                    .accessibilityHint("Fix the issue before continuing.")
-            }
-        }
-    }
-
-    private var composerPromptStage: some View {
-        VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-            TextField("Ask a question to track", text: $composerQuestionText, axis: .vertical)
-                .textInputAutocapitalization(.sentences)
-                .lineLimit(2, reservesSpace: true)
-
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                Text("Response type")
-                    .font(AppTheme.Typography.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-
-                LazyVGrid(columns: responseTypeGridColumns, spacing: AppTheme.Spacing.sm) {
-                    ForEach(responseTypeOptions) { option in
-                        responseTypeButton(for: option)
-                    }
-                }
+                    .accessibilityHint("Fix the issue before saving.")
             }
 
             HStack(spacing: AppTheme.Spacing.sm) {
                 if composerHasContent {
-                    Button("Start over") {
+                    Button(role: .destructive) {
                         resetComposer()
+                    } label: {
+                        Label("Clear", systemImage: "arrow.uturn.left")
+                            .font(AppTheme.Typography.bodyStrong)
                     }
-                    .buttonStyle(.secondaryProminent)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(AppTheme.Palette.neutralSubdued)
+                    .accessibilityLabel("Clear question builder")
                 }
-
-                Spacer()
-
-                Button("Continue") {
-                    advanceToConfiguration()
-                }
-                .buttonStyle(.primaryProminent)
-                .disabled(!canContinueComposer)
-            }
-        }
-    }
-
-    private var composerConfigurationStage: some View {
-        VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
-                if composerEditingID != nil {
-                    Text("Editing existing question")
-                        .font(AppTheme.Typography.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Text(composerQuestionText)
-                    .font(AppTheme.Typography.body.weight(.semibold))
-                    .multilineTextAlignment(.leading)
-                if let selectedType = composerSelectedType {
-                    let option = responseTypeOption(for: selectedType)
-                    HStack(spacing: AppTheme.Spacing.xs) {
-                        Image(systemName: option.icon)
-                            .font(.caption)
-                        Text(option.title)
-                    }
-                    .font(AppTheme.Typography.caption)
-                    .foregroundStyle(.secondary)
-                }
-            }
-
-            if let selectedType = composerSelectedType {
-                configurationFields(for: selectedType)
-            }
-
-            HStack(spacing: AppTheme.Spacing.sm) {
-                Button("Back") {
-                    composerStage = .prompt
-                    composerErrorMessage = nil
-                }
-                .buttonStyle(.secondaryProminent)
 
                 Spacer()
 
@@ -329,6 +299,7 @@ struct GoalCreationView: View {
                     saveComposedQuestion()
                 }
                 .buttonStyle(.primaryProminent)
+                .frame(maxWidth: 260)
                 .disabled(!canSaveComposedQuestion)
             }
         }
@@ -516,37 +487,21 @@ struct GoalCreationView: View {
         }
     }
 
-    private func advanceToConfiguration() {
+    private func saveComposedQuestion() {
         composerErrorMessage = nil
         let trimmed = composerQuestionText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
-            composerErrorMessage = "Enter a prompt before continuing."
+            composerErrorMessage = "Enter a question prompt before saving."
             Haptics.warning()
             return
         }
+
         guard let selectedType = composerSelectedType else {
-            composerErrorMessage = "Choose a response type."
-            Haptics.warning()
-            return
-        }
-        if composerEditingID == nil {
-            applyComposerDefaults(for: selectedType)
-        }
-        withAnimation(.easeInOut) {
-            composerStage = .configuration
-        }
-        Haptics.selection()
-    }
-
-    private func saveComposedQuestion() {
-        composerErrorMessage = nil
-        guard canSaveComposedQuestion, let selectedType = composerSelectedType else {
-            composerErrorMessage = "Check the fields above before saving."
+            composerErrorMessage = "Choose a response type before saving."
             Haptics.warning()
             return
         }
 
-        let trimmed = composerQuestionText.trimmingCharacters(in: .whitespacesAndNewlines)
         var options: [String]? = nil
         var validation: ValidationRules? = nil
 
@@ -588,7 +543,6 @@ struct GoalCreationView: View {
     }
 
     private func resetComposer() {
-        composerStage = .prompt
         composerQuestionText = ""
         composerSelectedType = nil
         composerMinimumValue = 0
@@ -640,10 +594,6 @@ struct GoalCreationView: View {
         composerMaximumValue = question.validationRules?.maximumValue ?? defaults.max
         composerAllowsEmpty = question.validationRules?.allowsEmpty ?? false
         composerOptionsText = question.options?.joined(separator: ", ") ?? ""
-
-        withAnimation(.easeInOut) {
-            composerStage = .configuration
-        }
     }
 
     private func currentOptions() -> [String] {
@@ -673,10 +623,6 @@ struct GoalCreationView: View {
         default:
             return (0, 100)
         }
-    }
-
-    private var canContinueComposer: Bool {
-        !composerQuestionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && composerSelectedType != nil
     }
 
     private var composerHasContent: Bool {
