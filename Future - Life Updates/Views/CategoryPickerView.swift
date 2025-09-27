@@ -120,6 +120,7 @@ struct CategoryPickerView: View {
                         }
                     )
                     .accessibilityValue(isSelected(option) ? "Selected" : "Not selected")
+                    .accessibilityIdentifier("categoryChip-\(option.id)")
                 }
             }
             .padding(.horizontal, AppTheme.Spacing.xs)
@@ -141,6 +142,7 @@ struct CategoryPickerView: View {
                     }
                 )
                 .accessibilityValue(isSelected(option) ? "Selected" : "Not selected")
+                .accessibilityIdentifier("categoryChip-\(option.id)")
             }
 
             if includeCustomButton {

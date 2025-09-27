@@ -56,7 +56,7 @@ struct TodayDashboardView: View {
                                         .foregroundStyle(.secondary)
                                 }
 
-                                if let category = reminder.goal.categoryDisplayName.nonEmpty {
+                                if let category = reminder.goal.categoryDisplayName {
                                     Label(category, systemImage: "tag")
                                         .font(AppTheme.Typography.caption)
                                         .labelStyle(.titleAndIcon)
@@ -93,7 +93,7 @@ struct TodayDashboardView: View {
                                     Text(summary.goal.title)
                                         .font(AppTheme.Typography.body.weight(.semibold))
                                     Spacer()
-                                    if let category = summary.goal.categoryDisplayName.nonEmpty {
+                                            if let category = summary.goal.categoryDisplayName {
                                         Label(category, systemImage: "tag")
                                             .font(AppTheme.Typography.caption)
                                             .labelStyle(.titleAndIcon)
@@ -153,7 +153,7 @@ private struct MetricTile: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(iconColor)
                     .symbolRenderingMode(.hierarchical)
-                Text(metric.question.text)
+                Text(metric.questionText)
                     .font(AppTheme.Typography.caption)
                     .foregroundStyle(AppTheme.Palette.neutralSubdued)
                 Spacer()
@@ -231,7 +231,7 @@ private struct MetricTile: View {
     }
 }
 
-private extension String {
+extension String {
     var nonEmpty: String? {
         trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : self
     }

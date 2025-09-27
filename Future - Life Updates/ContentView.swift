@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
@@ -357,6 +358,17 @@ private struct InsightsOverviewView: View {
 private struct SettingsRootView: View {
     @Binding var sendDailyDigest: Bool
     @Binding var allowNotificationPreviews: Bool
+    @Environment(\.modelContext) private var modelContext
+
+    @State private var settingsViewModel: SettingsViewModel?
+    @State private var exportDocument = BackupDocument()
+    @State private var exportFilename: String = "FutureLifeBackup"
+    @State private var isPresentingExporter = false
+    @State private var isPresentingImporter = false
+    @State private var pendingImportData: Data?
+    @State private var showImportConfirmation = false
+    @State private var isProcessing = false
+    @State private var alertInfo: SettingsAlert?
 
     var body: some View {
         List {
@@ -367,6 +379,30 @@ private struct SettingsRootView: View {
                 Toggle(isOn: $allowNotificationPreviews) {
                     Text("Allow reminder previews")
                 }
+            }
+
+            Section("Data management") {
+                Button {
+                    handleExport()
+                } label: {
+                    Label("Export data", systemImage: "square.and.arrow.up")
+                }
+                .disabled(isProcessing || settingsViewModel == nil)
+
+                Text("Save a backup of your goals and history to Files.")
+                    .font(AppTheme.Typography.caption)
+                    .foregroundStyle(.secondary)
+
+                Button {
+                    isPresentingImporter = true
+                } label: {
+                    Label("Import data", systemImage: "square.and.arrow.down")
+                }
+                .disabled(isProcessing || settingsViewModel == nil)
+
+                Text("Restore a previous backup. Existing data will be replaced.")
+                    .font(AppTheme.Typography.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section("Support") {
@@ -389,7 +425,124 @@ private struct SettingsRootView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .task {
+            if settingsViewModel == nil {
+                settingsViewModel = SettingsViewModel(modelContext: modelContext)
+            }
+        }
+        .fileExporter(
+            isPresented: $isPresentingExporter,
+            document: exportDocument,
+            contentType: .json,
+            defaultFilename: exportFilename
+        ) { result in
+            if case let .failure(error) = result {
+                alertInfo = SettingsAlert(title: "Export failed", message: error.localizedDescription)
+            } else {
+                alertInfo = SettingsAlert(title: "Export ready", message: "Your data backup was created.")
+            }
+            isProcessing = false
+        }
+        .fileImporter(
+            isPresented: $isPresentingImporter,
+            allowedContentTypes: [.json],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                guard let url = urls.first else {
+                    alertInfo = SettingsAlert(title: "Import cancelled", message: "No file was selected.")
+                    return
+                }
+                prepareImport(from: url)
+            case .failure(let error):
+                alertInfo = SettingsAlert(title: "Import failed", message: error.localizedDescription)
+            }
+        }
+        .confirmationDialog(
+            "Replace existing data?",
+            isPresented: $showImportConfirmation,
+            presenting: pendingImportData
+        ) { data in
+            Button("Replace data", role: .destructive) {
+                performImport(with: data)
+            }
+            Button("Cancel", role: .cancel) {
+                pendingImportData = nil
+            }
+        } message: { _ in
+            Text("This will delete your current goals before restoring the backup.")
+        }
+        .alert(item: $alertInfo) { info in
+            Alert(
+                title: Text(info.title),
+                message: Text(info.message),
+                dismissButton: .default(Text("OK"))
+            )
+        }
     }
+
+    private func handleExport() {
+        guard let viewModel = settingsViewModel else { return }
+        isProcessing = true
+        do {
+            let document = try viewModel.createBackupDocument()
+            exportDocument = document
+            exportFilename = viewModel.makeDefaultFilename()
+            isPresentingExporter = true
+        } catch {
+            alertInfo = SettingsAlert(title: "Export failed", message: error.localizedDescription)
+            isProcessing = false
+        }
+    }
+
+    private func prepareImport(from url: URL) {
+        guard let viewModel = settingsViewModel else { return }
+
+        do {
+            let data = try accessData(at: url)
+            if try viewModel.hasExistingData() {
+                pendingImportData = data
+                showImportConfirmation = true
+            } else {
+                performImport(with: data)
+            }
+        } catch {
+            alertInfo = SettingsAlert(title: "Import failed", message: error.localizedDescription)
+        }
+    }
+
+    private func performImport(with data: Data) {
+        guard let viewModel = settingsViewModel else { return }
+        isProcessing = true
+        do {
+            let summary = try viewModel.importBackup(from: data)
+            alertInfo = SettingsAlert(
+                title: "Import complete",
+                message: "Restored \(summary.goalsImported) goals and \(summary.dataPointsImported) entries."
+            )
+        } catch {
+            alertInfo = SettingsAlert(title: "Import failed", message: error.localizedDescription)
+        }
+        pendingImportData = nil
+        isProcessing = false
+    }
+
+    private func accessData(at url: URL) throws -> Data {
+        let shouldStopAccessing = url.startAccessingSecurityScopedResource()
+        defer {
+            if shouldStopAccessing {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+        return try Data(contentsOf: url)
+    }
+}
+
+private struct SettingsAlert: Identifiable {
+    let id = UUID()
+    let title: String
+    let message: String
 }
 
 private struct MissingGoalPlaceholder: View {

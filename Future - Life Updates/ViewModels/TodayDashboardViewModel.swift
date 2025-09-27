@@ -28,7 +28,7 @@ final class TodayDashboardViewModel {
     }
 
     struct QuestionMetric: Identifiable, Hashable {
-        enum MetricStatus {
+    enum MetricStatus: Hashable {
             case numeric
             case boolean(isComplete: Bool)
             case options
@@ -331,7 +331,7 @@ final class TodayDashboardViewModel {
                     id: question.id,
                     questionText: question.text,
                     responseType: question.responseType,
-                    primaryValue: formatTime(date, timezoneIdentifier: question.goal?.schedule.timezoneIdentifier),
+                    primaryValue: formatTime(date, timezoneIdentifier: goalTimezoneIdentifier),
                     detail: "Logged time",
                     status: .time,
                     progressFraction: nil,
@@ -359,16 +359,21 @@ final class TodayDashboardViewModel {
         )
     }
 
+    private func makeSummary(for goal: TrackingGoal) -> GoalSummary {
+        GoalSummary(
+            id: goal.id,
+            title: goal.title,
+            categoryDisplayName: goal.categoryDisplayName.nonEmpty,
+            timezoneIdentifier: goal.schedule.timezoneIdentifier
+        )
+    }
+
     private func formatNumber(_ value: Double) -> String {
         numberFormatter.string(from: NSNumber(value: value)) ?? String(format: "%.1f", value)
     }
 
-    private func formatTime(_ date: Date, timezoneIdentifier: String?) -> String {
-        if let identifier = timezoneIdentifier, let timeZone = TimeZone(identifier: identifier) {
-            timeFormatter.timeZone = timeZone
-        } else {
-            timeFormatter.timeZone = .current
-        }
+    private func formatTime(_ date: Date, timezoneIdentifier: String) -> String {
+        timeFormatter.timeZone = TimeZone(identifier: timezoneIdentifier) ?? .current
         return timeFormatter.string(from: date)
     }
 

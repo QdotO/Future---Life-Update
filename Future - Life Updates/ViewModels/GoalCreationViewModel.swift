@@ -229,7 +229,10 @@ final class GoalCreationViewModel {
     }
 
     func updateSelectedWeekdays(_ weekdays: Set<Weekday>) {
-        scheduleDraft.selectedWeekdays = weekdays
+        // Reassign the whole draft so Observation publishes changes
+        var draft = scheduleDraft
+        draft.selectedWeekdays = weekdays
+        scheduleDraft = draft
     }
 
     func updateSchedule(
@@ -254,41 +257,49 @@ final class GoalCreationViewModel {
     }
 
     func updateIntervalDayCount(_ interval: Int?) {
-        guard let interval else {
-            scheduleDraft.intervalDayCount = nil
-            return
+        var draft = scheduleDraft
+        if let interval {
+            draft.intervalDayCount = max(2, interval)
+        } else {
+            draft.intervalDayCount = nil
         }
-        scheduleDraft.intervalDayCount = max(2, interval)
+        scheduleDraft = draft
     }
 
     func setFrequency(_ frequency: Frequency) {
-        scheduleDraft.frequency = frequency
+        var draft = scheduleDraft
+        draft.frequency = frequency
         switch frequency {
         case .weekly:
-            if scheduleDraft.selectedWeekdays.isEmpty {
+            if draft.selectedWeekdays.isEmpty {
                 let weekdayValue = calendar.component(.weekday, from: dateProvider())
                 if let weekday = Weekday(rawValue: weekdayValue) {
-                    scheduleDraft.selectedWeekdays = [weekday]
+                    draft.selectedWeekdays = [weekday]
                 }
             }
-            scheduleDraft.intervalDayCount = nil
+            draft.intervalDayCount = nil
         case .custom:
-            scheduleDraft.selectedWeekdays.removeAll()
-            if scheduleDraft.intervalDayCount == nil {
-                scheduleDraft.intervalDayCount = Constants.defaultIntervalDays
+            draft.selectedWeekdays.removeAll()
+            if draft.intervalDayCount == nil {
+                draft.intervalDayCount = Constants.defaultIntervalDays
             }
         default:
-            scheduleDraft.selectedWeekdays.removeAll()
-            scheduleDraft.intervalDayCount = nil
+            draft.selectedWeekdays.removeAll()
+            draft.intervalDayCount = nil
         }
+        scheduleDraft = draft
     }
 
     func setTimezone(_ timezone: TimeZone) {
-        scheduleDraft.timezone = timezone
+        var draft = scheduleDraft
+        draft.timezone = timezone
+        scheduleDraft = draft
     }
 
     func setStartDate(_ date: Date) {
-        scheduleDraft.startDate = date
+        var draft = scheduleDraft
+        draft.startDate = date
+        scheduleDraft = draft
     }
 
     func suggestedReminderDate(
@@ -380,7 +391,10 @@ final class GoalCreationViewModel {
     }
 
     func replaceTimes(_ times: [ScheduleTime]) {
-        scheduleDraft.times = times.sorted(by: { $0.totalMinutes < $1.totalMinutes })
+        // Always assign through the draft to trigger observation updates
+        var draft = scheduleDraft
+        draft.times = times.sorted(by: { $0.totalMinutes < $1.totalMinutes })
+        scheduleDraft = draft
     }
 
     @discardableResult
@@ -393,14 +407,16 @@ final class GoalCreationViewModel {
         guard !hasConflict(with: newTime, window: Constants.minimumReminderSpacing) else { return false }
 
         if !scheduleDraft.times.contains(newTime) {
-            scheduleDraft.times.append(newTime)
-            scheduleDraft.times.sort(by: { $0.totalMinutes < $1.totalMinutes })
+            var newTimes = scheduleDraft.times
+            newTimes.append(newTime)
+            replaceTimes(newTimes)
         }
         return true
     }
 
     func removeScheduleTime(_ scheduleTime: ScheduleTime) {
-        scheduleDraft.times.removeAll { $0 == scheduleTime }
+        let newTimes = scheduleDraft.times.filter { $0 != scheduleTime }
+        replaceTimes(newTimes)
     }
 
     func hasConflict(with scheduleTime: ScheduleTime, window: TimeInterval = Constants.minimumReminderSpacing) -> Bool {

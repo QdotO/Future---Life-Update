@@ -1,0 +1,26 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run the single flaky UI test with extended waits",
+			"type": "shell",
+			"command": "xcodebuild -project \"Future - Life Updates.xcodeproj\" -scheme \"Future - Life Updates\" -destination 'platform=iOS Simulator,name=iPhone 15' -only-testing \"Future___Life_UpdatesUITests/testReminderTimeDisplaysAfterAdding\" test | xcbeautify",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "List Xcode schemes to validate names",
+			"type": "shell",
+			"command": "xcodebuild -list -project \"Future - Life Updates.xcodeproj\"",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Run single UI test using test target as destination hint",
+			"type": "shell",
+			"command": "xcodebuild -project \"Future - Life Updates.xcodeproj\" -scheme \"Future - Life Updates\" -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' -only-testing \"Future - Life UpdatesUITests/testReminderTimeDisplaysAfterAdding\" test",
+			"isBackground": false,
+			"group": "build"
+		}
+	]
+}

@@ -32,11 +32,13 @@ struct WizardNavigationButtons: View {
 			if canGoBack {
 				Button("Back", action: onBack)
 					.buttonStyle(.secondaryProminent)
+					.accessibilityIdentifier("wizardBackButton")
 			}
 
 			Button(isFinalStep ? "Create Goal" : "Next", action: onNext)
 				.buttonStyle(.primaryProminent)
 				.disabled(!isForwardEnabled)
+				.accessibilityIdentifier("wizardNextButton")
 		}
 	}
 }

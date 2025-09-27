@@ -10,6 +10,15 @@ struct GoalCreationView: View {
 
         var id: Int { rawValue }
 
+        var key: String {
+            switch self {
+            case .details: return "details"
+            case .questions: return "questions"
+            case .schedule: return "schedule"
+            case .review: return "review"
+            }
+        }
+
         var title: String {
             switch self {
             case .details: return "Goal basics"
@@ -80,6 +89,7 @@ struct GoalCreationView: View {
                             stepIndex: step.rawValue,
                             totalSteps: Step.allCases.count
                         )
+                        .accessibilityIdentifier("wizardStep-\(step.key)")
 
                         stepContent
                     }
@@ -87,6 +97,7 @@ struct GoalCreationView: View {
                     .padding(.bottom, AppTheme.Spacing.xl * 2)
                     .frame(minHeight: geometry.size.height, alignment: .top)
                 }
+                .accessibilityIdentifier("goalCreationScroll")
             }
             .background(AppTheme.Palette.background.ignoresSafeArea())
             .navigationTitle("New Tracking Goal")
@@ -173,6 +184,7 @@ struct GoalCreationView: View {
                     .textInputAutocapitalization(.sentences)
                     .font(AppTheme.Typography.title)
                     .focused($activeDetailsField, equals: .title)
+                    .accessibilityIdentifier("goalTitleField")
 
                 TextField("What are you tracking?", text: $viewModel.goalDescription, axis: .vertical)
                     .lineLimit(3, reservesSpace: true)
@@ -260,6 +272,7 @@ struct GoalCreationView: View {
                     .textInputAutocapitalization(.sentences)
                     .lineLimit(2, reservesSpace: true)
                     .focused($isComposerQuestionFocused)
+                    .accessibilityIdentifier("questionPromptField")
 
                 VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
                     Text("Response type")
@@ -326,6 +339,7 @@ struct GoalCreationView: View {
                 .buttonStyle(.primaryProminent)
                 .frame(maxWidth: 260)
                 .disabled(!canSaveComposedQuestion)
+                .accessibilityIdentifier("saveQuestionButton")
             }
         }
     }
@@ -367,8 +381,9 @@ struct GoalCreationView: View {
             )
             .foregroundStyle(isSelected ? AppTheme.Palette.primary : AppTheme.Palette.neutralStrong)
         }
-        .buttonStyle(.plain)
-        .accessibilityHint(option.subtitle)
+    .buttonStyle(.plain)
+    .accessibilityHint(option.subtitle)
+    .accessibilityIdentifier("responseType-\(option.type.rawValue)")
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 
@@ -770,7 +785,7 @@ struct GoalCreationView: View {
 
                     if !viewModel.scheduleDraft.times.isEmpty {
                         VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                            ForEach(viewModel.scheduleDraft.times, id: \.self) { scheduleTime in
+                            ForEach(Array(viewModel.scheduleDraft.times.enumerated()), id: \.element) { index, scheduleTime in
                                 HStack {
                                     Text(scheduleTime.formattedTime(in: viewModel.scheduleDraft.timezone))
                                         .font(AppTheme.Typography.body)
@@ -788,8 +803,10 @@ struct GoalCreationView: View {
                                         Image(systemName: "minus.circle.fill")
                                     }
                                     .accessibilityLabel("Remove reminder")
+                                    .accessibilityIdentifier("removeReminder-\(index)")
                                 }
                                 .padding(.vertical, AppTheme.Spacing.xs)
+                                .accessibilityIdentifier("reminderRow-\(scheduleTime.hour)-\(String(format: "%02d", scheduleTime.minute))")
                             }
                         }
                     } else {
