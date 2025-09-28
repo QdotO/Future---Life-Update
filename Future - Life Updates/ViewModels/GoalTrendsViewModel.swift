@@ -28,14 +28,48 @@ final class GoalTrendsViewModel {
         var id: UUID { questionID }
     }
 
+    struct ResponseSnapshot: Identifiable, Hashable {
+        enum Status: Hashable {
+            case numeric(progress: Double?, target: String?)
+            case boolean(isComplete: Bool)
+            case options
+            case text
+            case time
+        }
+
+        let questionID: UUID
+        let questionTitle: String
+        let responseType: ResponseType
+        let primaryValue: String
+        let detail: String
+        let status: Status
+        let timestamp: Date?
+
+        var id: UUID { questionID }
+    }
+
     private(set) var goal: TrackingGoal
     private(set) var dailySeries: [DailyAverage] = []
     private(set) var currentStreakDays: Int = 0
     private(set) var booleanStreaks: [BooleanStreak] = []
+    private(set) var responseSnapshots: [ResponseSnapshot] = []
 
     private let modelContext: ModelContext
     private let calendar: Calendar
     private let dateProvider: () -> Date
+    private let numberFormatter: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.maximumFractionDigits = 1
+        formatter.minimumFractionDigits = 0
+        return formatter
+    }()
+
+    private let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter
+    }()
 
     init(
         goal: TrackingGoal,
@@ -66,9 +100,18 @@ final class GoalTrendsViewModel {
             booleanStreaks = []
             PerformanceMetrics.logger.error("GoalTrends boolean refresh failed: \(error.localizedDescription, privacy: .public)")
         }
+
+        do {
+            try rebuildResponseSnapshots()
+        } catch {
+            responseSnapshots = []
+            PerformanceMetrics.logger.error("GoalTrends snapshot refresh failed: \(error.localizedDescription, privacy: .public)")
+        }
+
         trace.end(extraMetadata: [
             "dailySeries": "\(dailySeries.count)",
             "booleanStreaks": "\(booleanStreaks.count)",
+            "snapshots": "\(responseSnapshots.count)",
             "streakDays": "\(currentStreakDays)"
         ])
     }
@@ -254,5 +297,140 @@ final class GoalTrendsViewModel {
         }
 
         return best
+    }
+
+    private func rebuildResponseSnapshots() throws {
+        let trace = PerformanceMetrics.trace("GoalTrends.rebuildSnapshots", metadata: ["goal": goal.id.uuidString])
+        let goalIdentifier = goal.persistentModelID
+
+        var descriptor = FetchDescriptor<DataPoint>(
+            predicate: #Predicate<DataPoint> { dataPoint in
+                dataPoint.goal?.persistentModelID == goalIdentifier
+            },
+            sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+        )
+        descriptor.includePendingChanges = true
+        descriptor.relationshipKeyPathsForPrefetching = [\.question]
+        descriptor.propertiesToFetch = [
+            \.timestamp,
+            \.numericValue,
+            \.numericDelta,
+            \.boolValue,
+            \.selectedOptions,
+            \.textValue,
+            \.timeValue
+        ]
+
+        let dataPoints = try modelContext.fetch(descriptor)
+        var snapshots: [UUID: ResponseSnapshot] = [:]
+        snapshots.reserveCapacity(goal.questions.count)
+
+        for point in dataPoints {
+            guard let question = point.question else { continue }
+            guard question.isActive else { continue }
+            if snapshots[question.id] != nil { continue }
+
+            if let snapshot = makeSnapshot(for: question, dataPoint: point) {
+                snapshots[question.id] = snapshot
+            }
+
+            if snapshots.count == goal.questions.filter({ $0.isActive }).count {
+                break
+            }
+        }
+
+        responseSnapshots = goal.questions
+            .filter { $0.isActive }
+            .compactMap { snapshots[$0.id] }
+
+        trace.end(extraMetadata: ["snapshots": "\(responseSnapshots.count)"])
+    }
+
+    private func makeSnapshot(for question: Question, dataPoint: DataPoint) -> ResponseSnapshot? {
+        let timestamp = dataPoint.timestamp
+        switch question.responseType {
+        case .numeric, .scale, .slider:
+            guard let value = dataPoint.numericValue else { return nil }
+            let (progress, target) = progressInfo(for: value, rules: question.validationRules)
+            return ResponseSnapshot(
+                questionID: question.id,
+                questionTitle: question.text,
+                responseType: question.responseType,
+                primaryValue: formatNumber(value),
+                detail: "Most recent entry",
+                status: .numeric(progress: progress, target: target),
+                timestamp: timestamp
+            )
+        case .boolean:
+            guard let value = dataPoint.boolValue else { return nil }
+            let detail = value ? "Marked complete" : "Not completed yet"
+            return ResponseSnapshot(
+                questionID: question.id,
+                questionTitle: question.text,
+                responseType: question.responseType,
+                primaryValue: value ? "Yes" : "No",
+                detail: detail,
+                status: .boolean(isComplete: value),
+                timestamp: timestamp
+            )
+        case .multipleChoice:
+            guard let selections = dataPoint.selectedOptions, !selections.isEmpty else { return nil }
+            let detail = selections.count == 1 ? "Latest choice" : "Latest choices"
+            return ResponseSnapshot(
+                questionID: question.id,
+                questionTitle: question.text,
+                responseType: question.responseType,
+                primaryValue: selections.joined(separator: ", "),
+                detail: detail,
+                status: .options,
+                timestamp: timestamp
+            )
+        case .text:
+            guard let text = dataPoint.textValue?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return nil }
+            return ResponseSnapshot(
+                questionID: question.id,
+                questionTitle: question.text,
+                responseType: question.responseType,
+                primaryValue: text,
+                detail: "Latest entry",
+                status: .text,
+                timestamp: timestamp
+            )
+        case .time:
+            guard let value = dataPoint.timeValue else { return nil }
+            return ResponseSnapshot(
+                questionID: question.id,
+                questionTitle: question.text,
+                responseType: question.responseType,
+                primaryValue: formatTime(value, timezoneIdentifier: goal.schedule.timezoneIdentifier),
+                detail: "Logged time",
+                status: .time,
+                timestamp: timestamp
+            )
+        }
+    }
+
+    private func progressInfo(for value: Double, rules: ValidationRules?) -> (Double?, String?) {
+        guard let rules, let maximum = rules.maximumValue, maximum > 0 else {
+            return (nil, nil)
+        }
+
+        let minimum = rules.minimumValue ?? 0
+        let normalized = (value - minimum) / max(maximum - minimum, .ulpOfOne)
+        let clamped = max(0, min(1, normalized))
+
+        return (
+            clamped,
+            "Goal " + formatNumber(maximum)
+        )
+    }
+
+    private func formatNumber(_ value: Double) -> String {
+        numberFormatter.string(from: NSNumber(value: value)) ?? String(format: "%.1f", value)
+    }
+
+    private func formatTime(_ date: Date, timezoneIdentifier: String) -> String {
+        timeFormatter.timeZone = TimeZone(identifier: timezoneIdentifier) ?? .current
+        return timeFormatter.string(from: date)
     }
 }

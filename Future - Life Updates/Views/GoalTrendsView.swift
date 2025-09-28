@@ -13,12 +13,16 @@ struct GoalTrendsView: View {
         VStack(alignment: .leading, spacing: 20) {
             let hasNumeric = !viewModel.dailySeries.isEmpty
             let hasBoolean = !viewModel.booleanStreaks.isEmpty
+            let hasSnapshots = !viewModel.responseSnapshots.isEmpty
 
-            if !hasNumeric && !hasBoolean {
+            if !hasNumeric && !hasBoolean && !hasSnapshots {
                 emptyState
             } else {
                 if hasNumeric {
                     numericSection
+                }
+                if hasSnapshots {
+                    responsesSection
                 }
                 if hasBoolean {
                     booleanSection
@@ -208,6 +212,134 @@ struct GoalTrendsView: View {
             return "Last answered \(value ? "Yes" : "No") on \(dateText)"
         }
         return "Last response recorded on \(dateText)"
+    }
+
+    private var responsesSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Latest responses")
+                .font(.headline)
+
+            VStack(alignment: .leading, spacing: 12) {
+                ForEach(viewModel.responseSnapshots) { snapshot in
+                    ResponseSnapshotTile(snapshot: snapshot)
+                }
+            }
+        }
+    }
+
+    private struct ResponseSnapshotTile: View {
+        let snapshot: GoalTrendsViewModel.ResponseSnapshot
+
+        private static let relativeFormatter: RelativeDateTimeFormatter = {
+            let formatter = RelativeDateTimeFormatter()
+            formatter.unitsStyle = .short
+            return formatter
+        }()
+
+        var body: some View {
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                HStack(alignment: .firstTextBaseline, spacing: AppTheme.Spacing.sm) {
+                    Image(systemName: iconName)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(iconColor)
+                        .symbolRenderingMode(.hierarchical)
+                    Text(snapshot.questionTitle)
+                        .font(AppTheme.Typography.caption)
+                        .foregroundStyle(AppTheme.Palette.neutralSubdued)
+                    Spacer()
+                    if let timestamp = snapshot.timestamp {
+                        Text(Self.relativeFormatter.localizedString(for: timestamp, relativeTo: Date()))
+                            .font(AppTheme.Typography.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Text(snapshot.primaryValue)
+                    .font(.system(.title2, design: .rounded).weight(.semibold))
+                    .foregroundStyle(AppTheme.Palette.neutralStrong)
+                    .multilineTextAlignment(.leading)
+
+                VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+                    Text(snapshot.detail)
+                        .font(AppTheme.Typography.caption)
+                        .foregroundStyle(.secondary)
+                    if let target = targetValue {
+                        Text(target)
+                            .font(AppTheme.Typography.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                if let progress = progressFraction {
+                    ProgressView(value: progress)
+                        .tint(AppTheme.Palette.primary)
+                        .animation(.easeInOut(duration: 0.4), value: progress)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(AppTheme.Spacing.md)
+            .background(backgroundColor)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+
+        private var iconName: String {
+            switch snapshot.status {
+            case .numeric:
+                return "chart.bar.fill"
+            case .boolean(let isComplete):
+                return isComplete ? "checkmark.seal.fill" : "exclamationmark.circle"
+            case .options:
+                return "list.bullet.rectangle"
+            case .text:
+                return "text.quote"
+            case .time:
+                return "clock"
+            }
+        }
+
+        private var iconColor: Color {
+            switch snapshot.status {
+            case .numeric:
+                return AppTheme.Palette.primary
+            case .boolean(let isComplete):
+                return isComplete ? .green : .orange
+            case .options:
+                return AppTheme.Palette.secondary
+            case .text:
+                return AppTheme.Palette.neutralSubdued
+            case .time:
+                return AppTheme.Palette.primary
+            }
+        }
+
+        private var backgroundColor: Color {
+            switch snapshot.status {
+            case .numeric:
+                return AppTheme.Palette.primary.opacity(0.08)
+            case .boolean(let isComplete):
+                return (isComplete ? Color.green : Color.orange).opacity(0.12)
+            case .options:
+                return AppTheme.Palette.secondary.opacity(0.08)
+            case .text:
+                return AppTheme.Palette.surface.opacity(0.6)
+            case .time:
+                return AppTheme.Palette.primary.opacity(0.06)
+            }
+        }
+
+        private var progressFraction: Double? {
+            if case let .numeric(progress, _) = snapshot.status {
+                return progress
+            }
+            return nil
+        }
+
+        private var targetValue: String? {
+            if case let .numeric(_, target) = snapshot.status {
+                return target
+            }
+            return nil
+        }
     }
 }
 

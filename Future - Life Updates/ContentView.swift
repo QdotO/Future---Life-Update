@@ -78,12 +78,8 @@ struct ContentView: View {
             .tag(Tab.today)
 
             NavigationStack {
-                InsightsOverviewView(
-                    highlights: insightsHighlights,
-                    recentGoals: Array(goals.prefix(3)),
-                    allGoals: goals
-                )
-                .navigationTitle("Insights")
+                InsightsOverviewView(goals: goals)
+                    .navigationTitle("Insights")
             }
             .tabItem {
                 Label("Insights", systemImage: "chart.line.uptrend.xyaxis")
@@ -151,38 +147,6 @@ struct ContentView: View {
             }
             .onDelete(perform: deleteGoals)
         }
-    }
-
-    private var insightsHighlights: [InsightsOverviewView.Highlight] {
-        let activeGoals = goals.filter { $0.isActive }.count
-        let todaysMetrics = todayViewModel?.goalQuestionMetrics.reduce(into: 0) { partialResult, summary in
-            partialResult += summary.metrics.count
-        } ?? 0
-        let remindersCount = todayViewModel?.upcomingReminders.count ?? 0
-
-        return [
-            .init(
-                title: "Active goals",
-                value: "\(activeGoals)",
-                caption: "Keeping you on track",
-                icon: "target",
-                tint: AppTheme.Palette.primary
-            ),
-            .init(
-                title: "Logged today",
-                value: "\(todaysMetrics)",
-                caption: "Questions with fresh entries",
-                icon: "checkmark.circle.fill",
-                tint: .green
-            ),
-            .init(
-                title: "Upcoming reminders",
-                value: remindersCount == 0 ? "None" : "\(remindersCount)",
-                caption: remindersCount == 0 ? "You're clear for now" : "Queued before midnight",
-                icon: "bell.badge.fill",
-                tint: AppTheme.Palette.secondary
-            )
-        ]
     }
 
     private func initializeDashboard() {
@@ -274,73 +238,14 @@ private struct GoalCardView: View {
 }
 
 private struct InsightsOverviewView: View {
-    struct Highlight: Identifiable {
-        let id = UUID()
-        let title: String
-        let value: String
-        let caption: String
-        let icon: String
-        let tint: Color
-    }
-
-    let highlights: [Highlight]
-    let recentGoals: [TrackingGoal]
-    let allGoals: [TrackingGoal]
+    let goals: [TrackingGoal]
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: AppTheme.Spacing.xl) {
-                VStack(spacing: AppTheme.Spacing.md) {
-                    ForEach(highlights) { highlight in
-                        CardBackground {
-                            VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                                HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
-                                    Image(systemName: highlight.icon)
-                                        .font(.system(size: 20, weight: .semibold))
-                                        .foregroundStyle(highlight.tint)
-                                        .symbolRenderingMode(.hierarchical)
-                                    Text(highlight.title)
-                                        .font(AppTheme.Typography.bodyStrong)
-                                }
+                header
 
-                                Text(highlight.value)
-                                    .font(.system(.largeTitle, design: .rounded).weight(.bold))
-                                    .foregroundStyle(AppTheme.Palette.neutralStrong)
-
-                                Text(highlight.caption)
-                                    .font(AppTheme.Typography.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                }
-
-                if !recentGoals.isEmpty {
-                    VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                        Text("Recently updated")
-                            .font(AppTheme.Typography.sectionHeader)
-                        VStack(spacing: AppTheme.Spacing.sm) {
-                            ForEach(recentGoals) { goal in
-                                CardBackground {
-                                    VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
-                                        Text(goal.title)
-                                            .font(AppTheme.Typography.bodyStrong)
-                                        Label(goal.categoryDisplayName, systemImage: "tag")
-                                            .font(AppTheme.Typography.caption)
-                                            .labelStyle(.titleAndIcon)
-                                            .foregroundStyle(.secondary)
-                                        Text(goal.goalDescription.isEmpty ? "Tap to add more details" : goal.goalDescription)
-                                            .font(AppTheme.Typography.caption)
-                                            .foregroundStyle(.secondary)
-                                            .lineLimit(2)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if allGoals.isEmpty {
+                if goals.isEmpty {
                     CardBackground {
                         VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
                             Text("Add a goal to unlock trends")
@@ -351,7 +256,11 @@ private struct InsightsOverviewView: View {
                         }
                     }
                 } else {
-                    GoalTrendsInsightsSection(goals: allGoals)
+                    VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+                        ForEach(goals) { goal in
+                            GoalTrendFeedCard(goal: goal)
+                        }
+                    }
                 }
             }
             .padding(.horizontal, AppTheme.Spacing.xl)
@@ -359,87 +268,80 @@ private struct InsightsOverviewView: View {
         }
         .background(AppTheme.Palette.background.ignoresSafeArea())
     }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+            Text("Your progress")
+                .font(AppTheme.Typography.sectionHeader)
+            Text("Review trends, streaks, and latest responses for each goal.")
+                .font(AppTheme.Typography.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
 }
 
-private struct GoalTrendsInsightsSection: View {
+private struct GoalTrendFeedCard: View {
     @Environment(\.modelContext) private var modelContext
 
-    let goals: [TrackingGoal]
+    let goal: TrackingGoal
 
-    @State private var selectedGoalID: UUID?
     @State private var trendsViewModel: GoalTrendsViewModel?
-
-    private var selectedGoal: TrackingGoal? {
-        guard let id = selectedGoalID else { return goals.first }
-        return goals.first(where: { $0.id == id }) ?? goals.first
-    }
 
     var body: some View {
         CardBackground {
             VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-                Text("Goal trends")
-                    .font(AppTheme.Typography.sectionHeader)
-
-                if goals.count > 1 {
-                    Picker("Goal", selection: $selectedGoalID) {
-                        ForEach(goals) { goal in
-                            Text(goal.title)
-                                .tag(goal.id as UUID?)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                }
+                header
 
                 if let viewModel = trendsViewModel {
                     GoalTrendsView(viewModel: viewModel)
                 } else {
                     ContentUnavailableView(
-                        "Pick a goal",
+                        "Gathering insights",
                         systemImage: "chart.line.uptrend.xyaxis",
-                        description: Text("Choose a goal to explore your streaks and averages.")
+                        description: Text("We are preparing your goal analytics.")
                     )
                     .frame(maxWidth: .infinity)
                 }
 
-                if let goal = selectedGoal {
-                    NavigationLink {
-                        GoalDetailView(goal: goal)
-                    } label: {
-                        Label("Open goal details", systemImage: "chevron.right.circle")
-                            .labelStyle(.titleAndIcon)
-                    }
+                NavigationLink {
+                    GoalDetailView(goal: goal)
+                } label: {
+                    Label("Open goal details", systemImage: "chevron.right.circle")
+                        .labelStyle(.titleAndIcon)
                 }
             }
         }
-        .task {
-            if selectedGoalID == nil {
-                selectedGoalID = goals.first?.id
-            }
-            updateTrends()
+        .task { updateViewModel(forceCreate: trendsViewModel == nil) }
+        .onChange(of: goal.persistentModelID) { _, _ in
+            updateViewModel(forceCreate: true)
         }
-        .onChange(of: selectedGoalID) { _, _ in
-            updateTrends()
-        }
-        .onChange(of: goals.map(\.id)) { _, _ in
-            if let selectedID = selectedGoalID,
-               !goals.contains(where: { $0.id == selectedID }) {
-                selectedGoalID = goals.first?.id
-            }
-            updateTrends()
-        }
-        .onChange(of: selectedGoal?.updatedAt) { _, _ in
+        .onChange(of: goal.updatedAt) { _, _ in
             trendsViewModel?.refresh()
         }
     }
 
-    private func updateTrends() {
-        guard let goal = selectedGoal else {
-            trendsViewModel = nil
+    private var header: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+            Text(goal.title)
+                .font(AppTheme.Typography.bodyStrong)
+            if let category = goal.categoryDisplayName.nonEmpty {
+                Label(category, systemImage: "tag")
+                    .font(AppTheme.Typography.caption)
+                    .labelStyle(.titleAndIcon)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func updateViewModel(forceCreate: Bool) {
+        if forceCreate {
+            trendsViewModel = GoalTrendsViewModel(goal: goal, modelContext: modelContext)
             return
         }
 
-        if let current = trendsViewModel,
-           current.goal.persistentModelID == goal.persistentModelID {
+        guard let current = trendsViewModel else { return }
+
+        if current.goal.persistentModelID == goal.persistentModelID {
             current.refresh()
         } else {
             trendsViewModel = GoalTrendsViewModel(goal: goal, modelContext: modelContext)
