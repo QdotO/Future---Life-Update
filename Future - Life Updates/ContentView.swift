@@ -213,25 +213,6 @@ private struct GoalCardView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
-
-            if let nextReminder = goal.schedule.times.first {
-                Text("Next reminder: \(nextReminder.formattedTime(in: goal.schedule.timezone))")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-
-            if let latestEntry = goal.dataPoints.sorted(by: { $0.timestamp > $1.timestamp }).first,
-               let question = latestEntry.question {
-                HStack {
-                    Text("Last response")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Text(question.text)
-                        .font(.footnote)
-                        .lineLimit(1)
-                }
-            }
         }
         .padding(.vertical, 8)
     }
