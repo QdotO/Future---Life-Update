@@ -28,12 +28,11 @@ struct QuickLogGoalIntent: AppIntent {
         }
     }
 
+    @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let timestamp = entryDate ?? Date()
-        let result = try await MainActor.run {
-            let logger = GoalShortcutLogger(modelContext: AppEnvironment.shared.modelContext)
-            return try logger.logNumericValue(value, for: goal.id, at: timestamp)
-        }
+        let logger = GoalShortcutLogger(modelContext: AppEnvironment.shared.modelContext)
+        let result = try logger.logNumericValue(value, for: goal.id, at: timestamp)
         let formattedValue = value.formatted(.number.precision(.fractionLength(0...2)))
         return .result(dialog: IntentDialog("Logged \(formattedValue) to \(result.goal.title)"))
     }

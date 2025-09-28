@@ -242,8 +242,10 @@ final class GoalEditorViewModel {
         scheduleDraft.timezone = timezone
     }
 
-    func conflictDescription(window: TimeInterval = Constants.minimumReminderSpacing) -> String? {
+    func conflictDescription(window overrideWindow: TimeInterval? = nil) -> String? {
         guard !scheduleDraft.times.isEmpty else { return nil }
+
+        let window = overrideWindow ?? Constants.minimumReminderSpacing
 
         let currentGoalID = goal.id
         let descriptor = FetchDescriptor<TrackingGoal>(predicate: #Predicate { candidate in
@@ -307,7 +309,7 @@ final class GoalEditorViewModel {
         }
 
         var updatedQuestions: [Question] = []
-        for var draft in questionDrafts {
+        for draft in questionDrafts {
             let trimmedText = draft.text.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmedText.isEmpty else { continue }
 

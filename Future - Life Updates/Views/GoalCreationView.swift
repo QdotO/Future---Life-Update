@@ -167,7 +167,7 @@ struct GoalCreationView: View {
                     Text(errorMessage ?? "")
                 }
             )
-            .onChange(of: step) { newStep in
+            .onChange(of: step) { _, newStep in
                 updateFocus(for: newStep)
             }
         }
@@ -1327,7 +1327,7 @@ struct GoalCreationView: View {
 
     private var selectedCadenceTag: String {
         let cadence = viewModel.draft.schedule.cadence
-        if case .weekly(let weekday) = cadence {
+        if case .weekly = cadence {
             return viewModel.cadencePresets().first(where: { preset in
                 if case .weekly = preset.cadence { return true }
                 return false

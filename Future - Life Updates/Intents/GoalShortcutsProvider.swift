@@ -7,7 +7,9 @@ struct GoalShortcutsProvider: AppShortcutsProvider {
             phrases: [
                 "Log progress in \(.applicationName)",
                 "Update my goal with \(.applicationName)"
-            ]
+            ],
+            shortTitle: "Quick Log",
+            systemImageName: "chart.bar.doc.horizontal"
         )
     }
 

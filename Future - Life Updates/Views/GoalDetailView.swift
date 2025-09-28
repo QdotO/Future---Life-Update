@@ -7,7 +7,6 @@ struct GoalDetailView: View {
 
     @Bindable var goal: TrackingGoal
     @State private var presentingDataEntry = false
-    @State private var trendsViewModel: GoalTrendsViewModel?
     @State private var presentingEditor = false
     @State private var showingNotificationTestAlert = false
     @State private var recentResponses: [DataPoint] = []
@@ -41,15 +40,6 @@ struct GoalDetailView: View {
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
-                }
-            }
-
-            Section("Trends") {
-                if let viewModel = trendsViewModel {
-                    GoalTrendsView(viewModel: viewModel)
-                        .transition(.opacity)
-                } else {
-                    ContentUnavailableView("Analytics will appear after logging", systemImage: "chart.line.uptrend.xyaxis")
                 }
             }
 
@@ -107,15 +97,9 @@ struct GoalDetailView: View {
             Text("We'll send a preview notification to confirm your settings.")
         }
         .task {
-            if let existing = trendsViewModel {
-                existing.refresh()
-            } else {
-                trendsViewModel = GoalTrendsViewModel(goal: goal, modelContext: modelContext)
-            }
             loadRecentResponses()
         }
         .onChange(of: goal.updatedAt) { _, _ in
-            trendsViewModel?.refresh()
             loadRecentResponses()
         }
     }

@@ -308,8 +308,9 @@ final class GoalCreationViewModel {
 
     func suggestedReminderDate(
         startingAt referenceDate: Date? = nil,
-        stepMinutes: Int = Constants.reminderSearchStepMinutes
+        stepMinutes inputStepMinutes: Int? = nil
     ) -> Date {
+        let stepMinutes = inputStepMinutes ?? Constants.reminderSearchStepMinutes
         let timezone = scheduleDraft.timezone
         var workingCalendar = calendar
         workingCalendar.timeZone = timezone
@@ -423,8 +424,9 @@ final class GoalCreationViewModel {
         replaceTimes(newTimes)
     }
 
-    func hasConflict(with scheduleTime: ScheduleTime, window: TimeInterval = Constants.minimumReminderSpacing) -> Bool {
-        scheduleDraft.times.contains { $0.isWithin(window: window, of: scheduleTime) }
+    func hasConflict(with scheduleTime: ScheduleTime, window overrideWindow: TimeInterval? = nil) -> Bool {
+        let window = overrideWindow ?? Constants.minimumReminderSpacing
+        return scheduleDraft.times.contains { $0.isWithin(window: window, of: scheduleTime) }
     }
 
     var hasScheduleTimes: Bool {
@@ -442,8 +444,10 @@ final class GoalCreationViewModel {
         }
     }
 
-    func conflictDescription(window: TimeInterval = Constants.minimumReminderSpacing) -> String? {
+    func conflictDescription(window overrideWindow: TimeInterval? = nil) -> String? {
         guard !scheduleDraft.times.isEmpty else { return nil }
+
+        let window = overrideWindow ?? Constants.minimumReminderSpacing
 
         for schedule in activeSchedules(in: scheduleDraft.timezone) {
             for existingTime in schedule.times {

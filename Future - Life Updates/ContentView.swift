@@ -80,7 +80,8 @@ struct ContentView: View {
             NavigationStack {
                 InsightsOverviewView(
                     highlights: insightsHighlights,
-                    recentGoals: Array(goals.prefix(3))
+                    recentGoals: Array(goals.prefix(3)),
+                    allGoals: goals
                 )
                 .navigationTitle("Insights")
             }
@@ -122,10 +123,10 @@ struct ContentView: View {
                 MissingGoalPlaceholder()
             }
         }
-        .onChange(of: goals) { _ in
+        .onChange(of: goals) { _, _ in
             todayViewModel?.refresh()
         }
-        .onChange(of: scenePhase) { phase in
+        .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 todayViewModel?.refresh()
             }
@@ -284,6 +285,7 @@ private struct InsightsOverviewView: View {
 
     let highlights: [Highlight]
     let recentGoals: [TrackingGoal]
+    let allGoals: [TrackingGoal]
 
     var body: some View {
         ScrollView {
@@ -338,20 +340,110 @@ private struct InsightsOverviewView: View {
                     }
                 }
 
-                CardBackground {
-                    VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                        Text("Deep dive coming soon")
-                            .font(AppTheme.Typography.bodyStrong)
-                        Text("Detailed trends and streaks will land here once we finish crunching more data.")
-                            .font(AppTheme.Typography.caption)
-                            .foregroundStyle(.secondary)
+                if allGoals.isEmpty {
+                    CardBackground {
+                        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                            Text("Add a goal to unlock trends")
+                                .font(AppTheme.Typography.bodyStrong)
+                            Text("Create your first goal to see charts, streaks, and insights here.")
+                                .font(AppTheme.Typography.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
+                } else {
+                    GoalTrendsInsightsSection(goals: allGoals)
                 }
             }
             .padding(.horizontal, AppTheme.Spacing.xl)
             .padding(.vertical, AppTheme.Spacing.lg)
         }
         .background(AppTheme.Palette.background.ignoresSafeArea())
+    }
+}
+
+private struct GoalTrendsInsightsSection: View {
+    @Environment(\.modelContext) private var modelContext
+
+    let goals: [TrackingGoal]
+
+    @State private var selectedGoalID: UUID?
+    @State private var trendsViewModel: GoalTrendsViewModel?
+
+    private var selectedGoal: TrackingGoal? {
+        guard let id = selectedGoalID else { return goals.first }
+        return goals.first(where: { $0.id == id }) ?? goals.first
+    }
+
+    var body: some View {
+        CardBackground {
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+                Text("Goal trends")
+                    .font(AppTheme.Typography.sectionHeader)
+
+                if goals.count > 1 {
+                    Picker("Goal", selection: $selectedGoalID) {
+                        ForEach(goals) { goal in
+                            Text(goal.title)
+                                .tag(goal.id as UUID?)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+
+                if let viewModel = trendsViewModel {
+                    GoalTrendsView(viewModel: viewModel)
+                } else {
+                    ContentUnavailableView(
+                        "Pick a goal",
+                        systemImage: "chart.line.uptrend.xyaxis",
+                        description: Text("Choose a goal to explore your streaks and averages.")
+                    )
+                    .frame(maxWidth: .infinity)
+                }
+
+                if let goal = selectedGoal {
+                    NavigationLink {
+                        GoalDetailView(goal: goal)
+                    } label: {
+                        Label("Open goal details", systemImage: "chevron.right.circle")
+                            .labelStyle(.titleAndIcon)
+                    }
+                }
+            }
+        }
+        .task {
+            if selectedGoalID == nil {
+                selectedGoalID = goals.first?.id
+            }
+            updateTrends()
+        }
+        .onChange(of: selectedGoalID) { _, _ in
+            updateTrends()
+        }
+        .onChange(of: goals.map(\.id)) { _, _ in
+            if let selectedID = selectedGoalID,
+               !goals.contains(where: { $0.id == selectedID }) {
+                selectedGoalID = goals.first?.id
+            }
+            updateTrends()
+        }
+        .onChange(of: selectedGoal?.updatedAt) { _, _ in
+            trendsViewModel?.refresh()
+        }
+    }
+
+    private func updateTrends() {
+        guard let goal = selectedGoal else {
+            trendsViewModel = nil
+            return
+        }
+
+        if let current = trendsViewModel,
+           current.goal.persistentModelID == goal.persistentModelID {
+            current.refresh()
+        } else {
+            trendsViewModel = GoalTrendsViewModel(goal: goal, modelContext: modelContext)
+        }
     }
 }
 

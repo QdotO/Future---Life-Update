@@ -5,8 +5,16 @@ import SwiftData
 final class AppEnvironment {
     static let shared = AppEnvironment()
 
+    private struct OverrideContextContainer: @unchecked Sendable {
+        let context: ModelContext
+    }
+
     @TaskLocal
-    private static var overrideContext: ModelContext?
+    private static var overrideContextContainer: OverrideContextContainer?
+
+    private static var overrideContext: ModelContext? {
+        overrideContextContainer?.context
+    }
 
     private lazy var container: ModelContainer = {
         let schema = Schema([
@@ -34,7 +42,7 @@ final class AppEnvironment {
 
     @discardableResult
     func withModelContext<R>(_ context: ModelContext, perform operation: () async throws -> R) async rethrows -> R {
-        try await AppEnvironment.$overrideContext.withValue(context) {
+        try await AppEnvironment.$overrideContextContainer.withValue(OverrideContextContainer(context: context)) {
             try await operation()
         }
     }

@@ -44,11 +44,11 @@ struct DataBackupManager {
     init(
         modelContext: ModelContext,
         dateProvider: @escaping () -> Date = Date.init,
-        notificationScheduler: NotificationScheduling = NotificationScheduler.shared
+        notificationScheduler: NotificationScheduling? = nil
     ) {
         self.modelContext = modelContext
         self.dateProvider = dateProvider
-        self.notificationScheduler = notificationScheduler
+        self.notificationScheduler = notificationScheduler ?? NotificationScheduler.shared
     }
 
     func makeBackupDocument() throws -> BackupDocument {
