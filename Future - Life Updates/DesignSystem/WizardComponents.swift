@@ -24,21 +24,30 @@ struct WizardNavigationButtons: View {
 	let canGoBack: Bool
 	let isFinalStep: Bool
 	let isForwardEnabled: Bool
+	let guidance: String?
 	let onBack: () -> Void
 	let onNext: () -> Void
 
 	var body: some View {
-		HStack(spacing: AppTheme.Spacing.sm) {
-			if canGoBack {
-				Button("Back", action: onBack)
-					.buttonStyle(.secondaryProminent)
-					.accessibilityIdentifier("wizardBackButton")
+		VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+			HStack(spacing: AppTheme.Spacing.sm) {
+				if canGoBack {
+					Button("Back", action: onBack)
+						.buttonStyle(.secondaryProminent)
+						.accessibilityIdentifier("wizardBackButton")
+				}
+
+				Button(isFinalStep ? "Create Goal" : "Next", action: onNext)
+					.buttonStyle(.primaryProminent)
+					.disabled(!isForwardEnabled)
+					.accessibilityIdentifier("wizardNextButton")
 			}
 
-			Button(isFinalStep ? "Create Goal" : "Next", action: onNext)
-				.buttonStyle(.primaryProminent)
-				.disabled(!isForwardEnabled)
-				.accessibilityIdentifier("wizardNextButton")
+			if let guidance, !isForwardEnabled {
+				Text(guidance)
+					.font(AppTheme.Typography.caption)
+					.foregroundStyle(.secondary)
+			}
 		}
 	}
 }

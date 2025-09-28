@@ -228,6 +228,10 @@ final class GoalCreationViewModel {
         draftQuestions.removeAll { $0.id == question.id }
     }
 
+    func replaceDraftQuestions(with questions: [Question]) {
+        draftQuestions = questions
+    }
+
     func updateSelectedWeekdays(_ weekdays: Set<Weekday>) {
         // Reassign the whole draft so Observation publishes changes
         var draft = scheduleDraft

@@ -6,6 +6,7 @@ enum AppTheme {
 		static let secondary = Color(hex: 0x6C8AFA)
 		static let background = Color(dynamicLight: Color(.systemGroupedBackground), dynamicDark: Color(.black))
 		static let surface = Color(dynamicLight: Color(.secondarySystemBackground), dynamicDark: Color(.secondarySystemBackground))
+		static let surfaceElevated = Color(dynamicLight: Color(.systemBackground), dynamicDark: Color(.tertiarySystemBackground))
 		static let outline = Color(dynamicLight: .black.opacity(0.1), dynamicDark: .white.opacity(0.2))
 		static let neutralBorder = Color(dynamicLight: Color(.systemGray4), dynamicDark: Color(.systemGray5))
 		static let neutralStrong = Color(dynamicLight: Color(.label), dynamicDark: Color(.label))

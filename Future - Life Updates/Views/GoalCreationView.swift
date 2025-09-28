@@ -2,80 +2,105 @@ import SwiftUI
 import SwiftData
 
 struct GoalCreationView: View {
-    private enum Step: Int, CaseIterable, Identifiable {
-        case details
-        case questions
-        case schedule
+    private enum FlowStep: Int, CaseIterable, Identifiable {
+        case intent
+        case prompts
+        case rhythm
+        case commitment
         case review
 
         var id: Int { rawValue }
 
         var key: String {
             switch self {
-            case .details: return "details"
-            case .questions: return "questions"
-            case .schedule: return "schedule"
+            case .intent: return "intent"
+            case .prompts: return "prompts"
+            case .rhythm: return "rhythm"
+            case .commitment: return "commitment"
             case .review: return "review"
             }
         }
 
         var title: String {
             switch self {
-            case .details: return "Goal basics"
-            case .questions: return "Questions to track"
-            case .schedule: return "Reminder schedule"
+            case .intent: return "Clarify your goal"
+            case .prompts: return "Track the right things"
+            case .rhythm: return "Choose your rhythm"
+            case .commitment: return "Boost commitment"
             case .review: return "Review & create"
             }
         }
 
         var subtitle: String {
             switch self {
-            case .details: return "Name your goal and give it context."
-            case .questions: return "Add the prompts you want to answer."
-            case .schedule: return "Choose when Life Updates should nudge you."
-            case .review: return "Double-check everything before saving."
+            case .intent:
+                return "Give your goal a name and choose the focus area."
+            case .prompts:
+                return "Select the questions Life Updates will ask."
+            case .rhythm:
+                return "Decide when reminders should arrive."
+            case .commitment:
+                return "Add encouragement to keep future-you motivated."
+            case .review:
+                return "Double-check everything before saving."
             }
         }
 
         var isFinal: Bool { self == .review }
 
-        func next() -> Step? {
-            Step(rawValue: rawValue + 1)
-        }
-
-        func previous() -> Step? {
-            Step(rawValue: rawValue - 1)
-        }
+        func next() -> FlowStep? { FlowStep(rawValue: rawValue + 1) }
+        func previous() -> FlowStep? { FlowStep(rawValue: rawValue - 1) }
     }
 
-    private enum DetailsField: Hashable {
+    private enum FocusField: Hashable {
         case title
-        case description
+        case motivation
+        case customCategory
+        case questionPrompt
+        case questionOption
+        case celebration
     }
+
+    private struct RangePreset: Identifiable {
+        let id: String
+        let label: String
+        let minimum: Double
+        let maximum: Double
+    }
+
+    private let maxReminderCount = 3
+    private let featuredCategories: [TrackingCategory] = [.fitness, .health, .productivity, .habits, .mood]
+    private let primaryResponseTypes: [ResponseType] = [.boolean, .numeric, .scale, .text]
+    private let advancedResponseTypes: [ResponseType] = [.multipleChoice, .slider, .time]
+    private let rangePresets: [RangePreset] = [
+        RangePreset(id: "0-10", label: "0 – 10", minimum: 0, maximum: 10),
+        RangePreset(id: "1-5", label: "1 – 5", minimum: 1, maximum: 5),
+        RangePreset(id: "1-10", label: "1 – 10", minimum: 1, maximum: 10)
+    ]
+    private let chipColumns = [GridItem(.adaptive(minimum: 140), spacing: AppTheme.Spacing.sm)]
 
     @Environment(\.dismiss) private var dismiss
 
-    @State private var step: Step = .details
-    @State private var composerQuestionText: String = ""
-    @State private var composerSelectedType: ResponseType?
-    @State private var composerMinimumValue: Double = 0
-    @State private var composerMaximumValue: Double = 100
-    @State private var composerAllowsEmpty: Bool = false
-    @State private var composerOptionsText: String = ""
-    @State private var composerEditingID: UUID?
-    @State private var composerErrorMessage: String?
-    @State private var newReminderTime: Date
-    @State private var conflictMessage: String?
-    @State private var errorMessage: String?
+    @State private var step: FlowStep = .intent
+    @State private var composerDraft = GoalQuestionDraft()
+    @State private var editingQuestionID: UUID?
+    @State private var composerError: String?
+    @State private var newOptionText: String = ""
+    @State private var showAdvancedResponseTypes = false
+    @State private var showCustomTimeSheet = false
+    @State private var customReminderDate: Date
+    @State private var scheduleError: String?
     @State private var showingErrorAlert = false
-    @FocusState private var activeDetailsField: DetailsField?
-    @FocusState private var isComposerQuestionFocused: Bool
+    @State private var errorMessage: String?
 
-    @Bindable private var viewModel: GoalCreationViewModel
+    @FocusState private var focusedField: FocusField?
+
+    @State private var viewModel: GoalCreationFlowViewModel
 
     init(viewModel: GoalCreationViewModel) {
-        self._viewModel = Bindable(viewModel)
-        self._newReminderTime = State(initialValue: viewModel.suggestedReminderDate())
+        let flowViewModel = GoalCreationFlowViewModel(legacyViewModel: viewModel)
+        _viewModel = State(initialValue: flowViewModel)
+        _customReminderDate = State(initialValue: flowViewModel.suggestedReminderDate())
     }
 
     var body: some View {
@@ -87,7 +112,7 @@ struct GoalCreationView: View {
                             title: step.title,
                             subtitle: step.subtitle,
                             stepIndex: step.rawValue,
-                            totalSteps: Step.allCases.count
+                            totalSteps: FlowStep.allCases.count
                         )
                         .accessibilityIdentifier("wizardStep-\(step.key)")
 
@@ -104,61 +129,46 @@ struct GoalCreationView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", role: .cancel) { dismiss() }
+                    Button("Cancel", role: .cancel) {
+                        dismiss()
+                    }
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                if conflictMessage != nil || !shouldHideWizardNavigation {
-                    VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                        if let conflictMessage {
-                            ConflictBanner(message: conflictMessage)
-                        }
-                        if !shouldHideWizardNavigation {
-                            WizardNavigationButtons(
-                                canGoBack: step.previous() != nil,
-                                isFinalStep: step.isFinal,
-                                isForwardEnabled: canAdvance(step),
-                                onBack: moveBackward,
-                                onNext: moveForward
-                            )
-                            .padding(.horizontal, AppTheme.Spacing.xl)
-                            .padding(.vertical, AppTheme.Spacing.lg)
-                            .background(.thinMaterial)
-                        }
+                VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                    if step == .rhythm, let conflict = viewModel.conflictMessage {
+                        ConflictBanner(message: conflict)
                     }
+                    WizardNavigationButtons(
+                        canGoBack: step.previous() != nil,
+                        isFinalStep: step.isFinal,
+                        isForwardEnabled: canAdvance(step),
+                        guidance: forwardHint(for: step),
+                        onBack: moveBackward,
+                        onNext: moveForward
+                    )
+                    .padding(.horizontal, AppTheme.Spacing.xl)
+                    .padding(.vertical, AppTheme.Spacing.lg)
+                    .background(.thinMaterial)
                 }
             }
-            .alert("Unable to Create Goal", isPresented: $showingErrorAlert, actions: {
-                Button("OK", role: .cancel) {
-                    showingErrorAlert = false
+            .sheet(isPresented: $showCustomTimeSheet) {
+                customReminderSheet
+            }
+            .alert(
+                "Unable to Create Goal",
+                isPresented: $showingErrorAlert,
+                actions: {
+                    Button("OK", role: .cancel) {
+                        showingErrorAlert = false
+                    }
+                },
+                message: {
+                    Text(errorMessage ?? "")
                 }
-            }, message: {
-                Text(errorMessage ?? "")
-            })
+            )
             .onChange(of: step) { newStep in
-                switch newStep {
-                case .questions:
-                    DispatchQueue.main.async {
-                        isComposerQuestionFocused = true
-                    }
-                case .schedule:
-                    isComposerQuestionFocused = false
-                    if viewModel.scheduleDraft.times.isEmpty {
-                        newReminderTime = viewModel.suggestedReminderDate(startingAt: newReminderTime)
-                    }
-                default:
-                    isComposerQuestionFocused = false
-                }
-            }
-            .onChange(of: viewModel.scheduleDraft.times) { times in
-                if step == .schedule, times.isEmpty {
-                    newReminderTime = viewModel.suggestedReminderDate(startingAt: newReminderTime)
-                }
-            }
-            .onChange(of: viewModel.scheduleDraft.timezone) { _ in
-                if step == .schedule, viewModel.scheduleDraft.times.isEmpty {
-                    newReminderTime = viewModel.suggestedReminderDate(startingAt: newReminderTime)
-                }
+                updateFocus(for: newStep)
             }
         }
     }
@@ -166,607 +176,477 @@ struct GoalCreationView: View {
     @ViewBuilder
     private var stepContent: some View {
         switch step {
-        case .details:
-            detailsStep
-        case .questions:
-            questionsStep
-        case .schedule:
-            scheduleStep
+        case .intent:
+            intentStep
+        case .prompts:
+            promptsStep
+        case .rhythm:
+            rhythmStep
+        case .commitment:
+            commitmentStep
         case .review:
             reviewStep
         }
     }
 
-    private var detailsStep: some View {
-        CardBackground {
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
-                TextField("Goal title", text: $viewModel.title)
-                    .textInputAutocapitalization(.sentences)
-                    .font(AppTheme.Typography.title)
-                    .focused($activeDetailsField, equals: .title)
-                    .accessibilityIdentifier("goalTitleField")
+    private var intentStep: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.xl) {
+            CardBackground {
+                VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+                    TextField("Name your goal", text: titleBinding)
+                        .font(AppTheme.Typography.title)
+                        .focused($focusedField, equals: .title)
+                        .accessibilityIdentifier("goalTitleField")
 
-                TextField("What are you tracking?", text: $viewModel.goalDescription, axis: .vertical)
-                    .lineLimit(3, reservesSpace: true)
-                    .font(AppTheme.Typography.body)
-                    .focused($activeDetailsField, equals: .description)
-
-                CategoryPickerView(
-                    title: "Category",
-                    primaryOptions: viewModel.primaryCategoryOptions,
-                    overflowOptions: viewModel.overflowCategoryOptions,
-                    selectedCategory: $viewModel.selectedCategory,
-                    customCategoryLabel: $viewModel.customCategoryLabel,
-                    onSelectOption: { option in
-                        viewModel.selectCategory(option)
-                    },
-                    onUpdateCustomLabel: { label in
-                        viewModel.updateCustomCategoryLabel(label)
-                    }
-                )
+                    TextField(
+                        "Why does this matter to you?",
+                        text: motivationBinding,
+                        axis: .vertical
+                    )
+                        .lineLimit(3, reservesSpace: true)
+                        .font(AppTheme.Typography.body)
+                        .focused($focusedField, equals: .motivation)
+                }
             }
-        }
-        .onAppear {
-            if step == .details,
-               viewModel.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                activeDetailsField = .title
+
+            CardBackground {
+                VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+                    Text("Pick a focus area")
+                        .font(AppTheme.Typography.sectionHeader)
+
+                    LazyVGrid(columns: chipColumns, alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                        ForEach(featuredCategories, id: \.self) { category in
+                            categoryChip(for: category)
+                        }
+
+                        Button {
+                            viewModel.selectCategory(.custom)
+                            focusedField = .customCategory
+                            Haptics.selection()
+                        } label: {
+                            VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+                                Text("Something else…")
+                                    .font(AppTheme.Typography.bodyStrong)
+                                Text("Name your own area.")
+                                    .font(AppTheme.Typography.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(AppTheme.Spacing.md)
+                            .frame(maxWidth: .infinity, minHeight: 92, alignment: .leading)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .strokeBorder(AppTheme.Palette.primary.opacity(0.2), lineWidth: 1)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                            .fill(AppTheme.Palette.surface)
+                                    )
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    if viewModel.draft.category == .custom {
+                        TextField(
+                            "Give it a name",
+                            text: Binding(
+                                get: { viewModel.draft.customCategoryLabel },
+                                set: { viewModel.updateCustomCategoryLabel($0) }
+                            )
+                        )
+                        .textInputAutocapitalization(.words)
+                        .focused($focusedField, equals: .customCategory)
+                        .font(AppTheme.Typography.body)
+                    }
+                }
+            }
+
+            CardBackground {
+                VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                    Text("Step checklist")
+                        .font(AppTheme.Typography.sectionHeader)
+                    checklistRow(
+                        title: "Add a goal title",
+                        subtitle: "Required",
+                        isComplete: hasGoalTitle,
+                        isRequired: true
+                    )
+                    checklistRow(
+                        title: "Pick a focus area",
+                        subtitle: hasCustomCategory ? "Custom label required" : "Required",
+                        isComplete: hasCategory,
+                        isRequired: true
+                    )
+                    checklistRow(
+                        title: "Share why this matters",
+                        subtitle: "Optional, but boosts commitment",
+                        isComplete: hasMotivation,
+                        isRequired: false
+                    )
+                }
             }
         }
     }
 
-    private var questionsStep: some View {
+    private var promptsStep: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.xl) {
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
-                Text("What would you like to track?")
-                    .font(AppTheme.Typography.sectionHeader)
-                Text("Add prompts so the app knows what to ask when it reminds you.")
-                    .font(AppTheme.Typography.body)
-                    .foregroundStyle(.secondary)
+            let suggested = viewModel.recommendedTemplates()
+            if !suggested.isEmpty {
+                CardBackground {
+                    VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+                        Text("Suggested prompts")
+                            .font(AppTheme.Typography.sectionHeader)
+                        Text("Tap to add ready-made questions tailored to your goal.")
+                            .font(AppTheme.Typography.caption)
+                            .foregroundStyle(.secondary)
+                        VStack(spacing: AppTheme.Spacing.sm) {
+                            ForEach(suggested) { template in
+                                TemplateCard(
+                                    template: template,
+                                    isApplied: viewModel.appliedTemplateIDs.contains(template.id)
+                                ) {
+                                    viewModel.applyTemplate(template)
+                                    Haptics.success()
+                                }
+                            }
+                        }
+                        let additional = viewModel.additionalTemplates(excluding: Set(suggested.map(\.id)))
+                        if !additional.isEmpty {
+                            DisclosureGroup("More ideas") {
+                                VStack(spacing: AppTheme.Spacing.sm) {
+                                    ForEach(additional) { template in
+                                        TemplateCard(
+                                            template: template,
+                                            isApplied: viewModel.appliedTemplateIDs.contains(template.id)
+                                        ) {
+                                            viewModel.applyTemplate(template)
+                                            Haptics.success()
+                                        }
+                                    }
+                                }
+                                .padding(.top, AppTheme.Spacing.sm)
+                            }
+                            .font(AppTheme.Typography.bodyStrong)
+                        }
+                    }
+                }
             }
 
             CardBackground {
-                questionComposerCard
+                questionComposer
             }
-            .padding(.bottom, AppTheme.Spacing.sm)
 
-            if viewModel.hasDraftQuestions {
+            CardBackground {
                 VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-                    Text("Questions ready (\(viewModel.draftQuestions.count))")
-                        .font(AppTheme.Typography.sectionHeader)
-                    LazyVStack(spacing: AppTheme.Spacing.sm) {
-                        ForEach(viewModel.draftQuestions, id: \.id) { question in
-                            questionSummaryCard(for: question)
+                    HStack {
+                        statusPill(
+                            message: viewModel.canAdvanceFromQuestions() ? "Questions ready" : "Add at least one question",
+                            isComplete: viewModel.canAdvanceFromQuestions()
+                        )
+                        Spacer()
+                        Text("\(viewModel.draft.questionDrafts.count) saved")
+                            .font(AppTheme.Typography.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if viewModel.draft.questionDrafts.isEmpty {
+                        ContentUnavailableView(
+                            "Add a question to start tracking",
+                            systemImage: "text.badge.plus",
+                            description: Text("Use a suggestion above or create your own prompt.")
+                        )
+                    } else {
+                        LazyVStack(spacing: AppTheme.Spacing.sm) {
+                            ForEach(Array(viewModel.draft.questionDrafts.enumerated()), id: \.element.id) { index, question in
+                                questionSummaryCard(for: question, index: index)
+                            }
                         }
                     }
                 }
             }
         }
+        .onAppear {
+            if focusedField == nil {
+                focusedField = .questionPrompt
+            }
+        }
     }
 
-    private var questionComposerCard: some View {
-        VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
-            HStack(alignment: .top) {
+    private var questionComposer: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+            HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
-                    Text(composerEditingID == nil ? "Add a question" : "Edit question")
+                    Text(editingQuestionID == nil ? "Create your own prompt" : "Edit prompt")
                         .font(AppTheme.Typography.sectionHeader)
-                    Text("Fill in the prompt and the responses people will give.")
+                    Text("Pick a response style and fine-tune the details.")
                         .font(AppTheme.Typography.caption)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                if composerEditingID != nil {
+                if editingQuestionID != nil {
                     Button {
                         resetComposer()
+                        Haptics.selection()
                     } label: {
                         Label("Cancel edit", systemImage: "xmark.circle.fill")
                             .font(AppTheme.Typography.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("Cancel editing question")
                 }
             }
 
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-                TextField("Ask a question to track", text: $composerQuestionText, axis: .vertical)
-                    .textInputAutocapitalization(.sentences)
-                    .lineLimit(2, reservesSpace: true)
-                    .focused($isComposerQuestionFocused)
-                    .accessibilityIdentifier("questionPromptField")
+            if composerHasContent {
+                statusPill(
+                    message: composerIsReady ? "Prompt ready to save" : "Finish configuring before saving",
+                    isComplete: composerIsReady
+                )
+            }
 
-                VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                    Text("Response type")
-                        .font(AppTheme.Typography.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
+            TextField(
+                "What should Life Updates ask?",
+                text: $composerDraft.text,
+                axis: .vertical
+            )
+            .font(AppTheme.Typography.body)
+            .focused($focusedField, equals: .questionPrompt)
+            .lineLimit(2, reservesSpace: true)
 
-                    LazyVGrid(columns: responseTypeGridColumns, spacing: AppTheme.Spacing.sm) {
-                        ForEach(responseTypeOptions) { option in
-                            responseTypeButton(for: option)
-                        }
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                Text("Response type")
+                    .font(AppTheme.Typography.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                LazyVGrid(columns: chipColumns, alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                    ForEach(primaryResponseTypes, id: \.self) { type in
+                        responseTypeChip(for: type)
                     }
+                    Button {
+                        withAnimation(.spring(response: 0.45, dampingFraction: 0.82)) {
+                            showAdvancedResponseTypes.toggle()
+                        }
+                        Haptics.selection()
+                    } label: {
+                        Label(
+                            showAdvancedResponseTypes ? "Hide advanced" : "More types",
+                            systemImage: showAdvancedResponseTypes ? "chevron.up" : "chevron.down"
+                        )
+                        .labelStyle(.titleAndIcon)
+                        .font(AppTheme.Typography.caption.weight(.semibold))
+                        .padding(.horizontal, AppTheme.Spacing.md)
+                        .padding(.vertical, AppTheme.Spacing.sm)
+                        .background(
+                            Capsule().fill(AppTheme.Palette.surface)
+                        )
+                    }
+                    .buttonStyle(.plain)
                 }
 
-                if let selectedType = composerSelectedType {
-                    VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                        HStack {
-                            Text("Configure responses")
-                                .font(AppTheme.Typography.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            let option = responseTypeOption(for: selectedType)
-                            Label(option.title, systemImage: option.icon)
-                                .font(AppTheme.Typography.caption)
-                                .foregroundStyle(.secondary)
-                                .labelStyle(.titleAndIcon)
-                                .accessibilityHidden(true)
+                if showAdvancedResponseTypes {
+                    LazyVGrid(columns: chipColumns, alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                        ForEach(advancedResponseTypes, id: \.self) { type in
+                            responseTypeChip(for: type)
                         }
-
-                        configurationFields(for: selectedType)
                     }
                     .transition(.opacity.combined(with: .move(edge: .top)))
-                } else {
-                    Text("Choose a response type to unlock configuration details.")
-                        .font(AppTheme.Typography.caption)
-                        .foregroundStyle(.secondary)
                 }
             }
 
-            if let composerErrorMessage {
-                Text(composerErrorMessage)
+            configurationFields
+
+            Toggle("Allow skipping this question", isOn: Binding(
+                get: { composerAllowsEmpty },
+                set: { updateComposerAllowsEmpty($0) }
+            ))
+            .toggleStyle(.switch)
+
+            if let composerError {
+                Text(composerError)
                     .font(AppTheme.Typography.caption)
                     .foregroundStyle(Color.red)
-                    .accessibilityHint("Fix the issue before saving.")
             }
 
             HStack(spacing: AppTheme.Spacing.sm) {
                 if composerHasContent {
-                    Button(role: .destructive) {
+                    Button {
                         resetComposer()
+                        Haptics.selection()
                     } label: {
                         Label("Clear", systemImage: "arrow.uturn.left")
                             .font(AppTheme.Typography.bodyStrong)
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(AppTheme.Palette.neutralSubdued)
-                    .accessibilityLabel("Clear question builder")
                 }
 
                 Spacer()
 
-                Button(composerEditingID == nil ? "Save question" : "Update question") {
-                    saveComposedQuestion()
+                Button(editingQuestionID == nil ? "Add question" : "Update question") {
+                    saveQuestionDraft()
                 }
                 .buttonStyle(.primaryProminent)
-                .frame(maxWidth: 260)
-                .disabled(!canSaveComposedQuestion)
-                .accessibilityIdentifier("saveQuestionButton")
+                .disabled(!canSaveQuestion)
             }
         }
-    }
-
-    private let responseTypeCardMinHeight: CGFloat = 128
-
-    private var responseTypeGridColumns: [GridItem] {
-        [
-            GridItem(.flexible(), spacing: AppTheme.Spacing.sm),
-            GridItem(.flexible(), spacing: AppTheme.Spacing.sm)
-        ]
-    }
-
-    private func responseTypeButton(for option: ResponseTypeOption) -> some View {
-        let isSelected = composerSelectedType == option.type
-        return Button {
-            handleResponseTypeSelection(option.type)
-        } label: {
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
-                HStack(spacing: AppTheme.Spacing.xs) {
-                    Image(systemName: option.icon)
-                        .font(.body.weight(.semibold))
-                    Text(option.title)
-                        .font(AppTheme.Typography.bodyStrong)
-                }
-                Text(option.subtitle)
-                    .font(AppTheme.Typography.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .padding(AppTheme.Spacing.md)
-            .frame(maxWidth: .infinity, minHeight: responseTypeCardMinHeight, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(isSelected ? AppTheme.Palette.primary.opacity(0.12) : AppTheme.Palette.surface)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(isSelected ? AppTheme.Palette.primary : AppTheme.Palette.neutralBorder, lineWidth: isSelected ? 2 : 1)
-                    )
-            )
-            .foregroundStyle(isSelected ? AppTheme.Palette.primary : AppTheme.Palette.neutralStrong)
-        }
-    .buttonStyle(.plain)
-    .accessibilityHint(option.subtitle)
-    .accessibilityIdentifier("responseType-\(option.type.rawValue)")
-        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 
     @ViewBuilder
-    private func configurationFields(for responseType: ResponseType) -> some View {
-        switch responseType {
+    private var configurationFields: some View {
+        switch composerDraft.responseType {
         case .numeric, .scale, .slider:
             VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                Text("Range presets")
+                    .font(AppTheme.Typography.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                LazyVGrid(columns: chipColumns, alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                    ForEach(rangePresets) { preset in
+                        Button {
+                            applyRangePreset(preset)
+                            Haptics.selection()
+                        } label: {
+                            Text(preset.label)
+                                .font(AppTheme.Typography.caption.weight(.semibold))
+                                .padding(.horizontal, AppTheme.Spacing.md)
+                                .padding(.vertical, AppTheme.Spacing.sm)
+                                .background(
+                                    Capsule()
+                                        .fill(isPresetActive(preset) ? AppTheme.Palette.primary.opacity(0.12) : AppTheme.Palette.surface)
+                                )
+                                .overlay(
+                                    Capsule()
+                                        .stroke(isPresetActive(preset) ? AppTheme.Palette.primary : AppTheme.Palette.neutralBorder, lineWidth: isPresetActive(preset) ? 2 : 1)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(isPresetActive(preset) ? AppTheme.Palette.primary : .primary)
+                    }
+                }
+
                 HStack(spacing: AppTheme.Spacing.sm) {
                     VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
                         Text("Minimum")
                             .font(AppTheme.Typography.caption)
                             .foregroundStyle(.secondary)
-                        TextField("Minimum", value: $composerMinimumValue, format: .number)
-                            .keyboardType(.decimalPad)
+                        Stepper(value: Binding(
+                            get: { composerMinimumValue },
+                            set: { updateComposerMinimum($0) }
+                        ), in: -1000...composerMaximumValue, step: 1) {
+                            Text(formattedValue(composerMinimumValue))
+                        }
                     }
 
                     VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
                         Text("Maximum")
                             .font(AppTheme.Typography.caption)
                             .foregroundStyle(.secondary)
-                        TextField("Maximum", value: $composerMaximumValue, format: .number)
-                            .keyboardType(.decimalPad)
+                        Stepper(value: Binding(
+                            get: { composerMaximumValue },
+                            set: { updateComposerMaximum($0) }
+                        ), in: composerMinimumValue...1000, step: 1) {
+                            Text(formattedValue(composerMaximumValue))
+                        }
                     }
                 }
-
-                Text("People will respond within this range.")
-                    .font(AppTheme.Typography.caption)
-                    .foregroundStyle(.secondary)
-
-                Toggle("Allow empty response", isOn: $composerAllowsEmpty)
             }
         case .multipleChoice:
             VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                TextField("Options (comma separated)", text: $composerOptionsText, axis: .vertical)
-                    .lineLimit(2, reservesSpace: true)
-                Text("We’ll show these as selectable choices.")
-                    .font(AppTheme.Typography.caption)
-                    .foregroundStyle(.secondary)
-                Toggle("Allow empty response", isOn: $composerAllowsEmpty)
-            }
-        case .text, .boolean, .time:
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                Toggle("Allow empty response", isOn: $composerAllowsEmpty)
-                Text("Optional responses can be skipped when logging.")
-                    .font(AppTheme.Typography.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    private func questionSummaryCard(for question: Question) -> some View {
-        CardBackground {
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                HStack(alignment: .firstTextBaseline, spacing: AppTheme.Spacing.sm) {
-                    Text(question.text)
-                        .font(AppTheme.Typography.body.weight(.semibold))
-                        .multilineTextAlignment(.leading)
-                    Spacer()
-                    HStack(spacing: AppTheme.Spacing.xs) {
-                        Button {
-                            loadQuestionForEditing(question)
-                        } label: {
-                            Image(systemName: "pencil")
-                                .font(.body.bold())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Edit question")
-
-                        Button(role: .destructive) {
-                            Haptics.warning()
-                            viewModel.removeQuestion(question)
-                            if composerEditingID == question.id {
-                                resetComposer()
+                if !composerDraft.options.isEmpty {
+                    LazyVGrid(columns: chipColumns, alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                        ForEach(composerDraft.options, id: \.self) { option in
+                            HStack(spacing: AppTheme.Spacing.xs) {
+                                Text(option)
+                                    .font(AppTheme.Typography.caption.weight(.semibold))
+                                Button {
+                                    removeOption(option)
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .font(.caption.bold())
+                                }
+                                .buttonStyle(.plain)
                             }
-                        } label: {
-                            Image(systemName: "trash")
-                                .font(.body.bold())
+                            .padding(.horizontal, AppTheme.Spacing.md)
+                            .padding(.vertical, AppTheme.Spacing.xs)
+                            .background(
+                                Capsule().fill(AppTheme.Palette.surfaceElevated)
+                            )
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Remove question")
                     }
                 }
 
-                Text(question.responseType.displayName)
-                    .font(AppTheme.Typography.caption)
-                    .foregroundStyle(.secondary)
-
-                if let detail = questionDetail(for: question) {
-                    Text(detail)
-                        .font(AppTheme.Typography.caption)
-                        .foregroundStyle(.secondary)
+                HStack {
+                    TextField("Add option", text: $newOptionText)
+                        .focused($focusedField, equals: .questionOption)
+                    Button("Add") {
+                        appendCurrentOption()
+                    }
+                    .buttonStyle(.secondaryProminent)
+                    .disabled(newOptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
-        }
-        .contentShape(Rectangle())
-        .onTapGesture {
-            loadQuestionForEditing(question)
-        }
-    }
-
-    private func questionDetail(for question: Question) -> String? {
-        var parts: [String] = []
-
-        switch question.responseType {
-        case .numeric, .scale, .slider:
-            let defaults = defaultRange(for: question.responseType)
-            let minimum = question.validationRules?.minimumValue ?? defaults.min
-            let maximum = question.validationRules?.maximumValue ?? defaults.max
-            parts.append("Range: \(formattedValue(minimum)) – \(formattedValue(maximum))")
-        case .multipleChoice:
-            if let options = question.options, !options.isEmpty {
-                let preview = options.prefix(3).joined(separator: ", ")
-                let suffix = options.count > 3 ? "…" : ""
-                parts.append("Options: \(preview)\(suffix)")
-            }
-        case .text, .boolean, .time:
-            break
-        }
-
-        if question.validationRules?.allowsEmpty == true {
-            parts.append("Optional response")
-        }
-
-        return parts.isEmpty ? nil : parts.joined(separator: " • ")
-    }
-
-    private func formattedValue(_ value: Double) -> String {
-        if value.rounded() == value {
-            return String(Int(value))
-        }
-        return value.formatted(.number.precision(.fractionLength(0...2)))
-    }
-
-    private func handleResponseTypeSelection(_ responseType: ResponseType) {
-        composerErrorMessage = nil
-        let shouldReset = composerSelectedType != responseType
-        composerSelectedType = responseType
-        if composerEditingID == nil || shouldReset {
-            applyComposerDefaults(for: responseType, resetOptions: shouldReset || composerEditingID == nil)
+        case .text:
+            Text("Open-ended responses let people share notes or reflections.")
+                .font(AppTheme.Typography.caption)
+                .foregroundStyle(.secondary)
+        case .boolean:
+            Text("We’ll use a simple yes or no prompt.")
+                .font(AppTheme.Typography.caption)
+                .foregroundStyle(.secondary)
+        case .time:
+            Text("Great for logging a bedtime or start time.")
+                .font(AppTheme.Typography.caption)
+                .foregroundStyle(.secondary)
         }
     }
 
-    private func saveComposedQuestion() {
-        composerErrorMessage = nil
-        let trimmed = composerQuestionText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
-            composerErrorMessage = "Enter a question prompt before saving."
-            Haptics.warning()
-            return
-        }
-
-        guard let selectedType = composerSelectedType else {
-            composerErrorMessage = "Choose a response type before saving."
-            Haptics.warning()
-            return
-        }
-
-        var options: [String]? = nil
-        var validation: ValidationRules? = nil
-
-        switch selectedType {
-        case .multipleChoice:
-            let uniqueOptions = currentOptions()
-            guard !uniqueOptions.isEmpty else {
-                composerErrorMessage = "Add at least one option."
-                Haptics.warning()
-                return
-            }
-            options = uniqueOptions
-            validation = ValidationRules(allowsEmpty: composerAllowsEmpty)
-        case .numeric, .scale, .slider:
-            let minimum = min(composerMinimumValue, composerMaximumValue)
-            let maximum = max(composerMinimumValue, composerMaximumValue)
-            guard minimum <= maximum else {
-                composerErrorMessage = "Minimum should be less than maximum."
-                Haptics.warning()
-                return
-            }
-            validation = ValidationRules(minimumValue: minimum, maximumValue: maximum, allowsEmpty: composerAllowsEmpty)
-        case .text, .boolean, .time:
-            if composerAllowsEmpty {
-                validation = ValidationRules(allowsEmpty: true)
-            }
-        }
-
-        viewModel.upsertQuestion(
-            id: composerEditingID,
-            text: trimmed,
-            responseType: selectedType,
-            options: options,
-            validationRules: validation
-        )
-
-        Haptics.selection()
-        resetComposer()
-    }
-
-    private func resetComposer() {
-        composerQuestionText = ""
-        composerSelectedType = nil
-        composerMinimumValue = 0
-        composerMaximumValue = 100
-        composerAllowsEmpty = false
-        composerOptionsText = ""
-        composerEditingID = nil
-        composerErrorMessage = nil
-        DispatchQueue.main.async {
-            isComposerQuestionFocused = true
-        }
-    }
-
-    private func applyComposerDefaults(for responseType: ResponseType, resetOptions: Bool = true) {
-        switch responseType {
-        case .numeric, .slider:
-            composerMinimumValue = 0
-            composerMaximumValue = 100
-            composerAllowsEmpty = false
-            if resetOptions {
-                composerOptionsText = ""
-            }
-        case .scale:
-            composerMinimumValue = 1
-            composerMaximumValue = 10
-            composerAllowsEmpty = false
-            if resetOptions {
-                composerOptionsText = ""
-            }
-        case .multipleChoice:
-            composerAllowsEmpty = false
-            if resetOptions {
-                composerOptionsText = ""
-            }
-        case .text, .boolean, .time:
-            composerAllowsEmpty = false
-            if resetOptions {
-                composerOptionsText = ""
-            }
-        }
-    }
-
-    private func loadQuestionForEditing(_ question: Question) {
-        Haptics.selection()
-        composerQuestionText = question.text
-        composerSelectedType = question.responseType
-        composerEditingID = question.id
-        composerErrorMessage = nil
-
-        let defaults = defaultRange(for: question.responseType)
-        composerMinimumValue = question.validationRules?.minimumValue ?? defaults.min
-        composerMaximumValue = question.validationRules?.maximumValue ?? defaults.max
-        composerAllowsEmpty = question.validationRules?.allowsEmpty ?? false
-        composerOptionsText = question.options?.joined(separator: ", ") ?? ""
-        DispatchQueue.main.async {
-            isComposerQuestionFocused = true
-        }
-    }
-
-    private func currentOptions() -> [String] {
-        let rawOptions = composerOptionsText
-            .split(separator: ",")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-
-        var unique: [String] = []
-        var seen: Set<String> = []
-        for option in rawOptions {
-            let key = option.lowercased()
-            if !seen.contains(key) {
-                seen.insert(key)
-                unique.append(option)
-            }
-        }
-        return unique
-    }
-
-    private func defaultRange(for responseType: ResponseType) -> (min: Double, max: Double) {
-        switch responseType {
-        case .scale:
-            return (1, 10)
-        case .numeric, .slider:
-            return (0, 100)
-        default:
-            return (0, 100)
-        }
-    }
-
-    private var composerHasContent: Bool {
-        !composerQuestionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || composerSelectedType != nil || composerEditingID != nil
-    }
-
-    private var shouldHideWizardNavigation: Bool {
-        step == .questions && !composerQuestionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
-    private var canSaveComposedQuestion: Bool {
-        guard let selectedType = composerSelectedType else { return false }
-        let trimmed = composerQuestionText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return false }
-
-        switch selectedType {
-        case .multipleChoice:
-            return !currentOptions().isEmpty
-        case .numeric, .scale, .slider:
-            return composerMinimumValue <= composerMaximumValue
-        case .text, .boolean, .time:
-            return true
-        }
-    }
-
-    private var responseTypeOptions: [ResponseTypeOption] {
-        [
-            ResponseTypeOption(type: .numeric, icon: "chart.bar", title: ResponseType.numeric.displayName, subtitle: "Track counts or totals."),
-            ResponseTypeOption(type: .scale, icon: "line.3.horizontal.decrease.circle", title: ResponseType.scale.displayName, subtitle: "Capture ratings on a fixed scale."),
-            ResponseTypeOption(type: .slider, icon: "slider.horizontal.3", title: ResponseType.slider.displayName, subtitle: "Quickly drag a value between two numbers."),
-            ResponseTypeOption(type: .multipleChoice, icon: "list.bullet", title: ResponseType.multipleChoice.displayName, subtitle: "Present a short list of options."),
-            ResponseTypeOption(type: .boolean, icon: "checkmark.circle", title: ResponseType.boolean.displayName, subtitle: "Simple yes or no questions."),
-            ResponseTypeOption(type: .text, icon: "text.alignleft", title: ResponseType.text.displayName, subtitle: "Let people answer in their own words."),
-            ResponseTypeOption(type: .time, icon: "clock", title: ResponseType.time.displayName, subtitle: "Capture a time of day.")
-        ]
-    }
-
-    private func responseTypeOption(for type: ResponseType) -> ResponseTypeOption {
-        responseTypeOptions.first { $0.type == type } ?? responseTypeOptions[0]
-    }
-
-    private var scheduleStep: some View {
-        VStack(spacing: AppTheme.Spacing.lg) {
+    private var rhythmStep: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.xl) {
             CardBackground {
                 VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-                    Text("Frequency")
+                    Text("Reminder cadence")
                         .font(AppTheme.Typography.sectionHeader)
+
                     Picker("Frequency", selection: Binding(
-                        get: { viewModel.scheduleDraft.frequency },
-                        set: { newValue in
-                            viewModel.setFrequency(newValue)
-                            let conflict = viewModel.conflictDescription()
-                            conflictMessage = conflict
-                            if conflict != nil {
-                                Haptics.warning()
-                            } else {
-                                Haptics.selection()
-                            }
-                        }
+                        get: { selectedCadenceTag },
+                        set: { updateCadence(with: $0) }
                     )) {
-                        ForEach(Frequency.allCases, id: \.self) { frequency in
-                            Text(frequency.displayName).tag(frequency)
+                        ForEach(viewModel.cadencePresets()) { preset in
+                            Text(preset.title).tag(preset.id)
                         }
                     }
                     .pickerStyle(.segmented)
 
-                    switch viewModel.scheduleDraft.frequency {
-                    case .weekly:
-                        WeekdaySelector(selectedWeekdays: Binding(
-                            get: { viewModel.scheduleDraft.selectedWeekdays },
-                            set: {
-                                viewModel.updateSelectedWeekdays($0)
-                                let conflict = viewModel.conflictDescription()
-                                conflictMessage = conflict
-                                if conflict != nil {
-                                    Haptics.warning()
+                    switch viewModel.draft.schedule.cadence {
+                    case .weekly(let weekday):
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: AppTheme.Spacing.sm) {
+                                ForEach(Weekday.allCases) { day in
+                                    Button {
+                                        viewModel.selectCadence(.weekly(day))
+                                        Haptics.selection()
+                                    } label: {
+                                        Text(day.shortDisplayName)
+                                            .font(AppTheme.Typography.caption.weight(.semibold))
+                                            .padding(.horizontal, AppTheme.Spacing.md)
+                                            .padding(.vertical, AppTheme.Spacing.sm)
+                                            .background(
+                                                Capsule().fill(day == weekday ? AppTheme.Palette.primary.opacity(0.12) : AppTheme.Palette.surface)
+                                            )
+                                            .overlay(
+                                                Capsule()
+                                                    .stroke(day == weekday ? AppTheme.Palette.primary : AppTheme.Palette.neutralBorder, lineWidth: day == weekday ? 2 : 1)
+                                            )
+                                    }
+                                    .buttonStyle(.plain)
+                                    .foregroundStyle(day == weekday ? AppTheme.Palette.primary : .primary)
                                 }
                             }
-                        ))
-                        if viewModel.scheduleDraft.selectedWeekdays.isEmpty {
-                            Text("Select at least one day to send reminders.")
-                                .font(AppTheme.Typography.caption)
-                                .foregroundStyle(.secondary)
                         }
-                    case .custom:
-                        IntervalPicker(interval: Binding(
-                            get: { viewModel.normalizedInterval ?? 3 },
-                            set: { newValue in
-                                viewModel.updateIntervalDayCount(newValue)
-                                let conflict = viewModel.conflictDescription()
-                                conflictMessage = conflict
-                                if conflict != nil {
-                                    Haptics.warning()
-                                } else {
-                                    Haptics.selection()
-                                }
-                            }
-                        ))
+                    case .custom(let interval):
+                        Stepper(value: Binding(
+                            get: { interval },
+                            set: { viewModel.updateCustomInterval(days: $0) }
+                        ), in: 2...30) {
+                            Text("Every \(interval) days")
+                                .font(AppTheme.Typography.body)
+                        }
                     default:
                         EmptyView()
                     }
@@ -779,120 +659,190 @@ struct GoalCreationView: View {
                         Text("Reminder times")
                             .font(AppTheme.Typography.sectionHeader)
                         Spacer()
-                        DatePicker("Reminder time", selection: $newReminderTime, displayedComponents: .hourAndMinute)
-                            .labelsHidden()
+                        if !viewModel.draft.schedule.reminderTimes.isEmpty {
+                            Text("\(viewModel.draft.schedule.reminderTimes.count)/\(maxReminderCount)")
+                                .font(AppTheme.Typography.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
 
-                    if !viewModel.scheduleDraft.times.isEmpty {
-                        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                            ForEach(Array(viewModel.scheduleDraft.times.enumerated()), id: \.element) { index, scheduleTime in
+                    statusPill(
+                        message: viewModel.canAdvanceFromSchedule() ? "Reminders ready" : "Add at least one reminder",
+                        isComplete: viewModel.canAdvanceFromSchedule()
+                    )
+
+                    let recommended = viewModel.recommendedReminderTimes()
+                    if !recommended.isEmpty {
+                        LazyVGrid(columns: chipColumns, alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                            ForEach(recommended, id: \.self) { time in
+                                Button {
+                                    let succeeded = viewModel.toggleReminderTime(time)
+                                    if succeeded {
+                                        scheduleError = nil
+                                        Haptics.selection()
+                                    } else {
+                                        scheduleError = "Reminders need to be at least five minutes apart or fewer than \(maxReminderCount)."
+                                        Haptics.warning()
+                                    }
+                                } label: {
+                                    Text(time.formattedTime(in: viewModel.draft.schedule.timezone))
+                                        .font(AppTheme.Typography.caption.weight(.semibold))
+                                        .padding(.horizontal, AppTheme.Spacing.md)
+                                        .padding(.vertical, AppTheme.Spacing.sm)
+                                        .background(
+                                            Capsule().fill(viewModel.draft.schedule.reminderTimes.contains(time) ? AppTheme.Palette.primary.opacity(0.12) : AppTheme.Palette.surface)
+                                        )
+                                        .overlay(
+                                            Capsule()
+                                                .stroke(viewModel.draft.schedule.reminderTimes.contains(time) ? AppTheme.Palette.primary : AppTheme.Palette.neutralBorder, lineWidth: viewModel.draft.schedule.reminderTimes.contains(time) ? 2 : 1)
+                                        )
+                                }
+                                .buttonStyle(.plain)
+                                .foregroundStyle(viewModel.draft.schedule.reminderTimes.contains(time) ? AppTheme.Palette.primary : .primary)
+                            }
+                        }
+                    }
+
+                    if viewModel.draft.schedule.reminderTimes.isEmpty {
+                        Text("Add at least one reminder so we can nudge you.")
+                            .font(AppTheme.Typography.body)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+                            ForEach(viewModel.draft.schedule.reminderTimes, id: \.self) { time in
                                 HStack {
-                                    Text(scheduleTime.formattedTime(in: viewModel.scheduleDraft.timezone))
+                                    Text(time.formattedTime(in: viewModel.draft.schedule.timezone))
                                         .font(AppTheme.Typography.body)
                                     Spacer()
                                     Button(role: .destructive) {
-                                        viewModel.removeScheduleTime(scheduleTime)
-                                        let updatedConflict = viewModel.conflictDescription()
-                                        conflictMessage = updatedConflict
-                                        if updatedConflict != nil {
-                                            Haptics.warning()
-                                        } else {
-                                            Haptics.selection()
-                                        }
+                                        viewModel.removeReminderTime(time)
+                                        Haptics.selection()
                                     } label: {
-                                        Image(systemName: "minus.circle.fill")
+                                        Image(systemName: "xmark.circle.fill")
+                                            .font(.body)
                                     }
-                                    .accessibilityLabel("Remove reminder")
-                                    .accessibilityIdentifier("removeReminder-\(index)")
+                                    .buttonStyle(.plain)
                                 }
                                 .padding(.vertical, AppTheme.Spacing.xs)
-                                .accessibilityIdentifier("reminderRow-\(scheduleTime.hour)-\(String(format: "%02d", scheduleTime.minute))")
                             }
                         }
-                    } else {
-                        Text("Add at least one reminder time.")
-                            .font(AppTheme.Typography.body)
-                            .foregroundStyle(.secondary)
                     }
 
                     Button {
-                        if viewModel.addScheduleTime(from: newReminderTime) {
-                            let updatedConflict = viewModel.conflictDescription()
-                            conflictMessage = updatedConflict
-                            if updatedConflict != nil {
-                                Haptics.warning()
-                            } else {
-                                Haptics.selection()
-                            }
-                            let nextBaseline = Calendar.current.date(byAdding: .minute, value: 30, to: newReminderTime) ?? newReminderTime
-                            newReminderTime = viewModel.suggestedReminderDate(startingAt: nextBaseline)
-                        } else {
-                            conflictMessage = "Reminders must be at least 5 minutes apart."
-                            Haptics.warning()
-                        }
+                        showCustomTimeSheet = true
+                        customReminderDate = viewModel.suggestedReminderDate(startingAt: customReminderDate)
+                        Haptics.selection()
                     } label: {
-                        Label("Add Reminder", systemImage: "plus.circle.fill")
+                        Label("Custom time…", systemImage: "plus.circle.fill")
                     }
                     .buttonStyle(.secondaryProminent)
+
+                    if let scheduleError {
+                        Text(scheduleError)
+                            .font(AppTheme.Typography.caption)
+                            .foregroundStyle(Color.red)
+                    }
                 }
             }
 
             CardBackground {
-                VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-                    Text("Timezone")
-                        .font(AppTheme.Typography.sectionHeader)
-                    Picker("Timezone", selection: Binding(
-                        get: { viewModel.scheduleDraft.timezone },
-                        set: {
-                            viewModel.setTimezone($0)
-                            let conflict = viewModel.conflictDescription()
-                            conflictMessage = conflict
-                            if conflict != nil {
-                                Haptics.warning()
-                            } else {
+                DisclosureGroup("Advanced scheduling") {
+                    VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                        Text("Timezone")
+                            .font(AppTheme.Typography.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        Picker("Timezone", selection: Binding(
+                            get: { viewModel.draft.schedule.timezone },
+                            set: { timezone in
+                                viewModel.updateTimezone(timezone)
                                 Haptics.selection()
                             }
-                        }
-                    )) {
-                        ForEach(TimeZone.pickerOptions, id: \.identifier) { timezone in
-                            Text(timezone.localizedDisplayName())
-                                .tag(timezone)
+                        )) {
+                            ForEach(TimeZone.pickerOptions, id: \.identifier) { timezone in
+                                Text(timezone.localizedDisplayName())
+                                    .tag(timezone)
+                            }
                         }
                     }
+                    .padding(.top, AppTheme.Spacing.sm)
                 }
+                .font(AppTheme.Typography.bodyStrong)
+            }
+        }
+    }
+
+    private var commitmentStep: some View {
+        CardBackground {
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+                Text("Give future-you a boost")
+                    .font(AppTheme.Typography.sectionHeader)
+                Text("Add an optional encouragement or celebration message we'll surface when you log progress.")
+                    .font(AppTheme.Typography.caption)
+                    .foregroundStyle(.secondary)
+
+                TextField(
+                    "How will you celebrate showing up?",
+                    text: Binding(
+                        get: { viewModel.draft.celebrationMessage },
+                        set: { viewModel.draft.celebrationMessage = $0 }
+                    ),
+                    axis: .vertical
+                )
+                .lineLimit(3, reservesSpace: true)
+                .font(AppTheme.Typography.body)
+                .focused($focusedField, equals: .celebration)
             }
         }
     }
 
     private var reviewStep: some View {
-        VStack(spacing: AppTheme.Spacing.lg) {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.xl) {
             CardBackground {
-                VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-                    Text(viewModel.title)
-                        .font(AppTheme.Typography.title)
-                    if !viewModel.goalDescription.isEmpty {
-                        Text(viewModel.goalDescription)
-                            .font(AppTheme.Typography.body)
+                VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                    HStack {
+                        Text(viewModel.draft.title)
+                            .font(AppTheme.Typography.title)
+                        Spacer()
+                        Button("Edit", action: { step = .intent })
+                            .font(AppTheme.Typography.caption.weight(.semibold))
+                    }
+                    if let category = viewModel.draft.category {
+                        Text(category == .custom ? (viewModel.draft.normalizedCustomCategoryLabel ?? category.displayName) : category.displayName)
+                            .font(AppTheme.Typography.caption)
                             .foregroundStyle(.secondary)
                     }
-                    Text(selectedCategoryDisplayName)
-                        .font(AppTheme.Typography.caption)
-                        .foregroundStyle(.secondary)
+                    if !viewModel.draft.motivation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Text(viewModel.draft.motivation.trimmingCharacters(in: .whitespacesAndNewlines))
+                            .font(AppTheme.Typography.body)
+                            .foregroundStyle(.secondary)
+                            .padding(.top, AppTheme.Spacing.sm)
+                    }
+                    if !viewModel.draft.celebrationMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Text("Encouragement: \(viewModel.draft.celebrationMessage.trimmingCharacters(in: .whitespacesAndNewlines))")
+                            .font(AppTheme.Typography.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(.top, AppTheme.Spacing.sm)
+                    }
                 }
             }
 
             CardBackground {
                 VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                    Text("Questions")
-                        .font(AppTheme.Typography.sectionHeader)
-                    ForEach(viewModel.draftQuestions, id: \.id) { question in
+                    HStack {
+                        Text("Questions")
+                            .font(AppTheme.Typography.sectionHeader)
+                        Spacer()
+                        Button("Edit", action: { step = .prompts })
+                            .font(AppTheme.Typography.caption.weight(.semibold))
+                    }
+                    ForEach(viewModel.draft.questionDrafts) { question in
                         VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
-                            Text(question.text)
+                            Text(question.trimmedText)
                                 .font(AppTheme.Typography.body.weight(.semibold))
                             Text(question.responseType.displayName)
                                 .font(AppTheme.Typography.caption)
                                 .foregroundStyle(.secondary)
-                            if let detail = questionDetail(for: question) {
+                            if let detail = detail(for: question) {
                                 Text(detail)
                                     .font(AppTheme.Typography.caption)
                                     .foregroundStyle(.secondary)
@@ -905,64 +855,505 @@ struct GoalCreationView: View {
 
             CardBackground {
                 VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                    Text("Reminders")
-                        .font(AppTheme.Typography.sectionHeader)
-                    if viewModel.scheduleDraft.times.isEmpty {
-                        Text("No reminder times configured")
+                    HStack {
+                        Text("Reminders")
+                            .font(AppTheme.Typography.sectionHeader)
+                        Spacer()
+                        Button("Edit", action: { step = .rhythm })
+                            .font(AppTheme.Typography.caption.weight(.semibold))
+                    }
+
+                    switch viewModel.draft.schedule.cadence {
+                    case .daily:
+                        Text("Daily")
                             .font(AppTheme.Typography.body)
+                    case .weekdays:
+                        Text("Weekdays (Mon–Fri)")
+                            .font(AppTheme.Typography.body)
+                    case .weekly(let weekday):
+                        Text("Weekly on \(weekday.displayName)")
+                            .font(AppTheme.Typography.body)
+                    case .custom(let interval):
+                        Text("Every \(interval) days")
+                            .font(AppTheme.Typography.body)
+                    }
+
+                    if viewModel.draft.schedule.reminderTimes.isEmpty {
+                        Text("No reminder times selected")
+                            .font(AppTheme.Typography.caption)
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(viewModel.scheduleDraft.times, id: \.self) { scheduleTime in
-                            Text(scheduleTime.formattedTime(in: viewModel.scheduleDraft.timezone))
+                        ForEach(viewModel.draft.schedule.reminderTimes, id: \.self) { time in
+                            Text(time.formattedTime(in: viewModel.draft.schedule.timezone))
                                 .font(AppTheme.Typography.body)
                         }
-                    }
-
-                    if viewModel.scheduleDraft.frequency == .weekly,
-                       !viewModel.scheduleDraft.selectedWeekdays.isEmpty {
-                        let names = viewModel.scheduleDraft.selectedWeekdays
-                            .sorted(by: { $0.rawValue < $1.rawValue })
-                            .map { $0.shortDisplayName }
-                            .joined(separator: ", ")
-                        Text("Remind on: \(names)")
-                            .font(AppTheme.Typography.caption)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    if let interval = viewModel.normalizedInterval,
-                       viewModel.scheduleDraft.frequency == .custom {
-                        Text("Every \(interval) days")
-                            .font(AppTheme.Typography.caption)
-                            .foregroundStyle(.secondary)
                     }
                 }
             }
         }
     }
 
-    private func canAdvance(_ step: Step) -> Bool {
-        switch step {
-        case .details:
-            let hasTitle = !viewModel.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            guard hasTitle, let category = viewModel.selectedCategory else { return false }
-            if category == .custom {
-                return !viewModel.customCategoryLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    private var customReminderSheet: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
+                DatePicker(
+                    "Reminder time",
+                    selection: $customReminderDate,
+                    displayedComponents: .hourAndMinute
+                )
+                .datePickerStyle(.wheel)
+                .labelsHidden()
+
+                Text("Times are saved in \(viewModel.draft.schedule.timezone.localizedDisplayName()).")
+                    .font(AppTheme.Typography.caption)
+                    .foregroundStyle(.secondary)
+
+                Spacer()
             }
-            return true
-        case .questions:
-            return viewModel.hasDraftQuestions
-        case .schedule:
-            guard viewModel.hasScheduleTimes else { return false }
-            switch viewModel.scheduleDraft.frequency {
-            case .weekly:
-                return !viewModel.scheduleDraft.selectedWeekdays.isEmpty
-            case .custom:
-                return viewModel.normalizedInterval != nil
-            default:
-                return true
+            .padding(AppTheme.Spacing.xl)
+            .navigationTitle("Custom reminder")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        showCustomTimeSheet = false
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Add") {
+                        if viewModel.addReminderDate(customReminderDate) {
+                            scheduleError = nil
+                            showCustomTimeSheet = false
+                            customReminderDate = viewModel.suggestedReminderDate(startingAt: customReminderDate.addingTimeInterval(30 * 60))
+                            Haptics.success()
+                        } else {
+                            scheduleError = "Reminders need to be at least five minutes apart or fewer than \(maxReminderCount)."
+                            Haptics.warning()
+                        }
+                    }
+                    .disabled(viewModel.draft.schedule.reminderTimes.count >= maxReminderCount)
+                }
             }
-        case .review:
+        }
+    }
+
+    private func categoryChip(for category: TrackingCategory) -> some View {
+        let isSelected = viewModel.draft.category == category
+        return Button {
+            viewModel.selectCategory(category)
+            Haptics.selection()
+        } label: {
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+                Text(category.displayName)
+                    .font(AppTheme.Typography.bodyStrong)
+                Text(categorySubtitle(for: category))
+                    .font(AppTheme.Typography.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(AppTheme.Spacing.md)
+            .frame(maxWidth: .infinity, minHeight: 92, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(isSelected ? AppTheme.Palette.primary.opacity(0.12) : AppTheme.Palette.surface)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(isSelected ? AppTheme.Palette.primary : AppTheme.Palette.neutralBorder, lineWidth: isSelected ? 2 : 1)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(isSelected ? AppTheme.Palette.primary : .primary)
+    }
+
+    private func categorySubtitle(for category: TrackingCategory) -> String {
+        switch category {
+        case .fitness: return "Movement, workouts, energy"
+        case .health: return "Sleep, nutrition, recovery"
+        case .productivity: return "Work, focus, planning"
+        case .habits: return "Routines, streaks, daily wins"
+        case .mood: return "Feelings, resilience, reflection"
+        case .learning: return "Skill building, study reps"
+        case .social: return "Relationships, outreach"
+        case .finance: return "Spending, saving, investing"
+        case .custom: return "Define your own"
+        }
+    }
+
+    private func responseTypeChip(for type: ResponseType) -> some View {
+        Button {
+            selectComposerResponseType(type)
+            Haptics.selection()
+        } label: {
+            HStack(spacing: AppTheme.Spacing.xs) {
+                Image(systemName: iconName(for: type))
+                    .font(.caption.weight(.semibold))
+                Text(type.displayName)
+                    .font(AppTheme.Typography.caption.weight(.semibold))
+            }
+            .padding(.horizontal, AppTheme.Spacing.md)
+            .padding(.vertical, AppTheme.Spacing.sm)
+            .background(
+                Capsule()
+                    .fill(composerDraft.responseType == type ? AppTheme.Palette.primary.opacity(0.12) : AppTheme.Palette.surface)
+            )
+            .overlay(
+                Capsule()
+                    .stroke(composerDraft.responseType == type ? AppTheme.Palette.primary : AppTheme.Palette.neutralBorder, lineWidth: composerDraft.responseType == type ? 2 : 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(composerDraft.responseType == type ? AppTheme.Palette.primary : .primary)
+    }
+
+    private func iconName(for type: ResponseType) -> String {
+        switch type {
+        case .numeric: return "number"
+        case .scale: return "chart.bar"
+        case .slider: return "slider.horizontal.3"
+        case .multipleChoice: return "list.bullet"
+        case .boolean: return "checkmark.circle"
+        case .text: return "text.alignleft"
+        case .time: return "clock"
+        }
+    }
+
+    private var hasGoalTitle: Bool {
+        !viewModel.draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var hasCategory: Bool {
+        guard let category = viewModel.draft.category else { return false }
+        if category == .custom {
+            return viewModel.draft.normalizedCustomCategoryLabel != nil
+        }
+        return true
+    }
+
+    private var hasCustomCategory: Bool {
+        viewModel.draft.category == .custom
+    }
+
+    private var hasMotivation: Bool {
+        !viewModel.draft.motivation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var composerIsReady: Bool {
+        questionIsComplete(composerDraft)
+    }
+
+    private func statusPill(message: String, isComplete: Bool) -> some View {
+        Label {
+            Text(message)
+        } icon: {
+            Image(systemName: isComplete ? "checkmark.circle.fill" : "exclamationmark.circle")
+        }
+        .font(AppTheme.Typography.caption.weight(.semibold))
+        .padding(.horizontal, AppTheme.Spacing.md)
+        .padding(.vertical, AppTheme.Spacing.xs)
+        .background(
+            Capsule()
+                .fill(isComplete ? AppTheme.Palette.primary.opacity(0.12) : Color.orange.opacity(0.12))
+        )
+        .foregroundStyle(isComplete ? AppTheme.Palette.primary : Color.orange)
+        .accessibilityLabel(message)
+    }
+
+    @ViewBuilder
+    private func checklistRow(
+        title: String,
+        subtitle: String,
+        isComplete: Bool,
+        isRequired: Bool
+    ) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: AppTheme.Spacing.sm) {
+            Image(systemName: iconNameForChecklist(isComplete: isComplete, isRequired: isRequired))
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(colorForChecklist(isComplete: isComplete, isRequired: isRequired))
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+                Text(title)
+                    .font(AppTheme.Typography.bodyStrong)
+                Text(subtitle)
+                    .font(AppTheme.Typography.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, AppTheme.Spacing.xs)
+    }
+
+    private func questionIsComplete(_ question: GoalQuestionDraft) -> Bool {
+        guard question.hasContent else { return false }
+        switch question.responseType {
+        case .multipleChoice:
+            return !question.options.isEmpty
+        case .numeric, .scale, .slider:
+            guard let rules = question.validationRules else { return false }
+            return rules.minimumValue != nil && rules.maximumValue != nil
+        default:
             return true
+        }
+    }
+
+    private func questionSummaryCard(for question: GoalQuestionDraft, index: Int) -> some View {
+        CardBackground {
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                HStack(alignment: .top, spacing: AppTheme.Spacing.sm) {
+                    Image(systemName: questionIsComplete(question) ? "checkmark.circle.fill" : "exclamationmark.circle")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(questionIsComplete(question) ? AppTheme.Palette.primary : Color.orange)
+
+                    VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+                        Text(question.trimmedText)
+                            .font(AppTheme.Typography.body.weight(.semibold))
+                        Text(question.responseType.displayName)
+                            .font(AppTheme.Typography.caption)
+                            .foregroundStyle(.secondary)
+                        if let detail = detail(for: question) {
+                            Text(detail)
+                                .font(AppTheme.Typography.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    Spacer()
+
+                    Menu {
+                        Button("Edit") {
+                            beginEditing(question)
+                        }
+                        Button("Move up", action: { moveQuestion(from: index, direction: -1) })
+                            .disabled(index == 0)
+                        Button("Move down", action: { moveQuestion(from: index, direction: 1) })
+                            .disabled(index == viewModel.draft.questionDrafts.count - 1)
+                        Button(role: .destructive) {
+                            viewModel.removeQuestion(question.id)
+                            Haptics.warning()
+                            if editingQuestionID == question.id {
+                                resetComposer()
+                            }
+                        } label: {
+                            Text("Delete")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .font(.title3)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private func iconNameForChecklist(isComplete: Bool, isRequired: Bool) -> String {
+        if isComplete { return "checkmark.circle.fill" }
+        return isRequired ? "exclamationmark.circle" : "circle"
+    }
+
+    private func colorForChecklist(isComplete: Bool, isRequired: Bool) -> Color {
+        if isComplete { return .green }
+        return isRequired ? Color.orange : .secondary
+    }
+
+    private func detail(for question: GoalQuestionDraft) -> String? {
+        var parts: [String] = []
+        switch question.responseType {
+        case .numeric, .scale, .slider:
+            if let min = question.validationRules?.minimumValue, let max = question.validationRules?.maximumValue {
+                parts.append("Range: \(formattedValue(min)) – \(formattedValue(max))")
+            }
+        case .multipleChoice:
+            if !question.options.isEmpty {
+                let preview = question.options.prefix(3).joined(separator: ", ")
+                let suffix = question.options.count > 3 ? "…" : ""
+                parts.append("Options: \(preview)\(suffix)")
+            }
+        default:
+            break
+        }
+
+        if question.validationRules?.allowsEmpty == true {
+            parts.append("Optional")
+        }
+
+        return parts.isEmpty ? nil : parts.joined(separator: " • ")
+    }
+
+    private func formattedValue(_ value: Double) -> String {
+        if value.rounded() == value {
+            return String(Int(value))
+        }
+        return value.formatted(.number.precision(.fractionLength(0...2)))
+    }
+
+    private func selectComposerResponseType(_ type: ResponseType) {
+        if composerDraft.responseType != type {
+            showAdvancedResponseTypes = advancedResponseTypes.contains(type)
+            composerDraft.responseType = type
+            applyDefaults(for: type, resetOptions: true)
+        }
+    }
+
+    private func applyDefaults(for type: ResponseType, resetOptions: Bool) {
+        switch type {
+        case .numeric, .slider:
+            composerDraft.validationRules = ValidationRules(minimumValue: 0, maximumValue: 100, allowsEmpty: composerAllowsEmpty)
+        case .scale:
+            composerDraft.validationRules = ValidationRules(minimumValue: 1, maximumValue: 5, allowsEmpty: composerAllowsEmpty)
+        case .multipleChoice:
+            if resetOptions {
+                composerDraft.options = []
+            }
+            updateComposerAllowsEmpty(false)
+        case .boolean, .text, .time:
+            composerDraft.validationRules = ValidationRules(allowsEmpty: composerAllowsEmpty)
+        }
+        if resetOptions {
+            newOptionText = ""
+        }
+    }
+
+    private func applyRangePreset(_ preset: RangePreset) {
+        composerDraft.validationRules = composerDraft.validationRules ?? ValidationRules(allowsEmpty: false)
+        composerDraft.validationRules?.minimumValue = preset.minimum
+        composerDraft.validationRules?.maximumValue = preset.maximum
+    }
+
+    private func isPresetActive(_ preset: RangePreset) -> Bool {
+        composerDraft.validationRules?.minimumValue == preset.minimum &&
+        composerDraft.validationRules?.maximumValue == preset.maximum
+    }
+
+    private var composerMinimumValue: Double {
+        composerDraft.validationRules?.minimumValue ?? 0
+    }
+
+    private var composerMaximumValue: Double {
+        composerDraft.validationRules?.maximumValue ?? 100
+    }
+
+    private func updateComposerMinimum(_ value: Double) {
+        composerDraft.validationRules = composerDraft.validationRules ?? ValidationRules(allowsEmpty: composerAllowsEmpty)
+        composerDraft.validationRules?.minimumValue = min(value, composerMaximumValue)
+    }
+
+    private func updateComposerMaximum(_ value: Double) {
+        composerDraft.validationRules = composerDraft.validationRules ?? ValidationRules(allowsEmpty: composerAllowsEmpty)
+        composerDraft.validationRules?.maximumValue = max(value, composerMinimumValue)
+    }
+
+    private var composerAllowsEmpty: Bool {
+        composerDraft.validationRules?.allowsEmpty ?? false
+    }
+
+    private func updateComposerAllowsEmpty(_ value: Bool) {
+        composerDraft.validationRules = composerDraft.validationRules ?? ValidationRules(allowsEmpty: value)
+        composerDraft.validationRules?.allowsEmpty = value
+    }
+
+    private var canSaveQuestion: Bool {
+        !composerDraft.trimmedText.isEmpty && (!requiresOptions || !composerDraft.options.isEmpty) && (!requiresRange || composerMinimumValue <= composerMaximumValue)
+    }
+
+    private var composerHasContent: Bool {
+        !composerDraft.trimmedText.isEmpty || !composerDraft.options.isEmpty || editingQuestionID != nil
+    }
+
+    private var requiresOptions: Bool {
+        composerDraft.responseType == .multipleChoice
+    }
+
+    private var requiresRange: Bool {
+        switch composerDraft.responseType {
+        case .numeric, .scale, .slider:
+            return true
+        default:
+            return false
+        }
+    }
+
+    private func appendCurrentOption() {
+        let trimmed = newOptionText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let key = trimmed.lowercased()
+        if !composerDraft.options.contains(where: { $0.lowercased() == key }) {
+            composerDraft.options.append(trimmed)
+        }
+        newOptionText = ""
+        focusedField = .questionOption
+    }
+
+    private func removeOption(_ option: String) {
+        composerDraft.options.removeAll { $0.caseInsensitiveCompare(option) == .orderedSame }
+    }
+
+    private func saveQuestionDraft() {
+        guard canSaveQuestion else {
+            composerError = "Finish the prompt before saving."
+            Haptics.warning()
+            return
+        }
+        composerError = nil
+
+        if let editingQuestionID {
+            composerDraft.id = editingQuestionID
+            viewModel.updateQuestion(composerDraft)
+        } else {
+            viewModel.addCustomQuestion(composerDraft)
+        }
+        Haptics.success()
+        resetComposer()
+    }
+
+    private func beginEditing(_ question: GoalQuestionDraft) {
+        editingQuestionID = question.id
+        composerDraft = question
+        showAdvancedResponseTypes = advancedResponseTypes.contains(question.responseType)
+        newOptionText = ""
+        focusedField = .questionPrompt
+    }
+
+    private func resetComposer() {
+        composerDraft = GoalQuestionDraft()
+        editingQuestionID = nil
+        composerError = nil
+        newOptionText = ""
+        focusedField = .questionPrompt
+    }
+
+    private func moveQuestion(from index: Int, direction: Int) {
+        let destination = max(0, min(viewModel.draft.questionDrafts.count, index + direction))
+        guard destination != index else { return }
+        viewModel.reorderQuestions(fromOffsets: IndexSet(integer: index), toOffset: destination > index ? destination + 1 : destination)
+        Haptics.selection()
+    }
+
+    private var selectedCadenceTag: String {
+        let cadence = viewModel.draft.schedule.cadence
+        if case .weekly(let weekday) = cadence {
+            return viewModel.cadencePresets().first(where: { preset in
+                if case .weekly = preset.cadence { return true }
+                return false
+            })?.id ?? viewModel.cadencePresets().first?.id ?? ""
+        }
+        return viewModel.cadencePresets().first(where: { preset in
+            cadencesEqual(preset.cadence, cadence)
+        })?.id ?? viewModel.cadencePresets().first?.id ?? ""
+    }
+
+    private func updateCadence(with tag: String) {
+        guard let preset = viewModel.cadencePresets().first(where: { $0.id == tag }) else { return }
+        viewModel.selectCadence(preset.cadence)
+        Haptics.selection()
+    }
+
+    private func cadencesEqual(_ lhs: GoalCadence, _ rhs: GoalCadence) -> Bool {
+        switch (lhs, rhs) {
+        case (.daily, .daily), (.weekdays, .weekdays):
+            return true
+        case (.weekly(let a), .weekly(let b)):
+            return a == b
+        case (.custom(let a), .custom(let b)):
+            return a == b
+        default:
+            return false
         }
     }
 
@@ -973,26 +1364,57 @@ struct GoalCreationView: View {
         }
 
         if let next = step.next(), canAdvance(step) {
-            Haptics.selection()
-            withAnimation(.spring) {
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.82)) {
                 step = next
-                conflictMessage = next == .schedule ? viewModel.conflictDescription() : nil
             }
+            Haptics.selection()
         }
     }
 
     private func moveBackward() {
         guard let previous = step.previous() else { return }
-        Haptics.selection()
-        withAnimation(.spring) {
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.82)) {
             step = previous
-            conflictMessage = previous == .schedule ? viewModel.conflictDescription() : nil
+        }
+        Haptics.selection()
+    }
+
+    private func canAdvance(_ step: FlowStep) -> Bool {
+        switch step {
+        case .intent:
+            return viewModel.canAdvanceFromDetails()
+        case .prompts:
+            return viewModel.canAdvanceFromQuestions()
+        case .rhythm:
+            return viewModel.canAdvanceFromSchedule()
+        case .commitment, .review:
+            return true
+        }
+    }
+
+    private func forwardHint(for step: FlowStep) -> String? {
+        guard !canAdvance(step) else { return nil }
+        switch step {
+        case .intent:
+            if !hasGoalTitle {
+                return "Add a goal title to continue."
+            }
+            if !hasCategory {
+                return hasCustomCategory ? "Name your custom focus area." : "Pick a focus area to continue."
+            }
+            return "Complete the checklist above before moving on."
+        case .prompts:
+            return "Add at least one question to continue."
+        case .rhythm:
+            return "Add at least one reminder time to continue."
+        case .commitment, .review:
+            return nil
         }
     }
 
     private func handleSave() {
         do {
-            let goal = try viewModel.createGoal()
+            let goal = try viewModel.saveGoal()
             Haptics.success()
             NotificationScheduler.shared.scheduleNotifications(for: goal)
             dismiss()
@@ -1002,30 +1424,73 @@ struct GoalCreationView: View {
             Haptics.error()
         }
     }
-}
 
-private extension GoalCreationView {
-    var selectedCategoryDisplayName: String {
-        guard let category = viewModel.selectedCategory else {
-            return "Select a category"
+    private func updateFocus(for step: FlowStep) {
+        switch step {
+        case .intent:
+            focusedField = .title
+        case .prompts:
+            focusedField = .questionPrompt
+        case .commitment:
+            focusedField = .celebration
+        default:
+            focusedField = nil
         }
-
-        if category == .custom {
-            let trimmed = viewModel.customCategoryLabel.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !trimmed.isEmpty {
-                return trimmed
-            }
-        }
-        return category.displayName
     }
 
-    struct ResponseTypeOption: Identifiable {
-        let type: ResponseType
-        let icon: String
-        let title: String
-        let subtitle: String
+    private var titleBinding: Binding<String> {
+        Binding(
+            get: { viewModel.draft.title },
+            set: { viewModel.draft.title = $0 }
+        )
+    }
 
-        var id: ResponseType { type }
+    private var motivationBinding: Binding<String> {
+        Binding(
+            get: { viewModel.draft.motivation },
+            set: { viewModel.draft.motivation = $0 }
+        )
+    }
+}
+
+private struct TemplateCard: View {
+    let template: PromptTemplate
+    let isApplied: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(alignment: .top, spacing: AppTheme.Spacing.md) {
+                Image(systemName: template.iconName)
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(AppTheme.Palette.primary)
+                    .frame(width: 32, height: 32)
+
+                VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+                    Text(template.title)
+                        .font(AppTheme.Typography.bodyStrong)
+                    Text(template.subtitle)
+                        .font(AppTheme.Typography.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                if isApplied {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(AppTheme.Palette.primary)
+                        .font(.title2)
+                }
+            }
+            .padding(AppTheme.Spacing.md)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(AppTheme.Palette.surface)
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(isApplied)
+        .opacity(isApplied ? 0.6 : 1)
     }
 }
 
@@ -1101,8 +1566,8 @@ struct IntervalPicker: View {
 #Preview {
     if let container = try? PreviewSampleData.makePreviewContainer() {
         let context = container.mainContext
-        let viewModel = GoalCreationViewModel(modelContext: context)
-        return GoalCreationView(viewModel: viewModel)
+        let legacyViewModel = GoalCreationViewModel(modelContext: context)
+        return GoalCreationView(viewModel: legacyViewModel)
             .modelContainer(container)
     } else {
         return Text("Preview unavailable")

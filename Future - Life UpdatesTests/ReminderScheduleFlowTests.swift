@@ -218,4 +218,69 @@ struct ReminderScheduleFlowTests {
         #expect(goal.schedule.times.count == 1)
         #expect(goal.schedule.times.first?.hour == 10)
     }
+
+    @Test("Flow view model persists goal draft with schedule and templates")
+    func flowViewModelPersistsGoalDraftWithScheduleAndTemplates() throws {
+        let container = try makeInMemoryContainer()
+        let context = container.mainContext
+
+        let legacy = GoalCreationViewModel(modelContext: context)
+        let flow = GoalCreationFlowViewModel(legacyViewModel: legacy)
+
+        flow.draft.title = "Flow Goal"
+        flow.selectCategory(.fitness)
+        flow.draft.motivation = "Move daily"
+
+        let question = GoalQuestionDraft(
+            text: "Did you complete today's workout?",
+            responseType: .boolean,
+            options: [],
+            validationRules: ValidationRules(allowsEmpty: false),
+            isActive: true,
+            templateID: nil
+        )
+        flow.addCustomQuestion(question)
+
+        flow.selectCadence(.daily)
+        let added = flow.addReminderTime(ScheduleTime(hour: 8, minute: 30))
+        #expect(added)
+        #expect(flow.draft.schedule.reminderTimes.count == 1)
+
+        let goal = try flow.saveGoal()
+        #expect(goal.title == "Flow Goal")
+        #expect(goal.questions.count == 1)
+        #expect(goal.schedule.times.count == 1)
+        #expect(goal.schedule.times.contains { $0.hour == 8 && $0.minute == 30 })
+
+        let fetched = try context.fetch(FetchDescriptor<TrackingGoal>())
+        #expect(fetched.count == 1)
+        #expect(fetched.first?.id == goal.id)
+    }
+
+    @Test("Flow reminder toggle enforces maximum count")
+    func flowReminderToggleEnforcesMaximumCount() throws {
+        let container = try makeInMemoryContainer()
+        let context = container.mainContext
+
+        let legacy = GoalCreationViewModel(modelContext: context)
+        let flow = GoalCreationFlowViewModel(legacyViewModel: legacy)
+
+        flow.selectCadence(.daily)
+        let times = [
+            ScheduleTime(hour: 8, minute: 0),
+            ScheduleTime(hour: 12, minute: 30),
+            ScheduleTime(hour: 18, minute: 45)
+        ]
+
+        times.forEach { time in
+            let didAdd = flow.addReminderTime(time)
+            #expect(didAdd)
+        }
+        #expect(flow.draft.schedule.reminderTimes.count == times.count)
+
+        let extraTime = ScheduleTime(hour: 21, minute: 0)
+        let didToggle = flow.toggleReminderTime(extraTime)
+        #expect(!didToggle)
+        #expect(flow.draft.schedule.reminderTimes.count == times.count)
+    }
 }
