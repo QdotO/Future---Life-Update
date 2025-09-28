@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="32700" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="LaunchScreenController">
+    <device id="retina6_1" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="22684"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <resources>
+        <image name="LaunchBackground" width="2048" height="2048"/>
+        <image name="LaunchGlyph" width="512" height="512"/>
+    </resources>
+    <scenes>
+        <!--Launch Screen-->
+        <scene sceneID="LaunchScene">
+            <objects>
+                <viewController id="LaunchScreenController" sceneMemberID="viewController">
+                    <view key="view" contentMode="scaleToFill" id="LaunchRootView">
+                        <rect key="frame" x="0.0" y="0.0" width="414" height="896"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <subviews>
+                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFill" image="LaunchBackground" translatesAutoresizingMaskIntoConstraints="NO" id="BackgroundImage">
+                                <rect key="frame" x="0.0" y="0.0" width="414" height="896"/>
+                            </imageView>
+                            <imageView clipsSubviews="NO" userInteractionEnabled="NO" contentMode="scaleAspectFit" image="LaunchGlyph" translatesAutoresizingMaskIntoConstraints="NO" id="GlyphImage">
+                                <rect key="frame" x="127" y="304" width="160" height="160"/>
+                            </imageView>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Future - Life Updates" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="TitleLabel">
+                                <rect key="frame" x="82" y="492" width="250" height="34"/>
+                                <fontDescription key="fontDescription" style="UICTFontTextStyleTitle2"/>
+                                <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                <nil key="highlightedColor"/>
+                            </label>
+                        </subviews>
+                        <color key="backgroundColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="displayP3"/>
+                        <constraints>
+                            <constraint firstItem="BackgroundImage" firstAttribute="top" secondItem="LaunchRootView" secondAttribute="top" id="BackgroundTop"/>
+                            <constraint firstItem="BackgroundImage" firstAttribute="leading" secondItem="LaunchRootView" secondAttribute="leading" id="BackgroundLeading"/>
+                            <constraint firstAttribute="trailing" secondItem="BackgroundImage" secondAttribute="trailing" id="BackgroundTrailing"/>
+                            <constraint firstAttribute="bottom" secondItem="BackgroundImage" secondAttribute="bottom" id="BackgroundBottom"/>
+                            <constraint firstItem="GlyphImage" firstAttribute="centerX" secondItem="LaunchRootView" secondAttribute="centerX" id="GlyphCenterX"/>
+                            <constraint firstItem="GlyphImage" firstAttribute="centerY" secondItem="LaunchRootView" secondAttribute="centerY" id="GlyphCenterY"/>
+                            <constraint firstItem="GlyphImage" firstAttribute="width" constant="160" id="GlyphWidth"/>
+                            <constraint firstItem="GlyphImage" firstAttribute="height" constant="160" id="GlyphHeight"/>
+                            <constraint firstItem="TitleLabel" firstAttribute="top" secondItem="GlyphImage" secondAttribute="bottom" constant="28" id="TitleTop"/>
+                            <constraint firstItem="TitleLabel" firstAttribute="centerX" secondItem="LaunchRootView" secondAttribute="centerX" id="TitleCenterX"/>
+                        </constraints>
+                        <viewLayoutGuide key="safeArea" id="LaunchSafeArea"/>
+                    </view>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="FirstResponder" userLabel="First Responder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="53" y="375"/>
+        </scene>
+    </scenes>
+</document>
