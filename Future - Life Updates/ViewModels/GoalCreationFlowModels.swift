@@ -28,6 +28,7 @@ struct GoalQuestionDraft: Identifiable, Equatable {
     var validationRules: ValidationRules? = nil
     var isActive: Bool = true
     var templateID: String? = nil
+    var suggestionID: UUID? = nil
 
     var trimmedText: String {
         text.trimmingCharacters(in: .whitespacesAndNewlines)

@@ -227,9 +227,9 @@ struct ReminderScheduleFlowTests {
         let legacy = GoalCreationViewModel(modelContext: context)
         let flow = GoalCreationFlowViewModel(legacyViewModel: legacy)
 
-        flow.draft.title = "Flow Goal"
+        flow.updateTitle("Flow Goal")
         flow.selectCategory(.fitness)
-        flow.draft.motivation = "Move daily"
+        flow.updateMotivation("Move daily")
 
         let question = GoalQuestionDraft(
             text: "Did you complete today's workout?",

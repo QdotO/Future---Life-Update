@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 
 protocol NotificationScheduling {
     func scheduleNotifications(for goal: TrackingGoal)
+    func cancelNotifications(forGoalID goalID: UUID)
 }
 
 extension NotificationScheduler: NotificationScheduling {}
@@ -230,6 +231,7 @@ struct DataBackupManager {
         descriptor.includePendingChanges = true
         let existingGoals = try modelContext.fetch(descriptor)
         for goal in existingGoals {
+            notificationScheduler.cancelNotifications(forGoalID: goal.id)
             modelContext.delete(goal)
         }
     }

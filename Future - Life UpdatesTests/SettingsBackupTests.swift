@@ -151,8 +151,13 @@ struct SettingsBackupTests {
 
 private final class StubNotificationScheduler: NotificationScheduling {
     private(set) var scheduledGoalIDs: [UUID] = []
+    private(set) var cancelledGoalIDs: [UUID] = []
 
     func scheduleNotifications(for goal: TrackingGoal) {
         scheduledGoalIDs.append(goal.id)
+    }
+
+    func cancelNotifications(forGoalID goalID: UUID) {
+        cancelledGoalIDs.append(goalID)
     }
 }

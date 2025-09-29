@@ -2,9 +2,19 @@ import Foundation
 import SwiftData
 import SwiftUI
 
+private enum GoalCreationFlowViewModelConstants {
+    static let suggestionLimit: Int = 3
+}
+
 @MainActor
 @Observable
 final class GoalCreationFlowViewModel {
+    private struct SuggestionInput: Equatable {
+        let title: String
+        let description: String
+        let limit: Int
+    }
+
     enum FlowError: LocalizedError {
         case missingTitle
         case missingCategory
@@ -28,9 +38,18 @@ final class GoalCreationFlowViewModel {
     private let legacy: GoalCreationViewModel
     private let calendar: Calendar
     private let dateProvider: () -> Date
+    private var suggestionService: GoalSuggestionServing?
+    @ObservationIgnored private var suggestionTask: Task<Void, Never>?
+    private var lastSuggestionInput: SuggestionInput?
 
     var draft: GoalDraft
     private(set) var appliedTemplateIDs: Set<String>
+    private(set) var appliedSuggestionIDs: Set<UUID>
+    var suggestions: [GoalSuggestion]
+    var suggestionError: String?
+    var isLoadingSuggestions: Bool
+    var suggestionProviderName: String?
+    var suggestionAvailability: GoalSuggestionAvailabilityStatus
 
     var conflictMessage: String? {
         syncLegacySchedule()
@@ -40,14 +59,23 @@ final class GoalCreationFlowViewModel {
     init(
         legacyViewModel: GoalCreationViewModel,
         calendar: Calendar = .current,
-        dateProvider: @escaping () -> Date = Date.init
+        dateProvider: @escaping () -> Date = Date.init,
+        suggestionService: GoalSuggestionServing? = nil
     ) {
         self.legacy = legacyViewModel
         self.calendar = calendar
         self.dateProvider = dateProvider
+    self.suggestionService = suggestionService
+    let shouldCreateService = suggestionService == nil
+        self.suggestionAvailability = .unknown
         self.appliedTemplateIDs = []
+        self.appliedSuggestionIDs = []
+        self.suggestions = []
+        self.suggestionError = nil
+        self.isLoadingSuggestions = false
+        self.suggestionProviderName = nil
 
-    let cadence = Self.cadence(from: legacyViewModel.scheduleDraft, calendar: calendar, nowProvider: dateProvider)
+        let cadence = Self.cadence(from: legacyViewModel.scheduleDraft, calendar: calendar, nowProvider: dateProvider)
         let initialSchedule = GoalScheduleDraft(
             cadence: cadence,
             reminderTimes: legacyViewModel.scheduleDraft.times,
@@ -75,11 +103,14 @@ final class GoalCreationFlowViewModel {
                     options: question.options ?? [],
                     validationRules: question.validationRules,
                     isActive: question.isActive,
-                    templateID: nil
+                    templateID: nil,
+                    suggestionID: nil
                 )
             }
-            rebuildAppliedTemplateIDs()
         }
+
+        syncAppliedQuestionSources()
+        refreshSuggestionEnvironment(allowRecreation: shouldCreateService)
     }
 
     func recommendedTemplates(limit: Int = 3) -> [PromptTemplate] {
@@ -96,6 +127,18 @@ final class GoalCreationFlowViewModel {
         GoalCreationCatalog.cadencePresets
     }
 
+    func updateTitle(_ text: String) {
+        guard draft.title != text else { return }
+        draft.title = text
+        resetSuggestionState()
+    }
+
+    func updateMotivation(_ text: String) {
+        guard draft.motivation != text else { return }
+        draft.motivation = text
+        resetSuggestionState()
+    }
+
     func applyTemplate(_ template: PromptTemplate) {
         guard !appliedTemplateIDs.contains(template.id) else { return }
         let blueprint = template.blueprint
@@ -105,44 +148,55 @@ final class GoalCreationFlowViewModel {
             options: blueprint.options ?? [],
             validationRules: blueprint.validationRules,
             isActive: true,
-            templateID: template.id
+            templateID: template.id,
+            suggestionID: nil
         )
         draft.questionDrafts.append(question)
-        rebuildAppliedTemplateIDs()
+        syncAppliedQuestionSources()
     }
 
     func addCustomQuestion(_ draftQuestion: GoalQuestionDraft) {
         draft.questionDrafts.append(draftQuestion)
-        rebuildAppliedTemplateIDs()
+        syncAppliedQuestionSources()
     }
 
     func updateQuestion(_ question: GoalQuestionDraft) {
         guard let index = draft.questionDrafts.firstIndex(where: { $0.id == question.id }) else { return }
         draft.questionDrafts[index] = question
-        rebuildAppliedTemplateIDs()
+        syncAppliedQuestionSources()
     }
 
     func removeQuestion(_ questionID: UUID) {
         draft.questionDrafts.removeAll { $0.id == questionID }
-        rebuildAppliedTemplateIDs()
+        syncAppliedQuestionSources()
     }
 
     func reorderQuestions(fromOffsets: IndexSet, toOffset: Int) {
         draft.questionDrafts.move(fromOffsets: fromOffsets, toOffset: toOffset)
-        rebuildAppliedTemplateIDs()
+        syncAppliedQuestionSources()
     }
 
     func selectCategory(_ category: TrackingCategory) {
+        let previous = draft.category
         draft.category = category
         if category != .custom {
             draft.customCategoryLabel = ""
         }
+        if previous != category {
+            resetSuggestionState()
+        }
     }
 
     func updateCustomCategoryLabel(_ text: String) {
+        let previousLabel = draft.customCategoryLabel
+        let previousCategory = draft.category
         draft.customCategoryLabel = text
-        if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
             draft.category = .custom
+        }
+        if previousLabel != text || previousCategory != draft.category {
+            resetSuggestionState()
         }
     }
 
@@ -258,6 +312,8 @@ final class GoalCreationFlowViewModel {
 
         draft = GoalDraft()
         appliedTemplateIDs.removeAll()
+        appliedSuggestionIDs.removeAll()
+        resetSuggestionState()
         refreshDraftSchedule()
         return goal
     }
@@ -265,6 +321,8 @@ final class GoalCreationFlowViewModel {
     func resetDraft() {
         draft = GoalDraft()
         appliedTemplateIDs.removeAll()
+        appliedSuggestionIDs.removeAll()
+        resetSuggestionState()
         legacy.replaceDraftQuestions(with: [])
         legacy.replaceTimes([])
         legacy.setFrequency(.daily)
@@ -285,18 +343,85 @@ final class GoalCreationFlowViewModel {
     }
 
     private func refreshDraftSchedule() {
-    let cadence = Self.cadence(from: legacy.scheduleDraft, calendar: calendar, nowProvider: dateProvider)
+        let cadence = Self.cadence(from: legacy.scheduleDraft, calendar: calendar, nowProvider: dateProvider)
         draft.schedule = GoalScheduleDraft(
             cadence: cadence,
             reminderTimes: legacy.scheduleDraft.times,
             timezone: legacy.scheduleDraft.timezone,
             startDate: legacy.scheduleDraft.startDate
         )
-        rebuildAppliedTemplateIDs()
+        syncAppliedQuestionSources()
     }
 
-    private func rebuildAppliedTemplateIDs() {
+    private func makeSuggestionContext(from description: String) -> String {
+        var sections: [String] = []
+        if !description.isEmpty {
+            sections.append(description)
+        }
+        if let category = draft.category {
+            sections.append("Category: \(category.displayName)")
+        }
+        let cadenceSummary: String = {
+            switch draft.schedule.cadence {
+            case .daily:
+                return "Cadence: Daily"
+            case .weekdays:
+                return "Cadence: Weekdays"
+            case .weekly(let weekday):
+                return "Cadence: Weekly on \(weekday.displayName)"
+            case .custom(let interval):
+                return "Cadence: Every \(interval) days"
+            }
+        }()
+        sections.append(cadenceSummary)
+
+        if !draft.questionDrafts.isEmpty {
+            let existing = draft.questionDrafts
+                .map { "- \($0.trimmedText)" }
+                .joined(separator: "\n")
+            sections.append("Existing prompts:\n\(existing)")
+        }
+
+        return sections.joined(separator: "\n\n")
+    }
+
+    private func filterSuggestions(_ candidates: [GoalSuggestion]) -> [GoalSuggestion] {
+        let existingPrompts = Set(draft.questionDrafts.map { $0.trimmedText.lowercased() })
+        return candidates.filter { suggestion in
+            let normalized = suggestion.prompt.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            guard !normalized.isEmpty else { return false }
+            return !existingPrompts.contains(normalized)
+        }
+    }
+
+    private func resetSuggestionState() {
+        suggestionTask?.cancel()
+        suggestionTask = nil
+        suggestions = []
+        suggestionError = nil
+        isLoadingSuggestions = false
+        lastSuggestionInput = nil
+        refreshSuggestionEnvironment(allowRecreation: true)
+    }
+
+    private func refreshSuggestionEnvironment(allowRecreation: Bool) {
+        let status = GoalSuggestionAvailability.currentStatus()
+        if allowRecreation, suggestionService == nil, case .available = status {
+            suggestionService = GoalSuggestionServiceFactory.makeLive()
+        }
+        suggestionAvailability = status
+        if let provider = suggestionService?.providerName {
+            suggestionProviderName = provider
+        } else if case .available(let provider) = status {
+            suggestionProviderName = provider
+        } else {
+            suggestionProviderName = nil
+        }
+    }
+
+    private func syncAppliedQuestionSources() {
         appliedTemplateIDs = Set(draft.questionDrafts.compactMap { $0.templateID })
+        appliedSuggestionIDs = Set(draft.questionDrafts.compactMap { $0.suggestionID })
     }
 
     private static func cadence(
@@ -324,5 +449,98 @@ final class GoalCreationFlowViewModel {
         default:
             return .daily
         }
+    }
+
+    deinit {
+        suggestionTask?.cancel()
+    }
+
+    var supportsSuggestions: Bool {
+        if case .available = suggestionAvailability, suggestionService != nil {
+            return true
+        }
+        return false
+    }
+
+    var suggestionAvailabilityMessage: String? {
+        if case .available = suggestionAvailability {
+            return suggestionService == nil ? "Suggestions are unavailable right now." : nil
+        }
+        return GoalSuggestionAvailability.message(for: suggestionAvailability)
+    }
+
+    @MainActor
+    func loadSuggestions(limit: Int = GoalCreationFlowViewModelConstants.suggestionLimit, force: Bool = false) {
+        suggestionTask?.cancel()
+        suggestionTask = Task { @MainActor [weak self] in
+            await self?.refreshSuggestions(limit: limit, force: force)
+        }
+    }
+
+    @MainActor
+    func refreshSuggestions(limit: Int = GoalCreationFlowViewModelConstants.suggestionLimit, force: Bool = false) async {
+        refreshSuggestionEnvironment(allowRecreation: true)
+
+        guard let service = suggestionService else {
+            suggestionError = suggestionAvailabilityMessage
+            suggestions = []
+            return
+        }
+
+        let trimmedTitle = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedDescription = draft.motivation.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !trimmedTitle.isEmpty || !trimmedDescription.isEmpty else {
+            suggestions = []
+            suggestionError = GoalSuggestionError.missingInput.errorDescription
+            lastSuggestionInput = nil
+            return
+        }
+
+        let enrichedDescription = makeSuggestionContext(from: trimmedDescription)
+        let input = SuggestionInput(title: trimmedTitle, description: enrichedDescription, limit: max(1, limit))
+
+        if !force, input == lastSuggestionInput, !suggestions.isEmpty {
+            return
+        }
+
+        isLoadingSuggestions = true
+        suggestionError = nil
+
+        do {
+            let results = try await service.suggestions(title: input.title, description: input.description, limit: input.limit)
+            let filtered = filterSuggestions(results)
+            suggestions = Array(filtered.prefix(GoalCreationFlowViewModelConstants.suggestionLimit))
+            lastSuggestionInput = input
+            if suggestions.isEmpty {
+                suggestionError = GoalSuggestionError.emptyPayload.errorDescription
+            }
+        } catch let error as GoalSuggestionError {
+            suggestionError = error.errorDescription
+            suggestions = []
+            lastSuggestionInput = nil
+        } catch {
+            suggestionError = error.localizedDescription
+            suggestions = []
+            lastSuggestionInput = nil
+        }
+
+        isLoadingSuggestions = false
+    }
+
+    func applySuggestion(_ suggestion: GoalSuggestion) {
+        let normalizedOptions = suggestion.options.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        let question = GoalQuestionDraft(
+            text: suggestion.prompt,
+            responseType: suggestion.responseType,
+            options: normalizedOptions,
+            validationRules: suggestion.validationRules,
+            isActive: true,
+            templateID: nil,
+            suggestionID: suggestion.id
+        )
+        draft.questionDrafts.append(question)
+        suggestions.removeAll { $0.id == suggestion.id }
+        syncAppliedQuestionSources()
     }
 }

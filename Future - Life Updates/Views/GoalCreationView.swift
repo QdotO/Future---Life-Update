@@ -289,6 +289,8 @@ struct GoalCreationView: View {
 
     private var promptsStep: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.xl) {
+            aiSuggestionsSection
+
             let suggested = viewModel.recommendedTemplates()
             if !suggested.isEmpty {
                 CardBackground {
@@ -368,6 +370,7 @@ struct GoalCreationView: View {
             if focusedField == nil {
                 focusedField = .questionPrompt
             }
+            triggerSuggestionsIfNeeded()
         }
     }
 
@@ -842,6 +845,16 @@ struct GoalCreationView: View {
                             Text(question.responseType.displayName)
                                 .font(AppTheme.Typography.caption)
                                 .foregroundStyle(.secondary)
+                            if question.templateID != nil || question.suggestionID != nil {
+                                HStack(spacing: AppTheme.Spacing.xs) {
+                                    if question.templateID != nil {
+                                        sourceBadge(label: "Template", systemImage: "text.book.closed", tint: Color.secondary)
+                                    }
+                                    if question.suggestionID != nil {
+                                        sourceBadge(label: "AI suggestion", systemImage: "sparkles", tint: AppTheme.Palette.primary)
+                                    }
+                                }
+                            }
                             if let detail = detail(for: question) {
                                 Text(detail)
                                     .font(AppTheme.Typography.caption)
@@ -1092,6 +1105,28 @@ struct GoalCreationView: View {
         }
     }
 
+    private func triggerSuggestionsIfNeeded(force: Bool = false) {
+        guard viewModel.supportsSuggestions else { return }
+        guard !viewModel.isLoadingSuggestions else { return }
+        if !force, !viewModel.suggestions.isEmpty { return }
+        let trimmedTitle = viewModel.draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedDescription = viewModel.draft.motivation.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTitle.isEmpty || !trimmedDescription.isEmpty else { return }
+        viewModel.loadSuggestions(force: force)
+    }
+
+    private func sourceBadge(label: String, systemImage: String, tint: Color) -> some View {
+        Label(label, systemImage: systemImage)
+            .font(AppTheme.Typography.caption.weight(.semibold))
+            .padding(.horizontal, AppTheme.Spacing.sm)
+            .padding(.vertical, AppTheme.Spacing.xs)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(tint.opacity(0.12))
+            )
+            .foregroundStyle(tint)
+    }
+
     private func questionSummaryCard(for question: GoalQuestionDraft, index: Int) -> some View {
         CardBackground {
             VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
@@ -1106,6 +1141,16 @@ struct GoalCreationView: View {
                         Text(question.responseType.displayName)
                             .font(AppTheme.Typography.caption)
                             .foregroundStyle(.secondary)
+                        if question.templateID != nil || question.suggestionID != nil {
+                            HStack(spacing: AppTheme.Spacing.xs) {
+                                if question.templateID != nil {
+                                    sourceBadge(label: "Template", systemImage: "text.book.closed", tint: Color.secondary)
+                                }
+                                if question.suggestionID != nil {
+                                    sourceBadge(label: "AI suggestion", systemImage: "sparkles", tint: AppTheme.Palette.primary)
+                                }
+                            }
+                        }
                         if let detail = detail(for: question) {
                             Text(detail)
                                 .font(AppTheme.Typography.caption)
@@ -1441,15 +1486,95 @@ struct GoalCreationView: View {
     private var titleBinding: Binding<String> {
         Binding(
             get: { viewModel.draft.title },
-            set: { viewModel.draft.title = $0 }
+            set: { viewModel.updateTitle($0) }
         )
     }
 
     private var motivationBinding: Binding<String> {
         Binding(
             get: { viewModel.draft.motivation },
-            set: { viewModel.draft.motivation = $0 }
+            set: { viewModel.updateMotivation($0) }
         )
+    }
+
+    @ViewBuilder
+    private var aiSuggestionsSection: some View {
+        if let message = viewModel.suggestionAvailabilityMessage {
+            CardBackground {
+                VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                    Text("Smart suggestions")
+                        .font(AppTheme.Typography.sectionHeader)
+                    Text(message)
+                        .font(AppTheme.Typography.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        } else if viewModel.supportsSuggestions {
+            CardBackground {
+                VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+                    HStack(alignment: .firstTextBaseline) {
+                        VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+                            Text("Generate with Apple Intelligence")
+                                .font(AppTheme.Typography.sectionHeader)
+                            if let provider = viewModel.suggestionProviderName {
+                                Text(provider)
+                                    .font(AppTheme.Typography.caption)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                Text("Get tailored questions based on your goal context.")
+                                    .font(AppTheme.Typography.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        Spacer()
+                        if viewModel.isLoadingSuggestions {
+                            ProgressView()
+                                .progressViewStyle(.circular)
+                        }
+                    }
+
+                    Button {
+                        Haptics.selection()
+                        let forceRegeneration = !viewModel.suggestions.isEmpty
+                        withAnimation(.spring(response: 0.45, dampingFraction: 0.82)) {
+                            viewModel.loadSuggestions(force: forceRegeneration)
+                        }
+                    } label: {
+                        Label(
+                            viewModel.suggestions.isEmpty ? "Generate suggestions" : "Regenerate suggestions",
+                            systemImage: "sparkles"
+                        )
+                        .font(AppTheme.Typography.bodyStrong)
+                    }
+                    .buttonStyle(.primaryProminent)
+                    .disabled(viewModel.isLoadingSuggestions)
+
+                    if let error = viewModel.suggestionError, !error.isEmpty {
+                        Text(error)
+                            .font(AppTheme.Typography.caption)
+                            .foregroundStyle(Color.red)
+                    } else if viewModel.suggestions.isEmpty && !viewModel.isLoadingSuggestions {
+                        Text("Add a goal title or description, then generate suggestions to jump-start tracking questions.")
+                            .font(AppTheme.Typography.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if !viewModel.suggestions.isEmpty {
+                        VStack(spacing: AppTheme.Spacing.sm) {
+                            ForEach(viewModel.suggestions) { suggestion in
+                                AISuggestionCard(suggestion: suggestion) {
+                                    withAnimation(.spring(response: 0.5, dampingFraction: 0.85)) {
+                                        viewModel.applySuggestion(suggestion)
+                                    }
+                                    Haptics.success()
+                                }
+                            }
+                        }
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -1491,6 +1616,75 @@ private struct TemplateCard: View {
         .buttonStyle(.plain)
         .disabled(isApplied)
         .opacity(isApplied ? 0.6 : 1)
+    }
+}
+
+private struct AISuggestionCard: View {
+    let suggestion: GoalSuggestion
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                Text(suggestion.prompt)
+                    .font(AppTheme.Typography.bodyStrong)
+                    .multilineTextAlignment(.leading)
+
+                HStack(spacing: AppTheme.Spacing.sm) {
+                    responseTypeBadge
+                    if !suggestion.options.isEmpty {
+                        Text(optionSummary)
+                            .font(AppTheme.Typography.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                if !suggestion.options.isEmpty {
+                    Text("Options: \(suggestion.options.joined(separator: ", "))")
+                        .font(AppTheme.Typography.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                if let rationale = suggestion.rationale, !rationale.isEmpty {
+                    Text(rationale)
+                        .font(AppTheme.Typography.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                HStack(spacing: AppTheme.Spacing.xs) {
+                    Label("Add to goal", systemImage: "plus.circle.fill")
+                        .font(AppTheme.Typography.caption.weight(.semibold))
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(AppTheme.Spacing.md)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(AppTheme.Palette.surface)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Adds this suggested question to your goal")
+    }
+
+    private var responseTypeBadge: some View {
+        Text(suggestion.responseType.displayName)
+            .font(AppTheme.Typography.caption.weight(.semibold))
+            .padding(.horizontal, AppTheme.Spacing.sm)
+            .padding(.vertical, AppTheme.Spacing.xs)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(AppTheme.Palette.primary.opacity(0.12))
+            )
+            .foregroundStyle(AppTheme.Palette.primary)
+    }
+
+    private var optionSummary: String {
+        suggestion.options.count == 1 ? "1 option" : "\(suggestion.options.count) options"
     }
 }
 

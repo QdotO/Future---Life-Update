@@ -160,6 +160,7 @@ struct ContentView: View {
     private func deleteGoals(at offsets: IndexSet) {
         for index in offsets {
             let goal = goals[index]
+            NotificationScheduler.shared.cancelNotifications(forGoalID: goal.id)
             modelContext.delete(goal)
         }
         do {
@@ -398,6 +399,24 @@ private struct SettingsRootView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+#if DEBUG
+            Section("Debug") {
+                if #available(iOS 18.0, macOS 15.0, watchOS 11.0, tvOS 18.0, visionOS 2.0, *) {
+                    NavigationLink {
+                        DebugAIChatView()
+                    } label: {
+                        Label("AI Debug Chat", systemImage: "bubble.left.and.bubble.right")
+                    }
+                    Text("Inspect Apple Intelligence responses in a local conversation.")
+                        .font(AppTheme.Typography.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Label("AI Debug Chat requires the latest OS", systemImage: "exclamationmark.triangle")
+                        .font(AppTheme.Typography.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+#endif
         }
         .listStyle(.insetGrouped)
         .task {

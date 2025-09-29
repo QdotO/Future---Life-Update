@@ -84,6 +84,7 @@
 - **Data Persistence**: SwiftData (replacing Core Data for modern Swift-first approach)
 - **Notifications**: UserNotifications with Interactive Notifications and Live Activities
 - **AI Integration**: Apple Intelligence APIs (on-device), Core ML, or OpenAI API fallback
+  - Requires Apple Intelligence-enabled hardware; surfaces availability messaging when the on-device model is disabled or not ready
 - **Charts**: Swift Charts for native data visualization
 - **Shortcuts**: App Intents framework for Siri and Shortcuts integration
 - **Widgets**: WidgetKit with Interactive Widgets (iOS 17+)

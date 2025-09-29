@@ -21,18 +21,23 @@ final class NotificationScheduler: @unchecked Sendable {
     func scheduleNotifications(for goal: TrackingGoal) {
         Task { [weak self] in
             guard let self else { return }
+            let prefix = notificationIdentifierPrefix(for: goal.id)
+            await removeNotifications(withPrefix: prefix)
+
+            guard goal.isActive else {
+                debugLog("Skipping schedule – goal inactive")
+                return
+            }
+
+            let requests = buildNotificationRequests(for: goal)
+            guard !requests.isEmpty else { return }
+
             let authorized = await ensureAuthorization()
             guard authorized else {
                 debugLog("Skipping schedule – authorization not granted")
                 return
             }
 
-            let existingIdentifiers = await pendingRequestIdentifiers(for: goal)
-            if !existingIdentifiers.isEmpty {
-                await center.removePendingNotificationRequests(withIdentifiers: existingIdentifiers)
-            }
-
-            let requests = buildNotificationRequests(for: goal)
             for request in requests {
                 do {
                     try await center.add(request)
@@ -40,6 +45,14 @@ final class NotificationScheduler: @unchecked Sendable {
                     errorLog("Failed to schedule notification: \(error.localizedDescription)")
                 }
             }
+        }
+    }
+
+    func cancelNotifications(forGoalID goalID: UUID) {
+        Task { [weak self] in
+            guard let self else { return }
+            let prefix = notificationIdentifierPrefix(for: goalID)
+            await removeNotifications(withPrefix: prefix)
         }
     }
 
@@ -78,12 +91,38 @@ final class NotificationScheduler: @unchecked Sendable {
         }
     }
 
-    private func pendingRequestIdentifiers(for goal: TrackingGoal) async -> [String] {
+    private func notificationIdentifierPrefix(for goalID: UUID) -> String {
+        "goal-\(goalID.uuidString)"
+    }
+
+    private func removeNotifications(withPrefix prefix: String) async {
+        let pending = await pendingRequestIdentifiers(withPrefix: prefix)
+        if !pending.isEmpty {
+            center.removePendingNotificationRequests(withIdentifiers: pending)
+        }
+
+        let delivered = await deliveredNotificationIdentifiers(withPrefix: prefix)
+        if !delivered.isEmpty {
+            center.removeDeliveredNotifications(withIdentifiers: delivered)
+        }
+    }
+
+    private func pendingRequestIdentifiers(withPrefix prefix: String) async -> [String] {
         await withCheckedContinuation { continuation in
             center.getPendingNotificationRequests { requests in
-                let prefix = "goal-\(goal.id.uuidString)"
                 let identifiers = requests
                     .map(\.identifier)
+                    .filter { $0.hasPrefix(prefix) }
+                continuation.resume(returning: identifiers)
+            }
+        }
+    }
+
+    private func deliveredNotificationIdentifiers(withPrefix prefix: String) async -> [String] {
+        await withCheckedContinuation { continuation in
+            center.getDeliveredNotifications { notifications in
+                let identifiers = notifications
+                    .map { $0.request.identifier }
                     .filter { $0.hasPrefix(prefix) }
                 continuation.resume(returning: identifiers)
             }
