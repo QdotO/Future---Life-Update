@@ -156,8 +156,8 @@ struct GoalEditView: View {
                             value: minimumBinding(for: draft, defaultValue: defaultMinimum(for: draft.responseType.wrappedValue)),
                             format: .number
                         )
-                        .keyboardType(.decimalPad)
-                        .textFieldStyle(.roundedBorder)
+                        .platformNumericKeyboard()
+                        .platformTextField()
                     }
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Maximum")
@@ -168,8 +168,8 @@ struct GoalEditView: View {
                             value: maximumBinding(for: draft, defaultValue: defaultMaximum(for: draft.responseType.wrappedValue)),
                             format: .number
                         )
-                        .keyboardType(.decimalPad)
-                        .textFieldStyle(.roundedBorder)
+                        .platformNumericKeyboard()
+                        .platformTextField()
                     }
                 }
                 Toggle("Allow empty response", isOn: allowsEmptyBinding(for: draft))
@@ -234,16 +234,16 @@ struct GoalEditView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         TextField("Minimum", value: $newQuestionMinimum, format: .number)
-                            .keyboardType(.decimalPad)
-                            .textFieldStyle(.roundedBorder)
+                            .platformNumericKeyboard()
+                            .platformTextField()
                     }
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Maximum")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         TextField("Maximum", value: $newQuestionMaximum, format: .number)
-                            .keyboardType(.decimalPad)
-                            .textFieldStyle(.roundedBorder)
+                            .platformNumericKeyboard()
+                            .platformTextField()
                     }
                 }
                 Toggle("Allow empty response", isOn: $newQuestionAllowsEmpty)
@@ -588,5 +588,26 @@ private extension GoalEditView {
         }
     } else {
         Text("Preview Error Loading Sample Data")
+    }
+}
+
+// MARK: - Platform-specific View Extensions
+private extension View {
+    @ViewBuilder
+    func platformNumericKeyboard() -> some View {
+        #if os(iOS)
+        self.keyboardType(.decimalPad)
+        #else
+        self
+        #endif
+    }
+    
+    @ViewBuilder
+    func platformTextField() -> some View {
+        #if os(iOS)
+        self.textFieldStyle(.roundedBorder)
+        #else
+        self.textFieldStyle(.plain)
+        #endif
     }
 }

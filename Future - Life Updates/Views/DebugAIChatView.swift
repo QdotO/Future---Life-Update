@@ -17,8 +17,11 @@ struct DebugAIChatView: View {
             inputBar
         }
         .navigationTitle("AI Debug Chat")
+        #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        #endif
         .toolbar {
+            #if os(iOS)
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
                     viewModel.refreshAvailability()
@@ -27,6 +30,16 @@ struct DebugAIChatView: View {
                 }
                 .accessibilityLabel("Refresh availability")
             }
+            #else
+            ToolbarItem(placement: .automatic) {
+                Button {
+                    viewModel.refreshAvailability()
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .accessibilityLabel("Refresh availability")
+            }
+            #endif
             ToolbarItem(placement: .primaryAction) {
                 Button("Reset") {
                     viewModel.resetConversation()
@@ -138,9 +151,15 @@ struct DebugAIChatView: View {
 
     private var inputBar: some View {
         HStack(alignment: .bottom, spacing: AppTheme.Spacing.sm) {
+            #if os(iOS)
             TextField("Type a prompt...", text: $viewModel.inputText, axis: .vertical)
                 .textFieldStyle(.roundedBorder)
                 .lineLimit(1...4)
+            #else
+            TextField("Type a prompt...", text: $viewModel.inputText, axis: .vertical)
+                .textFieldStyle(.plain)
+                .lineLimit(1...4)
+            #endif
 
             if viewModel.isSending {
                 ProgressView()

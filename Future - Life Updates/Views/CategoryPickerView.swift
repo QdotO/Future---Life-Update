@@ -1,5 +1,7 @@
 import SwiftUI
+#if canImport(UIKit)
 import UIKit
+#endif
 
 struct CategoryPickerView: View {
     let title: String
@@ -80,8 +82,10 @@ struct CategoryPickerView: View {
                             onUpdateCustomLabel(newValue)
                         }
                     ))
+                    #if os(iOS)
                     .textInputAutocapitalization(.words)
                     .disableAutocorrection(false)
+                    #endif
                     .padding(.vertical, AppTheme.Spacing.sm)
                     .padding(.horizontal, AppTheme.Spacing.md)
                     .background(
@@ -186,7 +190,10 @@ struct CategoryPickerView: View {
     }
 
     private func announceSelection(for option: GoalCreationViewModel.CategoryOption) {
+        #if os(iOS)
         UIAccessibility.post(notification: .announcement, argument: "\(option.title) selected")
+        #endif
+        // macOS: Accessibility announcement not needed as voice over handles chip selection automatically
     }
 
     private func isSelected(_ option: GoalCreationViewModel.CategoryOption) -> Bool {

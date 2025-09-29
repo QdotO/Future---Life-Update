@@ -135,7 +135,9 @@ struct ContentView: View {
             systemImage: "target",
             description: Text("Set up proactive prompts to stay on track.")
         )
+        #if os(iOS)
         .toolbarBackground(.automatic, for: .navigationBar)
+        #endif
     }
 
     private var goalsList: some View {
@@ -418,7 +420,11 @@ private struct SettingsRootView: View {
             }
 #endif
         }
+        #if os(iOS)
         .listStyle(.insetGrouped)
+        #else
+        .listStyle(.inset)
+        #endif
         .task {
             if settingsViewModel == nil {
                 settingsViewModel = SettingsViewModel(modelContext: modelContext)

@@ -123,7 +123,7 @@ struct GoalTrendsView: View {
         .padding(.vertical, 10)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(.systemGray6))
+                .fill(AppTheme.Palette.surface)
         )
     }
 
@@ -176,7 +176,7 @@ struct GoalTrendsView: View {
         .padding(.vertical, 10)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(.systemGray6))
+                .fill(AppTheme.Palette.surface)
         )
     }
 

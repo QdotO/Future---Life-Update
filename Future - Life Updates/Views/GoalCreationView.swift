@@ -126,7 +126,9 @@ struct GoalCreationView: View {
             }
             .background(AppTheme.Palette.background.ignoresSafeArea())
             .navigationTitle("New Tracking Goal")
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel", role: .cancel) {
@@ -253,8 +255,12 @@ struct GoalCreationView: View {
                                 set: { viewModel.updateCustomCategoryLabel($0) }
                             )
                         )
+                        #if os(iOS)
                         .textInputAutocapitalization(.words)
                         .focused($focusedField, equals: .customCategory)
+                        #else
+                        .focused($focusedField, equals: .customCategory)
+                        #endif
                         .font(AppTheme.Typography.body)
                     }
                 }
@@ -914,7 +920,11 @@ struct GoalCreationView: View {
                     selection: $customReminderDate,
                     displayedComponents: .hourAndMinute
                 )
+                #if os(iOS)
                 .datePickerStyle(.wheel)
+                #else
+                .datePickerStyle(.graphical)
+                #endif
                 .labelsHidden()
 
                 Text("Times are saved in \(viewModel.draft.schedule.timezone.localizedDisplayName()).")
