@@ -1,10 +1,8 @@
-//___FILEHEADER___
-
 import SwiftData
 import SwiftUI
 
 @main
-struct Future_Life_UpdatesApp: App {
+struct Future___Life_UpdatesApp: App {
     @StateObject private var notificationRouter = NotificationRoutingController()
 
     var body: some Scene {
