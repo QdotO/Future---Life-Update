@@ -196,6 +196,7 @@ struct GoalCreationView: View {
             CardBackground {
                 VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
                     TextField("Name your goal", text: titleBinding)
+                        .platformAdaptiveTextField()
                         .font(AppTheme.Typography.title)
                         .focused($focusedField, equals: .title)
                         .accessibilityIdentifier("goalTitleField")
@@ -205,6 +206,7 @@ struct GoalCreationView: View {
                         text: motivationBinding,
                         axis: .vertical
                     )
+                        .platformAdaptiveTextField()
                         .lineLimit(3, reservesSpace: true)
                         .font(AppTheme.Typography.body)
                         .focused($focusedField, equals: .motivation)
@@ -255,6 +257,7 @@ struct GoalCreationView: View {
                                 set: { viewModel.updateCustomCategoryLabel($0) }
                             )
                         )
+                        .platformMinimalTextField()
                         #if os(iOS)
                         .textInputAutocapitalization(.words)
                         .focused($focusedField, equals: .customCategory)
@@ -416,6 +419,7 @@ struct GoalCreationView: View {
                 text: $composerDraft.text,
                 axis: .vertical
             )
+            .platformAdaptiveTextField()
             .font(AppTheme.Typography.body)
             .focused($focusedField, equals: .questionPrompt)
             .lineLimit(2, reservesSpace: true)
@@ -582,6 +586,7 @@ struct GoalCreationView: View {
 
                 HStack {
                     TextField("Add option", text: $newOptionText)
+                        .platformMinimalTextField()
                         .focused($focusedField, equals: .questionOption)
                     Button("Add") {
                         appendCurrentOption()
@@ -797,6 +802,7 @@ struct GoalCreationView: View {
                     ),
                     axis: .vertical
                 )
+                .platformAdaptiveTextField()
                 .lineLimit(3, reservesSpace: true)
                 .font(AppTheme.Typography.body)
                 .focused($focusedField, equals: .celebration)

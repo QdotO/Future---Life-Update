@@ -225,6 +225,7 @@ struct DataEntryView: View {
                 get: { viewModel.textValue(for: question) },
                 set: { viewModel.updateTextResponse($0, for: question) }
             ), axis: .vertical)
+            .platformAdaptiveTextField()
             .lineLimit(3, reservesSpace: true)
         }
     }

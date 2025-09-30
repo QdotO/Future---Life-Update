@@ -18,9 +18,9 @@ enum AppTheme {
 		static let neutralSubdued = Color(dynamicLight: Color(.secondaryLabel), dynamicDark: Color(.secondaryLabel))
 		static let focusRing = Color(dynamicLight: Color(UIColor.systemBlue.withAlphaComponent(0.45)), dynamicDark: Color(UIColor.systemBlue.withAlphaComponent(0.6)))
 		#elseif os(macOS)
-		static let background = Color(dynamicLight: Color(nsColor: .controlBackgroundColor), dynamicDark: Color.black)
-		static let surface = Color(dynamicLight: Color(nsColor: .windowBackgroundColor), dynamicDark: Color(nsColor: .windowBackgroundColor))
-		static let surfaceElevated = Color(dynamicLight: Color(nsColor: .controlBackgroundColor), dynamicDark: Color(nsColor: .controlColor))
+		static let background = Color(dynamicLight: Color(nsColor: .windowBackgroundColor), dynamicDark: Color.black)
+		static let surface = Color(dynamicLight: Color(nsColor: .controlBackgroundColor), dynamicDark: Color(nsColor: .controlBackgroundColor))
+		static let surfaceElevated = Color(dynamicLight: Color.white, dynamicDark: Color(nsColor: .controlColor))
 		static let neutralBorder = Color(dynamicLight: Color(nsColor: .separatorColor), dynamicDark: Color(nsColor: .separatorColor))
 		static let neutralStrong = Color(dynamicLight: Color(nsColor: .labelColor), dynamicDark: Color(nsColor: .labelColor))
 		static let neutralSubdued = Color(dynamicLight: Color(nsColor: .secondaryLabelColor), dynamicDark: Color(nsColor: .secondaryLabelColor))
@@ -55,10 +55,10 @@ enum AppTheme {
 	static func backgroundGradient(colorScheme: ColorScheme) -> LinearGradient {
 		#if os(iOS)
 		let top = Color(.systemGroupedBackground)
-		#elseif os(macOS)
-		let top = Color(nsColor: .controlBackgroundColor)
-		#endif
-		let bottom = colorScheme == .dark ? Palette.surface.opacity(0.6) : Color.white
+	#elseif os(macOS)
+		let top = Color(nsColor: .windowBackgroundColor)
+	#endif
+		let bottom = colorScheme == .dark ? Palette.surface.opacity(0.6) : Palette.surface.opacity(0.8)
 		return LinearGradient(colors: [top, bottom], startPoint: .top, endPoint: .bottom)
 	}
 }

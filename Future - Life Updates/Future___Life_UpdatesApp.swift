@@ -1,7 +1,7 @@
 //___FILEHEADER___
 
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 @main
 struct Future_Life_UpdatesApp: App {
@@ -9,12 +9,24 @@ struct Future_Life_UpdatesApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .environmentObject(notificationRouter)
-                .task { @MainActor in
-                    NotificationCenterDelegate.shared.configure(router: notificationRouter)
-                }
+            #if os(macOS)
+                MacOSContentView()
+                    .environmentObject(notificationRouter)
+                    .task { @MainActor in
+                        NotificationCenterDelegate.shared.configure(router: notificationRouter)
+                    }
+            #else
+                ContentView()
+                    .environmentObject(notificationRouter)
+                    .task { @MainActor in
+                        NotificationCenterDelegate.shared.configure(router: notificationRouter)
+                    }
+            #endif
         }
         .modelContainer(AppEnvironment.shared.modelContainer)
+        #if os(macOS)
+            .defaultSize(width: 900, height: 700)
+            .windowResizability(.contentSize)
+        #endif
     }
 }

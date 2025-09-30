@@ -82,6 +82,7 @@ struct CategoryPickerView: View {
                             onUpdateCustomLabel(newValue)
                         }
                     ))
+                    .platformAdaptiveTextField()
                     #if os(iOS)
                     .textInputAutocapitalization(.words)
                     .disableAutocorrection(false)

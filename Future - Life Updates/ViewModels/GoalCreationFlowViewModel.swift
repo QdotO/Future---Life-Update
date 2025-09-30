@@ -65,8 +65,8 @@ final class GoalCreationFlowViewModel {
         self.legacy = legacyViewModel
         self.calendar = calendar
         self.dateProvider = dateProvider
-    self.suggestionService = suggestionService
-    let shouldCreateService = suggestionService == nil
+        self.suggestionService = suggestionService
+        let shouldCreateService = suggestionService == nil
         self.suggestionAvailability = .unknown
         self.appliedTemplateIDs = []
         self.appliedSuggestionIDs = []
@@ -75,7 +75,8 @@ final class GoalCreationFlowViewModel {
         self.isLoadingSuggestions = false
         self.suggestionProviderName = nil
 
-        let cadence = Self.cadence(from: legacyViewModel.scheduleDraft, calendar: calendar, nowProvider: dateProvider)
+        let cadence = Self.cadence(
+            from: legacyViewModel.scheduleDraft, calendar: calendar, nowProvider: dateProvider)
         let initialSchedule = GoalScheduleDraft(
             cadence: cadence,
             reminderTimes: legacyViewModel.scheduleDraft.times,
@@ -120,7 +121,8 @@ final class GoalCreationFlowViewModel {
     }
 
     func additionalTemplates(excluding ids: Set<String>) -> [PromptTemplate] {
-        GoalCreationCatalog.additionalTemplates(for: draft.category, excluding: ids.union(appliedTemplateIDs))
+        GoalCreationCatalog.additionalTemplates(
+            for: draft.category, excluding: ids.union(appliedTemplateIDs))
     }
 
     func cadencePresets() -> [CadencePreset] {
@@ -161,7 +163,9 @@ final class GoalCreationFlowViewModel {
     }
 
     func updateQuestion(_ question: GoalQuestionDraft) {
-        guard let index = draft.questionDrafts.firstIndex(where: { $0.id == question.id }) else { return }
+        guard let index = draft.questionDrafts.firstIndex(where: { $0.id == question.id }) else {
+            return
+        }
         draft.questionDrafts[index] = question
         syncAppliedQuestionSources()
     }
@@ -213,7 +217,8 @@ final class GoalCreationFlowViewModel {
     }
 
     func recommendedReminderTimes() -> [ScheduleTime] {
-        GoalCreationCatalog.recommendedTimes(for: draft.schedule.cadence, timezone: draft.schedule.timezone, now: dateProvider())
+        GoalCreationCatalog.recommendedTimes(
+            for: draft.schedule.cadence, timezone: draft.schedule.timezone, now: dateProvider())
     }
 
     @discardableResult
@@ -231,7 +236,10 @@ final class GoalCreationFlowViewModel {
         if draft.schedule.reminderTimes.count >= 3, !draft.schedule.reminderTimes.contains(time) {
             return false
         }
-        guard let date = calendar.date(bySettingHour: time.hour, minute: time.minute, second: 0, of: dateProvider()) else {
+        guard
+            let date = calendar.date(
+                bySettingHour: time.hour, minute: time.minute, second: 0, of: dateProvider())
+        else {
             return false
         }
         syncLegacySchedule()
@@ -286,7 +294,9 @@ final class GoalCreationFlowViewModel {
         let title = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else { throw FlowError.missingTitle }
         guard let category = draft.category else { throw FlowError.missingCategory }
-        guard draft.questionDrafts.contains(where: { $0.hasContent }) else { throw FlowError.missingQuestions }
+        guard draft.questionDrafts.contains(where: { $0.hasContent }) else {
+            throw FlowError.missingQuestions
+        }
         guard !draft.schedule.reminderTimes.isEmpty else { throw FlowError.missingReminder }
 
         legacy.title = title
@@ -297,15 +307,16 @@ final class GoalCreationFlowViewModel {
         legacy.selectedCategory = category
         legacy.customCategoryLabel = draft.customCategoryLabel
 
-        legacy.replaceDraftQuestions(with: draft.questionDrafts.map { question in
-            Question(
-                text: question.trimmedText,
-                responseType: question.responseType,
-                isActive: question.isActive,
-                options: question.options.isEmpty ? nil : question.options,
-                validationRules: question.validationRules
-            )
-        })
+        legacy.replaceDraftQuestions(
+            with: draft.questionDrafts.map { question in
+                Question(
+                    text: question.trimmedText,
+                    responseType: question.responseType,
+                    isActive: question.isActive,
+                    options: question.options.isEmpty ? nil : question.options,
+                    validationRules: question.validationRules
+                )
+            })
 
         syncLegacySchedule()
         let goal = try legacy.createGoal()
@@ -343,7 +354,8 @@ final class GoalCreationFlowViewModel {
     }
 
     private func refreshDraftSchedule() {
-        let cadence = Self.cadence(from: legacy.scheduleDraft, calendar: calendar, nowProvider: dateProvider)
+        let cadence = Self.cadence(
+            from: legacy.scheduleDraft, calendar: calendar, nowProvider: dateProvider)
         draft.schedule = GoalScheduleDraft(
             cadence: cadence,
             reminderTimes: legacy.scheduleDraft.times,
@@ -388,7 +400,8 @@ final class GoalCreationFlowViewModel {
     private func filterSuggestions(_ candidates: [GoalSuggestion]) -> [GoalSuggestion] {
         let existingPrompts = Set(draft.questionDrafts.map { $0.trimmedText.lowercased() })
         return candidates.filter { suggestion in
-            let normalized = suggestion.prompt.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            let normalized = suggestion.prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased()
             guard !normalized.isEmpty else { return false }
             return !existingPrompts.contains(normalized)
         }
@@ -470,7 +483,7 @@ final class GoalCreationFlowViewModel {
     }
 
     @MainActor
-    func loadSuggestions(limit: Int = GoalCreationFlowViewModelConstants.suggestionLimit, force: Bool = false) {
+    func loadSuggestions(limit: Int = 3, force: Bool = false) {
         suggestionTask?.cancel()
         suggestionTask = Task { @MainActor [weak self] in
             await self?.refreshSuggestions(limit: limit, force: force)
@@ -478,7 +491,7 @@ final class GoalCreationFlowViewModel {
     }
 
     @MainActor
-    func refreshSuggestions(limit: Int = GoalCreationFlowViewModelConstants.suggestionLimit, force: Bool = false) async {
+    func refreshSuggestions(limit: Int = 3, force: Bool = false) async {
         refreshSuggestionEnvironment(allowRecreation: true)
 
         guard let service = suggestionService else {
@@ -498,7 +511,8 @@ final class GoalCreationFlowViewModel {
         }
 
         let enrichedDescription = makeSuggestionContext(from: trimmedDescription)
-        let input = SuggestionInput(title: trimmedTitle, description: enrichedDescription, limit: max(1, limit))
+        let input = SuggestionInput(
+            title: trimmedTitle, description: enrichedDescription, limit: max(1, limit))
 
         if !force, input == lastSuggestionInput, !suggestions.isEmpty {
             return
@@ -508,7 +522,8 @@ final class GoalCreationFlowViewModel {
         suggestionError = nil
 
         do {
-            let results = try await service.suggestions(title: input.title, description: input.description, limit: input.limit)
+            let results = try await service.suggestions(
+                title: input.title, description: input.description, limit: input.limit)
             let filtered = filterSuggestions(results)
             suggestions = Array(filtered.prefix(GoalCreationFlowViewModelConstants.suggestionLimit))
             lastSuggestionInput = input
@@ -529,7 +544,9 @@ final class GoalCreationFlowViewModel {
     }
 
     func applySuggestion(_ suggestion: GoalSuggestion) {
-        let normalizedOptions = suggestion.options.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        let normalizedOptions = suggestion.options.map {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines)
+        }.filter { !$0.isEmpty }
         let question = GoalQuestionDraft(
             text: suggestion.prompt,
             responseType: suggestion.responseType,

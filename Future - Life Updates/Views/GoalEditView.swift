@@ -66,10 +66,12 @@ struct GoalEditView: View {
     private var goalDetailsSection: some View {
         Section("Goal Details") {
             TextField("Title", text: $viewModel.title)
+                .platformAdaptiveTextField()
                 .textContentType(.nickname)
                 .font(.title3)
 
             TextField("Description", text: $viewModel.goalDescription, axis: .vertical)
+                .platformAdaptiveTextField()
                 .lineLimit(3, reservesSpace: true)
 
             CategoryPickerView(
@@ -122,6 +124,7 @@ struct GoalEditView: View {
 
             VStack(alignment: .leading, spacing: 12) {
                 TextField("Ask a new question", text: $newQuestionText)
+                    .platformAdaptiveTextField()
                 Picker("Response Type", selection: $newResponseType) {
                     ForEach(ResponseType.allCases, id: \.self) { type in
                         Text(type.displayName).tag(type)
@@ -251,6 +254,7 @@ struct GoalEditView: View {
         case .multipleChoice:
             VStack(alignment: .leading, spacing: 8) {
                 TextField("Options (comma separated)", text: $newQuestionOptionsText)
+                    .platformAdaptiveTextField()
                 Toggle("Allow empty response", isOn: $newQuestionAllowsEmpty)
             }
         case .text:
