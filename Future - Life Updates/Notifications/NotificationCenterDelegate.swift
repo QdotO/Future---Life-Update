@@ -24,7 +24,8 @@ final class NotificationCenterDelegate: NSObject, UNUserNotificationCenterDelega
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
-        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+        withCompletionHandler completionHandler:
+            @escaping (UNNotificationPresentationOptions) -> Void
     ) {
         completionHandler([.banner, .list, .sound])
     }
@@ -36,16 +37,31 @@ final class NotificationCenterDelegate: NSObject, UNUserNotificationCenterDelega
     ) {
         defer { completionHandler() }
 
+        #if DEBUG
+            print("[NotificationDelegate] Received notification:")
+            print("  - Identifier: \(response.notification.request.identifier)")
+            print("  - UserInfo: \(response.notification.request.content.userInfo)")
+        #endif
+
         guard
             let goalIdString = response.notification.request.content.userInfo["goalId"] as? String,
             let goalId = UUID(uuidString: goalIdString)
         else {
-            print("[Notifications] Unable to parse goal ID from notification userInfo")
+            print("[Notifications] ❌ Unable to parse goal ID from notification userInfo")
             return
         }
 
-        let questionId: UUID? = (response.notification.request.content.userInfo["questionId"] as? String).flatMap(UUID.init)
+        let questionId: UUID? =
+            (response.notification.request.content.userInfo["questionId"] as? String).flatMap(
+                UUID.init)
         let isTest = response.notification.request.content.userInfo["isTest"] as? Bool ?? false
+
+        #if DEBUG
+            print("[NotificationDelegate] Parsed successfully:")
+            print("  - Goal ID: \(goalId)")
+            print("  - Question ID: \(questionId?.uuidString ?? "none")")
+            print("  - Is Test: \(isTest)")
+        #endif
 
         router?.activate(goalID: goalId, questionID: questionId, isTest: isTest)
     }

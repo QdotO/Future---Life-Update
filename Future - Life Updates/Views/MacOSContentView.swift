@@ -25,7 +25,12 @@ import UniformTypeIdentifiers
         @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
         @Query(sort: \TrackingGoal.updatedAt, order: .reverse)
-        private var goals: [TrackingGoal]
+        private var allGoals: [TrackingGoal]
+
+        // Computed property to filter active goals for UI display
+        private var goals: [TrackingGoal] {
+            allGoals.filter { $0.isActive }
+        }
 
         var body: some View {
             NavigationSplitView(columnVisibility: $columnVisibility) {
@@ -77,13 +82,20 @@ import UniformTypeIdentifiers
                 }
             ) { route in
                 if let goal = goal(for: route.goalID) {
-                    NotificationLogEntryView(
-                        goal: goal,
-                        questionID: route.questionID,
-                        isTest: route.isTest,
-                        modelContext: modelContext
-                    )
+                    if goal.isActive {
+                        // Goal exists and is active - show data entry
+                        NotificationLogEntryView(
+                            goal: goal,
+                            questionID: route.questionID,
+                            isTest: route.isTest,
+                            modelContext: modelContext
+                        )
+                    } else {
+                        // Goal exists but is paused - inform user
+                        InactiveGoalPlaceholder(goalTitle: goal.title)
+                    }
                 } else {
+                    // Goal doesn't exist - deleted or corrupted
                     MissingGoalPlaceholder()
                 }
             }
@@ -283,17 +295,34 @@ import UniformTypeIdentifiers
         }
 
         private func goal(for id: UUID) -> TrackingGoal? {
-            if let match = goals.first(where: { $0.id == id }) {
+            // First: Check all goals (active + inactive)
+            if let match = allGoals.first(where: { $0.id == id }) {
                 return match
             }
 
+            // Fallback: Fresh fetch from persistence
             var descriptor = FetchDescriptor<TrackingGoal>(
                 predicate: #Predicate { $0.id == id },
                 sortBy: []
             )
             descriptor.fetchLimit = 1
 
-            return try? modelContext.fetch(descriptor).first
+            // Log if fallback is needed (helps debugging)
+            if let goal = try? modelContext.fetch(descriptor).first {
+                #if DEBUG
+                    print(
+                        "[NotificationRouting] Goal \(id) found via fallback fetch (not in Query)")
+                #endif
+                return goal
+            }
+
+            // Goal truly doesn't exist
+            #if DEBUG
+                print(
+                    "[NotificationRouting] Goal \(id) not found anywhere - deleted or corrupt notification"
+                )
+            #endif
+            return nil
         }
 
         private func toggleSidebar() {
@@ -711,6 +740,20 @@ import UniformTypeIdentifiers
                 systemImage: "exclamationmark.triangle",
                 description: Text("We couldn't find the goal for this reminder.")
             )
+        }
+    }
+
+    private struct InactiveGoalPlaceholder: View {
+        let goalTitle: String
+
+        var body: some View {
+            ContentUnavailableView {
+                Label("Goal is Paused", systemImage: "pause.circle")
+            } description: {
+                Text(
+                    "\"\(goalTitle)\" has been paused. Reactivate it from the Goals section to start tracking again."
+                )
+            }
         }
     }
 

@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 import os
 
 struct GoalDetailView: View {
@@ -67,7 +67,16 @@ struct GoalDetailView: View {
                 Button(goal.isActive ? "Pause" : "Activate") {
                     goal.isActive.toggle()
                     goal.bumpUpdatedAt()
-                    NotificationScheduler.shared.scheduleNotifications(for: goal)
+
+                    // Handle notifications based on new state
+                    if goal.isActive {
+                        // Goal reactivated - reschedule notifications
+                        NotificationScheduler.shared.scheduleNotifications(for: goal)
+                    } else {
+                        // Goal deactivated - cancel all notifications
+                        NotificationScheduler.shared.cancelNotifications(forGoalID: goal.id)
+                    }
+
                     do {
                         try modelContext.save()
                     } catch {
@@ -92,7 +101,7 @@ struct GoalDetailView: View {
             "Test Notification Scheduled",
             isPresented: $showingNotificationTestAlert
         ) {
-            Button("OK", role: .cancel) { }
+            Button("OK", role: .cancel) {}
         } message: {
             Text("We'll send a preview notification to confirm your settings.")
         }
@@ -108,7 +117,8 @@ struct GoalDetailView: View {
         let times = goal.schedule.times
         guard !times.isEmpty else { return "No reminders configured" }
         let timezone = goal.schedule.timezone
-        let timeDescription = times
+        let timeDescription =
+            times
             .map { $0.formattedTime(in: timezone) }
             .joined(separator: ", ")
 
@@ -121,7 +131,8 @@ struct GoalDetailView: View {
             if weekdays.isEmpty {
                 frequencyDescription = "Weekly"
             } else {
-                let names = weekdays
+                let names =
+                    weekdays
                     .map { $0.shortDisplayName }
                     .joined(separator: ", ")
                 frequencyDescription = "Weekly on \(names)"
@@ -197,7 +208,8 @@ struct GoalDetailView: View {
     }
 
     private func loadRecentResponses(limit: Int = 5) {
-        let trace = PerformanceMetrics.trace("GoalDetail.loadRecent", metadata: ["goal": goal.id.uuidString])
+        let trace = PerformanceMetrics.trace(
+            "GoalDetail.loadRecent", metadata: ["goal": goal.id.uuidString])
         let goalIdentifier = goal.persistentModelID
         var descriptor = FetchDescriptor<DataPoint>(
             predicate: #Predicate<DataPoint> { dataPoint in
@@ -213,7 +225,7 @@ struct GoalDetailView: View {
             \.textValue,
             \.boolValue,
             \.selectedOptions,
-            \.timeValue
+            \.timeValue,
         ]
         descriptor.relationshipKeyPathsForPrefetching = [\.question]
 
@@ -222,7 +234,8 @@ struct GoalDetailView: View {
             trace.end(extraMetadata: ["count": "\(recentResponses.count)"])
         } catch {
             recentResponses = []
-            PerformanceMetrics.logger.error("GoalDetail recent fetch failed: \(error.localizedDescription, privacy: .public)")
+            PerformanceMetrics.logger.error(
+                "GoalDetail recent fetch failed: \(error.localizedDescription, privacy: .public)")
             trace.end(extraMetadata: ["error": error.localizedDescription])
         }
     }
@@ -232,7 +245,8 @@ struct GoalDetailView: View {
     if let container = try? PreviewSampleData.makePreviewContainer() {
         let context = container.mainContext
         if let goals = try? context.fetch(FetchDescriptor<TrackingGoal>()),
-           let goal = goals.first {
+            let goal = goals.first
+        {
             NavigationStack {
                 GoalDetailView(goal: goal)
             }

@@ -5,8 +5,8 @@
 //  Created by Quincy Obeng on 9/23/25.
 //
 
-import SwiftUI
 import SwiftData
+import SwiftUI
 import UniformTypeIdentifiers
 
 struct ContentView: View {
@@ -21,7 +21,12 @@ struct ContentView: View {
     @State private var allowNotificationPreviews = true
 
     @Query(sort: \TrackingGoal.updatedAt, order: .reverse)
-    private var goals: [TrackingGoal]
+    private var allGoals: [TrackingGoal]
+
+    // Computed property to filter active goals for UI display
+    private var goals: [TrackingGoal] {
+        allGoals.filter { $0.isActive }
+    }
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -105,17 +110,27 @@ struct ContentView: View {
         .onReceive(notificationRouter.$activeRoute) { route in
             notificationRoute = route
         }
-        .sheet(item: $notificationRoute, onDismiss: {
-            notificationRouter.reset()
-        }) { route in
+        .sheet(
+            item: $notificationRoute,
+            onDismiss: {
+                notificationRouter.reset()
+            }
+        ) { route in
             if let goal = goal(for: route.goalID) {
-                NotificationLogEntryView(
-                    goal: goal,
-                    questionID: route.questionID,
-                    isTest: route.isTest,
-                    modelContext: modelContext
-                )
+                if goal.isActive {
+                    // Goal exists and is active - show data entry
+                    NotificationLogEntryView(
+                        goal: goal,
+                        questionID: route.questionID,
+                        isTest: route.isTest,
+                        modelContext: modelContext
+                    )
+                } else {
+                    // Goal exists but is paused - inform user
+                    InactiveGoalPlaceholder(goalTitle: goal.title)
+                }
             } else {
+                // Goal doesn't exist - deleted or corrupted
                 MissingGoalPlaceholder()
             }
         }
@@ -136,7 +151,7 @@ struct ContentView: View {
             description: Text("Set up proactive prompts to stay on track.")
         )
         #if os(iOS)
-        .toolbarBackground(.automatic, for: .navigationBar)
+            .toolbarBackground(.automatic, for: .navigationBar)
         #endif
     }
 
@@ -173,17 +188,33 @@ struct ContentView: View {
     }
 
     private func goal(for id: UUID) -> TrackingGoal? {
-        if let match = goals.first(where: { $0.id == id }) {
+        // First: Check all goals (active + inactive)
+        if let match = allGoals.first(where: { $0.id == id }) {
             return match
         }
 
+        // Fallback: Fresh fetch from persistence
         var descriptor = FetchDescriptor<TrackingGoal>(
             predicate: #Predicate { $0.id == id },
             sortBy: []
         )
         descriptor.fetchLimit = 1
 
-        return try? modelContext.fetch(descriptor).first
+        // Log if fallback is needed (helps debugging)
+        if let goal = try? modelContext.fetch(descriptor).first {
+            #if DEBUG
+                print("[NotificationRouting] Goal \(id) found via fallback fetch (not in Query)")
+            #endif
+            return goal
+        }
+
+        // Goal truly doesn't exist
+        #if DEBUG
+            print(
+                "[NotificationRouting] Goal \(id) not found anywhere - deleted or corrupt notification"
+            )
+        #endif
+        return nil
     }
 }
 
@@ -234,9 +265,11 @@ private struct InsightsOverviewView: View {
                         VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
                             Text("Add a goal to unlock trends")
                                 .font(AppTheme.Typography.bodyStrong)
-                            Text("Create your first goal to see charts, streaks, and insights here.")
-                                .font(AppTheme.Typography.caption)
-                                .foregroundStyle(.secondary)
+                            Text(
+                                "Create your first goal to see charts, streaks, and insights here."
+                            )
+                            .font(AppTheme.Typography.caption)
+                            .foregroundStyle(.secondary)
                         }
                     }
                 } else {
@@ -401,29 +434,32 @@ private struct SettingsRootView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-#if DEBUG
-            Section("Debug") {
-                if #available(iOS 18.0, macOS 15.0, watchOS 11.0, tvOS 18.0, visionOS 2.0, *) {
-                    NavigationLink {
-                        DebugAIChatView()
-                    } label: {
-                        Label("AI Debug Chat", systemImage: "bubble.left.and.bubble.right")
+            #if DEBUG
+                Section("Debug") {
+                    if #available(iOS 18.0, macOS 15.0, watchOS 11.0, tvOS 18.0, visionOS 2.0, *) {
+                        NavigationLink {
+                            DebugAIChatView()
+                        } label: {
+                            Label("AI Debug Chat", systemImage: "bubble.left.and.bubble.right")
+                        }
+                        Text("Inspect Apple Intelligence responses in a local conversation.")
+                            .font(AppTheme.Typography.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Label(
+                            "AI Debug Chat requires the latest OS",
+                            systemImage: "exclamationmark.triangle"
+                        )
+                        .font(AppTheme.Typography.caption)
+                        .foregroundStyle(.secondary)
                     }
-                    Text("Inspect Apple Intelligence responses in a local conversation.")
-                        .font(AppTheme.Typography.caption)
-                        .foregroundStyle(.secondary)
-                } else {
-                    Label("AI Debug Chat requires the latest OS", systemImage: "exclamationmark.triangle")
-                        .font(AppTheme.Typography.caption)
-                        .foregroundStyle(.secondary)
                 }
-            }
-#endif
+            #endif
         }
         #if os(iOS)
-        .listStyle(.insetGrouped)
+            .listStyle(.insetGrouped)
         #else
-        .listStyle(.inset)
+            .listStyle(.inset)
         #endif
         .task {
             if settingsViewModel == nil {
@@ -436,10 +472,12 @@ private struct SettingsRootView: View {
             contentType: .json,
             defaultFilename: exportFilename
         ) { result in
-            if case let .failure(error) = result {
-                alertInfo = SettingsAlert(title: "Export failed", message: error.localizedDescription)
+            if case .failure(let error) = result {
+                alertInfo = SettingsAlert(
+                    title: "Export failed", message: error.localizedDescription)
             } else {
-                alertInfo = SettingsAlert(title: "Export ready", message: "Your data backup was created.")
+                alertInfo = SettingsAlert(
+                    title: "Export ready", message: "Your data backup was created.")
             }
             isProcessing = false
         }
@@ -451,12 +489,14 @@ private struct SettingsRootView: View {
             switch result {
             case .success(let urls):
                 guard let url = urls.first else {
-                    alertInfo = SettingsAlert(title: "Import cancelled", message: "No file was selected.")
+                    alertInfo = SettingsAlert(
+                        title: "Import cancelled", message: "No file was selected.")
                     return
                 }
                 prepareImport(from: url)
             case .failure(let error):
-                alertInfo = SettingsAlert(title: "Import failed", message: error.localizedDescription)
+                alertInfo = SettingsAlert(
+                    title: "Import failed", message: error.localizedDescription)
             }
         }
         .confirmationDialog(
@@ -519,7 +559,8 @@ private struct SettingsRootView: View {
             let summary = try viewModel.importBackup(from: data)
             alertInfo = SettingsAlert(
                 title: "Import complete",
-                message: "Restored \(summary.goalsImported) goals and \(summary.dataPointsImported) entries."
+                message:
+                    "Restored \(summary.goalsImported) goals and \(summary.dataPointsImported) entries."
             )
         } catch {
             alertInfo = SettingsAlert(title: "Import failed", message: error.localizedDescription)
@@ -552,6 +593,20 @@ private struct MissingGoalPlaceholder: View {
             systemImage: "exclamationmark.triangle",
             description: Text("We couldn't find the goal for this reminder.")
         )
+    }
+}
+
+private struct InactiveGoalPlaceholder: View {
+    let goalTitle: String
+
+    var body: some View {
+        ContentUnavailableView {
+            Label("Goal is Paused", systemImage: "pause.circle")
+        } description: {
+            Text(
+                "\"\(goalTitle)\" has been paused. Reactivate it from the Goals tab to start tracking again."
+            )
+        }
     }
 }
 
