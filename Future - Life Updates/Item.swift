@@ -15,7 +15,8 @@ extension TrackingGoal {
     var categoryDisplayName: String {
         if category == .custom,
             let label = customCategoryLabel?.trimmingCharacters(in: .whitespacesAndNewlines),
-            !label.isEmpty {
+            !label.isEmpty
+        {
             return label
         }
         return category.displayName
@@ -287,8 +288,8 @@ final class DataPoint {
         goal: TrackingGoal?,
         question: Question?,
         timestamp: Date = Date(),
-    numericValue: Double? = nil,
-    numericDelta: Double? = nil,
+        numericValue: Double? = nil,
+        numericDelta: Double? = nil,
         textValue: String? = nil,
         boolValue: Bool? = nil,
         selectedOptions: [String]? = nil,
@@ -300,13 +301,38 @@ final class DataPoint {
         self.goal = goal
         self.question = question
         self.timestamp = timestamp
-    self.numericValue = numericValue
-    self.numericDelta = numericDelta
+        self.numericValue = numericValue
+        self.numericDelta = numericDelta
         self.textValue = textValue
         self.boolValue = boolValue
         self.selectedOptions = selectedOptions
         self.timeValue = timeValue
         self.mood = mood
         self.location = location
+    }
+}
+
+@Model
+final class GoalTrashItem {
+    @Attribute(.unique) var id: UUID
+    var goalSnapshot: Data
+    var originalGoalID: UUID
+    var goalTitle: String
+    var deletedAt: Date
+    var userNote: String?
+
+    init(
+        goalSnapshot: Data,
+        originalGoalID: UUID,
+        goalTitle: String,
+        deletedAt: Date,
+        userNote: String? = nil
+    ) {
+        self.id = UUID()
+        self.goalSnapshot = goalSnapshot
+        self.originalGoalID = originalGoalID
+        self.goalTitle = goalTitle
+        self.deletedAt = deletedAt
+        self.userNote = userNote
     }
 }

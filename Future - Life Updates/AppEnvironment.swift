@@ -21,7 +21,8 @@ final class AppEnvironment {
             TrackingGoal.self,
             Question.self,
             Schedule.self,
-            DataPoint.self
+            DataPoint.self,
+            GoalTrashItem.self,
         ])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
@@ -41,8 +42,12 @@ final class AppEnvironment {
     }
 
     @discardableResult
-    func withModelContext<R>(_ context: ModelContext, perform operation: () async throws -> R) async rethrows -> R {
-        try await AppEnvironment.$overrideContextContainer.withValue(OverrideContextContainer(context: context)) {
+    func withModelContext<R>(_ context: ModelContext, perform operation: () async throws -> R)
+        async rethrows -> R
+    {
+        try await AppEnvironment.$overrideContextContainer.withValue(
+            OverrideContextContainer(context: context)
+        ) {
             try await operation()
         }
     }

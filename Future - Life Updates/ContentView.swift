@@ -175,15 +175,15 @@ struct ContentView: View {
     }
 
     private func deleteGoals(at offsets: IndexSet) {
+        let deletionService = GoalDeletionService(modelContext: modelContext)
+
         for index in offsets {
             let goal = goals[index]
-            NotificationScheduler.shared.cancelNotifications(forGoalID: goal.id)
-            modelContext.delete(goal)
-        }
-        do {
-            try modelContext.save()
-        } catch {
-            print("Failed to delete goals: \(error)")
+            do {
+                try deletionService.moveToTrash(goal)
+            } catch {
+                print("Failed to delete goal: \(error)")
+            }
         }
     }
 
@@ -414,6 +414,26 @@ private struct SettingsRootView: View {
                 Text("Restore a previous backup. Existing data will be replaced.")
                     .font(AppTheme.Typography.caption)
                     .foregroundStyle(.secondary)
+
+                NavigationLink {
+                    TrashInboxView()
+                } label: {
+                    Label("Trash", systemImage: "trash")
+                }
+
+                Text("Restore deleted goals within 30 days.")
+                    .font(AppTheme.Typography.caption)
+                    .foregroundStyle(.secondary)
+
+                NavigationLink {
+                    BackupMergeView()
+                } label: {
+                    Label("Merge Backups (Advanced)", systemImage: "arrow.triangle.merge")
+                }
+
+                Text("Combine two backup files into one.")
+                    .font(AppTheme.Typography.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section("Support") {
@@ -436,6 +456,15 @@ private struct SettingsRootView: View {
             }
             #if DEBUG
                 Section("Debug") {
+                    NavigationLink {
+                        NotificationInspectorView()
+                    } label: {
+                        Label("Notification Inspector", systemImage: "bell.badge")
+                    }
+                    Text("View and manage all scheduled notifications.")
+                        .font(AppTheme.Typography.caption)
+                        .foregroundStyle(.secondary)
+
                     if #available(iOS 18.0, macOS 15.0, watchOS 11.0, tvOS 18.0, visionOS 2.0, *) {
                         NavigationLink {
                             DebugAIChatView()
