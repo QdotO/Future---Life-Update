@@ -142,7 +142,6 @@ struct BackupMergeService {
 
         // Choose the goal with latest updatedAt
         let winner = primary.updatedAt > secondary.updatedAt ? primary : secondary
-        let loser = primary.updatedAt > secondary.updatedAt ? secondary : primary
 
         // Check for metadata conflicts
         if primary.title != secondary.title {

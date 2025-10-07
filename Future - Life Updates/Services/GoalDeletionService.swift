@@ -11,10 +11,14 @@ final class GoalDeletionService {
 
     init(
         modelContext: ModelContext,
-        notificationScheduler: NotificationScheduling = NotificationScheduler.shared
+        notificationScheduler: (any NotificationScheduling)? = nil
     ) {
         self.modelContext = modelContext
-        self.notificationScheduler = notificationScheduler
+        if let scheduler = notificationScheduler {
+            self.notificationScheduler = scheduler
+        } else {
+            self.notificationScheduler = NotificationScheduler.shared
+        }
     }
 
     /// Soft-delete a goal by archiving it to trash before removing from the database
@@ -23,11 +27,6 @@ final class GoalDeletionService {
         goal.bumpUpdatedAt()
 
         // Create snapshot using BackupPayload format
-        let backupManager = DataBackupManager(
-            modelContext: modelContext,
-            notificationScheduler: notificationScheduler
-        )
-
         let goalSnapshot = BackupPayload.Goal(
             id: goal.id,
             title: goal.title,
