@@ -29,7 +29,7 @@ final class DataEntryViewModel {
         let responseType: ResponseType
 
         var isDeltaBaseline: Bool {
-            responseType == .scale || responseType == .slider
+            responseType == .scale || responseType == .slider || responseType == .waterIntake
         }
     }
 
@@ -101,35 +101,68 @@ final class DataEntryViewModel {
     }
 
     func numericValue(for question: Question, default defaultValue: Double = 0) -> Double {
-        if case let .numeric(value) = responses[question.id] {
+        if case .numeric(let value) = responses[question.id] {
             return value
         }
         return defaultValue
     }
 
+    func waterIntakeDelta(for question: Question) -> Double {
+        numericValue(for: question, default: 0)
+    }
+
+    func incrementWaterIntake(by amount: Double, for question: Question) {
+        guard amount != 0 else { return }
+        let current = waterIntakeDelta(for: question)
+        let clamped = clampedNumericValue(current + amount, for: question)
+        responses[question.id] = .numeric(clamped)
+    }
+
+    func setWaterIntake(_ amount: Double, for question: Question) {
+        let clamped = clampedNumericValue(amount, for: question)
+        responses[question.id] = .numeric(clamped)
+    }
+
+    func resetWaterIntake(for question: Question) {
+        responses[question.id] = .numeric(0)
+    }
+
+    func waterIntakeTotal(for question: Question) -> Double {
+        runningTotal(for: question)
+    }
+
+    func waterIntakeDeltaRange(for question: Question) -> ClosedRange<Double> {
+        ensureTotalsAreForToday()
+        let current = runningTotal(for: question)
+        let minimumDelta = 0.0
+        let maximumTotal = question.validationRules?.maximumValue ?? (current + 128)
+        let available = max(0, maximumTotal - current)
+        return minimumDelta...available
+    }
+
     func booleanValue(for question: Question) -> Bool {
-        if case let .boolean(value) = responses[question.id] {
+        if case .boolean(let value) = responses[question.id] {
             return value
         }
         return false
     }
 
     func textValue(for question: Question) -> String {
-        if case let .text(value) = responses[question.id] {
+        if case .text(let value) = responses[question.id] {
             return value
         }
         return ""
     }
 
     func selectedOptions(for question: Question) -> Set<String> {
-        if case let .options(set) = responses[question.id] {
+        if case .options(let set) = responses[question.id] {
             return set
         }
         return []
     }
 
     func timeValue(for question: Question, fallback: Date) -> Date {
-        if case let .time(date) = responses[question.id] {
+        if case .time(let date) = responses[question.id] {
             return date
         }
         return fallback
@@ -140,7 +173,7 @@ final class DataEntryViewModel {
 
         guard
             let response = responses[question.id],
-            case let .numeric(value) = response
+            case .numeric(let value) = response
         else {
             return nil
         }
@@ -155,7 +188,7 @@ final class DataEntryViewModel {
                 delta: delta,
                 responseType: .numeric
             )
-        case .scale, .slider:
+        case .scale, .slider, .waterIntake:
             let currentTotal = runningTotal(for: question)
             let resulting = currentTotal + value
             return NumericChangePreview(
@@ -182,57 +215,65 @@ final class DataEntryViewModel {
             else { continue }
 
             switch question.responseType {
-            case .scale, .slider:
-                guard case let .numeric(deltaValue) = response else { continue }
+            case .scale, .slider, .waterIntake:
+                guard case .numeric(let deltaValue) = response else { continue }
                 let appliedDelta = try applyDelta(deltaValue, for: question, timestamp: now)
                 if appliedDelta == nil {
                     continue
                 }
             case .numeric:
-                let dataPoint = try existingDataPoint(for: question, on: now) ?? createDataPoint(for: question, at: now)
+                let dataPoint =
+                    try existingDataPoint(for: question, on: now)
+                    ?? createDataPoint(for: question, at: now)
                 dataPoint.timestamp = now
                 dataPoint.numericDelta = nil
-                if case let .numeric(value) = response {
+                if case .numeric(let value) = response {
                     dataPoint.numericValue = value
                 } else {
                     dataPoint.numericValue = nil
                 }
                 resetNonNumericFields(of: dataPoint)
             case .boolean:
-                let dataPoint = try existingDataPoint(for: question, on: now) ?? createDataPoint(for: question, at: now)
+                let dataPoint =
+                    try existingDataPoint(for: question, on: now)
+                    ?? createDataPoint(for: question, at: now)
                 dataPoint.timestamp = now
                 dataPoint.numericValue = nil
                 dataPoint.numericDelta = nil
                 dataPoint.textValue = nil
                 dataPoint.selectedOptions = nil
                 dataPoint.timeValue = nil
-                if case let .boolean(value) = response {
+                if case .boolean(let value) = response {
                     dataPoint.boolValue = value
                 } else {
                     dataPoint.boolValue = nil
                 }
             case .text:
-                let dataPoint = try existingDataPoint(for: question, on: now) ?? createDataPoint(for: question, at: now)
+                let dataPoint =
+                    try existingDataPoint(for: question, on: now)
+                    ?? createDataPoint(for: question, at: now)
                 dataPoint.timestamp = now
                 dataPoint.numericValue = nil
                 dataPoint.numericDelta = nil
                 dataPoint.boolValue = nil
                 dataPoint.selectedOptions = nil
                 dataPoint.timeValue = nil
-                if case let .text(value) = response {
+                if case .text(let value) = response {
                     dataPoint.textValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
                 } else {
                     dataPoint.textValue = nil
                 }
             case .multipleChoice:
-                let dataPoint = try existingDataPoint(for: question, on: now) ?? createDataPoint(for: question, at: now)
+                let dataPoint =
+                    try existingDataPoint(for: question, on: now)
+                    ?? createDataPoint(for: question, at: now)
                 dataPoint.timestamp = now
                 dataPoint.numericValue = nil
                 dataPoint.numericDelta = nil
                 dataPoint.boolValue = nil
                 dataPoint.textValue = nil
                 dataPoint.timeValue = nil
-                if case let .options(set) = response {
+                if case .options(let set) = response {
                     if set.isEmpty {
                         dataPoint.selectedOptions = nil
                     } else if let orderedOptions = question.options {
@@ -244,14 +285,16 @@ final class DataEntryViewModel {
                     dataPoint.selectedOptions = nil
                 }
             case .time:
-                let dataPoint = try existingDataPoint(for: question, on: now) ?? createDataPoint(for: question, at: now)
+                let dataPoint =
+                    try existingDataPoint(for: question, on: now)
+                    ?? createDataPoint(for: question, at: now)
                 dataPoint.timestamp = now
                 dataPoint.numericValue = nil
                 dataPoint.numericDelta = nil
                 dataPoint.boolValue = nil
                 dataPoint.textValue = nil
                 dataPoint.selectedOptions = nil
-                if case let .time(date) = response {
+                if case .time(let date) = response {
                     dataPoint.timeValue = date
                 } else {
                     dataPoint.timeValue = nil
@@ -277,6 +320,8 @@ final class DataEntryViewModel {
             case .slider:
                 let baseline = question.validationRules?.minimumValue ?? 0
                 responses[question.id] = .numeric(baseline)
+            case .waterIntake:
+                responses[question.id] = .numeric(0)
             case .boolean:
                 responses[question.id] = .boolean(false)
             case .text:
@@ -284,7 +329,9 @@ final class DataEntryViewModel {
             case .multipleChoice:
                 responses[question.id] = .options([])
             case .time:
-                let defaultDate = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: dateProvider()) ?? dateProvider()
+                let defaultDate =
+                    calendar.date(bySettingHour: 9, minute: 0, second: 0, of: dateProvider())
+                    ?? dateProvider()
                 responses[question.id] = .time(defaultDate)
             }
         }
@@ -292,9 +339,14 @@ final class DataEntryViewModel {
 
     private func isValid(_ response: ResponseValue, for question: Question) -> Bool {
         switch (question.responseType, response) {
-        case (.numeric, .numeric(let value)), (.scale, .numeric(let value)), (.slider, .numeric(let value)):
-            if let minimum = question.validationRules?.minimumValue, value < minimum { return false }
-            if let maximum = question.validationRules?.maximumValue, value > maximum { return false }
+        case (.numeric, .numeric(let value)), (.scale, .numeric(let value)),
+            (.slider, .numeric(let value)), (.waterIntake, .numeric(let value)):
+            if let minimum = question.validationRules?.minimumValue, value < minimum {
+                return false
+            }
+            if let maximum = question.validationRules?.maximumValue, value > maximum {
+                return false
+            }
             return true
         case (.boolean, .boolean):
             return true
@@ -335,10 +387,9 @@ final class DataEntryViewModel {
 
         var descriptor = FetchDescriptor<DataPoint>(
             predicate: #Predicate<DataPoint> { dataPoint in
-                dataPoint.goal?.persistentModelID == goalIdentifier &&
-                dataPoint.question?.persistentModelID == questionIdentifier &&
-                dataPoint.timestamp >= startOfDay &&
-                dataPoint.timestamp < endOfDay
+                dataPoint.goal?.persistentModelID == goalIdentifier
+                    && dataPoint.question?.persistentModelID == questionIdentifier
+                    && dataPoint.timestamp >= startOfDay && dataPoint.timestamp < endOfDay
             }
         )
         descriptor.fetchLimit = 1
@@ -357,10 +408,9 @@ final class DataEntryViewModel {
 
         var descriptor = FetchDescriptor<DataPoint>(
             predicate: #Predicate<DataPoint> { dataPoint in
-                dataPoint.goal?.persistentModelID == goalIdentifier &&
-                dataPoint.question?.persistentModelID == questionIdentifier &&
-                dataPoint.timestamp >= startOfDay &&
-                dataPoint.timestamp < endOfDay
+                dataPoint.goal?.persistentModelID == goalIdentifier
+                    && dataPoint.question?.persistentModelID == questionIdentifier
+                    && dataPoint.timestamp >= startOfDay && dataPoint.timestamp < endOfDay
             },
             sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
         )
@@ -395,7 +445,8 @@ final class DataEntryViewModel {
 
         let today = totalsDate ?? calendar.startOfDay(for: dateProvider())
         if let latestPoint = try? latestDataPoint(for: question, on: today),
-           let numericValue = latestPoint.numericValue {
+            let numericValue = latestPoint.numericValue
+        {
             dailyTotals[question.id] = numericValue
             return numericValue
         }
@@ -411,7 +462,9 @@ final class DataEntryViewModel {
             .numericValue
     }
 
-    private func applyDelta(_ deltaValue: Double, for question: Question, timestamp: Date) throws -> Double? {
+    private func applyDelta(_ deltaValue: Double, for question: Question, timestamp: Date) throws
+        -> Double?
+    {
         ensureTotalsAreForToday()
         let currentTotal = runningTotal(for: question)
 

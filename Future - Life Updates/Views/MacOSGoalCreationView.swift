@@ -389,6 +389,7 @@
                                         columns: [GridItem(.flexible()), GridItem(.flexible())],
                                         spacing: 8
                                     ) {
+                                        responseTypeButton(.waterIntake, icon: "drop.fill")
                                         responseTypeButton(.multipleChoice, icon: "list.bullet")
                                         responseTypeButton(.slider, icon: "dial.medium")
                                         responseTypeButton(.time, icon: "clock")
@@ -503,7 +504,7 @@
         @ViewBuilder
         private var configurationFields: some View {
             switch composerResponseType {
-            case .numeric, .scale, .slider:
+            case .numeric, .scale, .slider, .waterIntake:
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Range")
                         .font(.subheadline)
@@ -890,7 +891,9 @@
             composerError = nil
 
             // Show advanced types if needed
-            if [ResponseType.multipleChoice, .slider, .time].contains(question.responseType) {
+            if [ResponseType.multipleChoice, .slider, .time, .waterIntake].contains(
+                question.responseType
+            ) {
                 showAdvancedTypes = true
             }
 
@@ -912,7 +915,9 @@
             }
 
             var validationRules: ValidationRules?
-            if [ResponseType.numeric, .scale, .slider].contains(composerResponseType) {
+            if [ResponseType.numeric, .scale, .slider, .waterIntake].contains(
+                composerResponseType
+            ) {
                 validationRules = ValidationRules(
                     minimumValue: composerMinimum,
                     maximumValue: composerMaximum,
@@ -964,6 +969,14 @@
                     let max = question.validationRules?.maximumValue
                 {
                     parts.append("\(Int(min))–\(Int(max))")
+                }
+            case .waterIntake:
+                if let min = question.validationRules?.minimumValue,
+                    let max = question.validationRules?.maximumValue
+                {
+                    parts.append(
+                        "\(HydrationFormatter.ouncesString(min)) – \(HydrationFormatter.ouncesString(max))"
+                    )
                 }
             case .multipleChoice:
                 if !question.options.isEmpty {

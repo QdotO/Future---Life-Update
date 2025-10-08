@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct GoalEditView: View {
     @Environment(\.dismiss) private var dismiss
@@ -10,7 +10,8 @@ struct GoalEditView: View {
     @State private var newQuestionMaximum: Double = 100
     @State private var newQuestionAllowsEmpty: Bool = false
     @State private var newResponseType: ResponseType = .numeric
-    @State private var newReminderTime: Date = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date()
+    @State private var newReminderTime: Date =
+        Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date()
     @State private var errorMessage: String?
     @State private var didSeedNewQuestionDefaults = false
     @State private var conflictMessage: String?
@@ -36,7 +37,11 @@ struct GoalEditView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { handleSave() }
-                        .disabled(viewModel.questionDrafts.isEmpty || viewModel.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .disabled(
+                            viewModel.questionDrafts.isEmpty
+                                || viewModel.title.trimmingCharacters(in: .whitespacesAndNewlines)
+                                    .isEmpty
+                        )
                 }
             }
             .alert(
@@ -93,7 +98,8 @@ struct GoalEditView: View {
     private var questionsSection: some View {
         Section("Questions") {
             if viewModel.questionDrafts.isEmpty {
-                ContentUnavailableView("Add a question to keep tracking", systemImage: "text.badge.plus")
+                ContentUnavailableView(
+                    "Add a question to keep tracking", systemImage: "text.badge.plus")
             } else {
                 ForEach($viewModel.questionDrafts) { $draft in
                     VStack(alignment: .leading, spacing: 8) {
@@ -145,9 +151,11 @@ struct GoalEditView: View {
     }
 
     @ViewBuilder
-    private func configurationFields(for draft: Binding<GoalEditorViewModel.QuestionDraft>) -> some View {
+    private func configurationFields(for draft: Binding<GoalEditorViewModel.QuestionDraft>)
+        -> some View
+    {
         switch draft.responseType.wrappedValue {
-        case .numeric, .scale, .slider:
+        case .numeric, .scale, .slider, .waterIntake:
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
@@ -156,7 +164,9 @@ struct GoalEditView: View {
                             .foregroundStyle(.secondary)
                         TextField(
                             "Minimum",
-                            value: minimumBinding(for: draft, defaultValue: defaultMinimum(for: draft.responseType.wrappedValue)),
+                            value: minimumBinding(
+                                for: draft,
+                                defaultValue: defaultMinimum(for: draft.responseType.wrappedValue)),
                             format: .number
                         )
                         .platformNumericKeyboard()
@@ -168,7 +178,9 @@ struct GoalEditView: View {
                             .foregroundStyle(.secondary)
                         TextField(
                             "Maximum",
-                            value: maximumBinding(for: draft, defaultValue: defaultMaximum(for: draft.responseType.wrappedValue)),
+                            value: maximumBinding(
+                                for: draft,
+                                defaultValue: defaultMaximum(for: draft.responseType.wrappedValue)),
                             format: .number
                         )
                         .platformNumericKeyboard()
@@ -189,11 +201,16 @@ struct GoalEditView: View {
         }
     }
 
-    private func minimumBinding(for draft: Binding<GoalEditorViewModel.QuestionDraft>, defaultValue: Double) -> Binding<Double> {
+    private func minimumBinding(
+        for draft: Binding<GoalEditorViewModel.QuestionDraft>, defaultValue: Double
+    ) -> Binding<Double> {
         Binding<Double>(
             get: { draft.validationRules.wrappedValue?.minimumValue ?? defaultValue },
             set: { newValue in
-                var rules = draft.validationRules.wrappedValue ?? ValidationRules(allowsEmpty: draft.validationRules.wrappedValue?.allowsEmpty ?? false)
+                var rules =
+                    draft.validationRules.wrappedValue
+                    ?? ValidationRules(
+                        allowsEmpty: draft.validationRules.wrappedValue?.allowsEmpty ?? false)
                 rules.minimumValue = newValue
                 if let maximum = rules.maximumValue, maximum < newValue {
                     rules.maximumValue = newValue
@@ -203,11 +220,16 @@ struct GoalEditView: View {
         )
     }
 
-    private func maximumBinding(for draft: Binding<GoalEditorViewModel.QuestionDraft>, defaultValue: Double) -> Binding<Double> {
+    private func maximumBinding(
+        for draft: Binding<GoalEditorViewModel.QuestionDraft>, defaultValue: Double
+    ) -> Binding<Double> {
         Binding<Double>(
             get: { draft.validationRules.wrappedValue?.maximumValue ?? defaultValue },
             set: { newValue in
-                var rules = draft.validationRules.wrappedValue ?? ValidationRules(allowsEmpty: draft.validationRules.wrappedValue?.allowsEmpty ?? false)
+                var rules =
+                    draft.validationRules.wrappedValue
+                    ?? ValidationRules(
+                        allowsEmpty: draft.validationRules.wrappedValue?.allowsEmpty ?? false)
                 let minimum = rules.minimumValue ?? defaultValue
                 rules.maximumValue = max(newValue, minimum)
                 draft.validationRules.wrappedValue = rules
@@ -215,11 +237,14 @@ struct GoalEditView: View {
         )
     }
 
-    private func allowsEmptyBinding(for draft: Binding<GoalEditorViewModel.QuestionDraft>) -> Binding<Bool> {
+    private func allowsEmptyBinding(for draft: Binding<GoalEditorViewModel.QuestionDraft>)
+        -> Binding<Bool>
+    {
         Binding<Bool>(
             get: { draft.validationRules.wrappedValue?.allowsEmpty ?? false },
             set: { newValue in
-                var rules = draft.validationRules.wrappedValue ?? ValidationRules(allowsEmpty: newValue)
+                var rules =
+                    draft.validationRules.wrappedValue ?? ValidationRules(allowsEmpty: newValue)
                 rules.allowsEmpty = newValue
                 draft.validationRules.wrappedValue = rules
             }
@@ -229,7 +254,7 @@ struct GoalEditView: View {
     @ViewBuilder
     private var newQuestionConfigurationFields: some View {
         switch newResponseType {
-        case .numeric, .scale, .slider:
+        case .numeric, .scale, .slider, .waterIntake:
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
@@ -264,7 +289,9 @@ struct GoalEditView: View {
         }
     }
 
-    private func optionsBinding(for draft: Binding<GoalEditorViewModel.QuestionDraft>) -> Binding<String> {
+    private func optionsBinding(for draft: Binding<GoalEditorViewModel.QuestionDraft>) -> Binding<
+        String
+    > {
         Binding<String>(
             get: { draft.options.wrappedValue.joined(separator: ", ") },
             set: { newValue in
@@ -277,6 +304,8 @@ struct GoalEditView: View {
         switch responseType {
         case .scale:
             return 1
+        case .waterIntake:
+            return 0
         default:
             return 0
         }
@@ -286,23 +315,34 @@ struct GoalEditView: View {
         switch responseType {
         case .scale:
             return 10
+        case .waterIntake:
+            return 128
         default:
             return 100
         }
     }
 
-    private func seedDraftDefaults(for draft: Binding<GoalEditorViewModel.QuestionDraft>, responseType: ResponseType) {
+    private func seedDraftDefaults(
+        for draft: Binding<GoalEditorViewModel.QuestionDraft>, responseType: ResponseType
+    ) {
         let allowsEmpty = draft.validationRules.wrappedValue?.allowsEmpty ?? false
         switch responseType {
         case .numeric:
             draft.options.wrappedValue = []
-            draft.validationRules.wrappedValue = ValidationRules(minimumValue: 0, maximumValue: 100, allowsEmpty: allowsEmpty)
+            draft.validationRules.wrappedValue = ValidationRules(
+                minimumValue: 0, maximumValue: 100, allowsEmpty: allowsEmpty)
         case .scale:
             draft.options.wrappedValue = []
-            draft.validationRules.wrappedValue = ValidationRules(minimumValue: 1, maximumValue: 10, allowsEmpty: allowsEmpty)
+            draft.validationRules.wrappedValue = ValidationRules(
+                minimumValue: 1, maximumValue: 10, allowsEmpty: allowsEmpty)
         case .slider:
             draft.options.wrappedValue = []
-            draft.validationRules.wrappedValue = ValidationRules(minimumValue: 0, maximumValue: 100, allowsEmpty: allowsEmpty)
+            draft.validationRules.wrappedValue = ValidationRules(
+                minimumValue: 0, maximumValue: 100, allowsEmpty: allowsEmpty)
+        case .waterIntake:
+            draft.options.wrappedValue = []
+            draft.validationRules.wrappedValue = ValidationRules(
+                minimumValue: 0, maximumValue: 128, allowsEmpty: allowsEmpty)
         case .multipleChoice:
             draft.options.wrappedValue = []
             draft.validationRules.wrappedValue = ValidationRules(allowsEmpty: allowsEmpty)
@@ -311,12 +351,14 @@ struct GoalEditView: View {
             draft.validationRules.wrappedValue = ValidationRules(allowsEmpty: allowsEmpty)
         case .boolean, .time:
             draft.options.wrappedValue = []
-            draft.validationRules.wrappedValue = allowsEmpty ? ValidationRules(allowsEmpty: true) : nil
+            draft.validationRules.wrappedValue =
+                allowsEmpty ? ValidationRules(allowsEmpty: true) : nil
         }
     }
 
     private func parseOptions(from text: String) -> [String] {
-        let candidates = text
+        let candidates =
+            text
             .split(separator: ",")
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
@@ -331,20 +373,23 @@ struct GoalEditView: View {
 
     private var scheduleSection: some View {
         Section("Schedule") {
-            Picker("Frequency", selection: Binding(
-                get: { viewModel.scheduleDraft.frequency },
-                set: { newValue in
-                    viewModel.setFrequency(newValue)
-                    scheduleError = nil
-                    let conflict = viewModel.conflictDescription()
-                    conflictMessage = conflict
-                    if conflict != nil {
-                        Haptics.warning()
-                    } else {
-                        Haptics.selection()
+            Picker(
+                "Frequency",
+                selection: Binding(
+                    get: { viewModel.scheduleDraft.frequency },
+                    set: { newValue in
+                        viewModel.setFrequency(newValue)
+                        scheduleError = nil
+                        let conflict = viewModel.conflictDescription()
+                        conflictMessage = conflict
+                        if conflict != nil {
+                            Haptics.warning()
+                        } else {
+                            Haptics.selection()
+                        }
                     }
-                }
-            )) {
+                )
+            ) {
                 ForEach(Frequency.allCases, id: \.self) { frequency in
                     Text(frequency.displayName).tag(frequency)
                 }
@@ -393,24 +438,30 @@ struct GoalEditView: View {
                 EmptyView()
             }
 
-            Picker("Timezone", selection: Binding(
-                get: { viewModel.scheduleDraft.timezone },
-                set: {
-                    viewModel.setTimezone($0)
-                    scheduleError = nil
-                    let conflict = viewModel.conflictDescription()
-                    conflictMessage = conflict
-                    if conflict != nil {
-                        Haptics.warning()
-                    } else {
-                        Haptics.selection()
+            Picker(
+                "Timezone",
+                selection: Binding(
+                    get: { viewModel.scheduleDraft.timezone },
+                    set: {
+                        viewModel.setTimezone($0)
+                        scheduleError = nil
+                        let conflict = viewModel.conflictDescription()
+                        conflictMessage = conflict
+                        if conflict != nil {
+                            Haptics.warning()
+                        } else {
+                            Haptics.selection()
+                        }
                     }
-                }
-            )) {
+                )
+            ) {
                 ForEach(TimeZone.knownTimeZoneIdentifiers.sorted(), id: \.self) { identifier in
                     if let timezone = TimeZone(identifier: identifier) {
-                        Text(timezone.localizedName(for: .shortGeneric, locale: .current) ?? identifier)
-                            .tag(timezone)
+                        Text(
+                            timezone.localizedName(for: .shortGeneric, locale: .current)
+                                ?? identifier
+                        )
+                        .tag(timezone)
                     }
                 }
             }
@@ -430,7 +481,8 @@ struct GoalEditView: View {
             if viewModel.scheduleDraft.times.isEmpty {
                 ContentUnavailableView("Add at least one reminder", systemImage: "alarm")
             } else {
-                ForEach(Array(viewModel.scheduleDraft.times.enumerated()), id: \.offset) { index, scheduleTime in
+                ForEach(Array(viewModel.scheduleDraft.times.enumerated()), id: \.offset) {
+                    index, scheduleTime in
                     HStack {
                         DatePicker(
                             "Reminder \(index + 1)",
@@ -442,7 +494,8 @@ struct GoalEditView: View {
                                         scheduleError = nil
                                         conflictMessage = viewModel.conflictDescription()
                                     } else {
-                                        scheduleError = "Reminders must be at least 5 minutes apart."
+                                        scheduleError =
+                                            "Reminders must be at least 5 minutes apart."
                                         Haptics.warning()
                                     }
                                 }
@@ -474,7 +527,9 @@ struct GoalEditView: View {
                     Haptics.selection()
                     scheduleError = nil
                     conflictMessage = viewModel.conflictDescription()
-                    newReminderTime = Calendar.current.date(byAdding: .minute, value: 30, to: newReminderTime) ?? newReminderTime
+                    newReminderTime =
+                        Calendar.current.date(byAdding: .minute, value: 30, to: newReminderTime)
+                        ?? newReminderTime
                 } else {
                     scheduleError = "Reminders must be at least 5 minutes apart."
                     Haptics.warning()
@@ -485,7 +540,8 @@ struct GoalEditView: View {
             }
             .buttonStyle(.bordered)
 
-            DatePicker("New Reminder", selection: $newReminderTime, displayedComponents: .hourAndMinute)
+            DatePicker(
+                "New Reminder", selection: $newReminderTime, displayedComponents: .hourAndMinute)
         }
     }
 
@@ -502,6 +558,9 @@ struct GoalEditView: View {
         case .slider:
             newQuestionMinimum = 0
             newQuestionMaximum = 100
+        case .waterIntake:
+            newQuestionMinimum = 0
+            newQuestionMaximum = 128
         case .multipleChoice:
             break
         case .text, .boolean, .time:
@@ -532,10 +591,11 @@ struct GoalEditView: View {
             }
             options = parsed
             validation = ValidationRules(allowsEmpty: newQuestionAllowsEmpty)
-        case .numeric, .scale, .slider:
+        case .numeric, .scale, .slider, .waterIntake:
             let minimum = min(newQuestionMinimum, newQuestionMaximum)
             let maximum = max(newQuestionMinimum, newQuestionMaximum)
-            validation = ValidationRules(minimumValue: minimum, maximumValue: maximum, allowsEmpty: newQuestionAllowsEmpty)
+            validation = ValidationRules(
+                minimumValue: minimum, maximumValue: maximum, allowsEmpty: newQuestionAllowsEmpty)
         case .text, .boolean, .time:
             if newQuestionAllowsEmpty {
                 validation = ValidationRules(allowsEmpty: true)
@@ -566,8 +626,8 @@ struct GoalEditView: View {
     }
 }
 
-private extension GoalEditView {
-    var editableCategoryBinding: Binding<TrackingCategory?> {
+extension GoalEditView {
+    fileprivate var editableCategoryBinding: Binding<TrackingCategory?> {
         Binding<TrackingCategory?>(
             get: { viewModel.selectedCategory },
             set: { newValue in
@@ -583,7 +643,8 @@ private extension GoalEditView {
     if let container = try? PreviewSampleData.makePreviewContainer() {
         let context = container.mainContext
         if let goals = try? context.fetch(FetchDescriptor<TrackingGoal>()),
-           let goal = goals.first {
+            let goal = goals.first
+        {
             let viewModel = GoalEditorViewModel(goal: goal, modelContext: context)
             GoalEditView(viewModel: viewModel)
                 .modelContainer(container)
@@ -596,22 +657,22 @@ private extension GoalEditView {
 }
 
 // MARK: - Platform-specific View Extensions
-private extension View {
+extension View {
     @ViewBuilder
-    func platformNumericKeyboard() -> some View {
+    fileprivate func platformNumericKeyboard() -> some View {
         #if os(iOS)
-        self.keyboardType(.decimalPad)
+            self.keyboardType(.decimalPad)
         #else
-        self
+            self
         #endif
     }
-    
+
     @ViewBuilder
-    func platformTextField() -> some View {
+    fileprivate func platformTextField() -> some View {
         #if os(iOS)
-        self.textFieldStyle(.roundedBorder)
+            self.textFieldStyle(.roundedBorder)
         #else
-        self.textFieldStyle(.plain)
+            self.textFieldStyle(.plain)
         #endif
     }
 }

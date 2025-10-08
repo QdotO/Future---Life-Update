@@ -1,7 +1,7 @@
 import Foundation
-import os
 import Observation
 import SwiftData
+import os
 
 @MainActor
 @Observable
@@ -42,18 +42,21 @@ final class GoalHistoryViewModel {
     }
 
     func refresh() {
-        let trace = PerformanceMetrics.trace("GoalHistory.refresh", metadata: ["goal": goal.id.uuidString])
+        let trace = PerformanceMetrics.trace(
+            "GoalHistory.refresh", metadata: ["goal": goal.id.uuidString])
         do {
             try reloadEntries()
         } catch {
             sections = []
-            PerformanceMetrics.logger.error("GoalHistory refresh failed: \(error.localizedDescription, privacy: .public)")
+            PerformanceMetrics.logger.error(
+                "GoalHistory refresh failed: \(error.localizedDescription, privacy: .public)")
         }
         trace.end(extraMetadata: ["sections": "\(sections.count)"])
     }
 
     private func reloadEntries() throws {
-        let trace = PerformanceMetrics.trace("GoalHistory.reloadEntries", metadata: ["goal": goal.id.uuidString])
+        let trace = PerformanceMetrics.trace(
+            "GoalHistory.reloadEntries", metadata: ["goal": goal.id.uuidString])
         let goalIdentifier = goal.persistentModelID
         var descriptor = FetchDescriptor<DataPoint>(
             predicate: #Predicate<DataPoint> { dataPoint in
@@ -71,7 +74,7 @@ final class GoalHistoryViewModel {
             \.timeValue,
             \.numericDelta,
             \.mood,
-            \.location
+            \.location,
         ]
         descriptor.relationshipKeyPathsForPrefetching = [\.question]
         descriptor.includePendingChanges = true
@@ -99,7 +102,7 @@ final class GoalHistoryViewModel {
         trace.end(extraMetadata: [
             "dataPoints": "\(dataPoints.count)",
             "sections": "\(sections.count)",
-            "entries": "\(sections.reduce(0) { $0 + $1.entries.count })"
+            "entries": "\(sections.reduce(0) { $0 + $1.entries.count })",
         ])
     }
 
@@ -112,11 +115,16 @@ final class GoalHistoryViewModel {
             switch responseType {
             case .numeric, .slider:
                 if let numeric = dataPoint.numericValue {
-                    return NumericFormatter.numberFormatter.string(from: NSNumber(value: numeric)) ?? String(numeric)
+                    return NumericFormatter.numberFormatter.string(from: NSNumber(value: numeric))
+                        ?? String(numeric)
                 }
             case .scale:
                 if let numeric = dataPoint.numericValue {
                     return String(Int(numeric.rounded()))
+                }
+            case .waterIntake:
+                if let numeric = dataPoint.numericValue {
+                    return HydrationFormatter.ouncesString(numeric)
                 }
             case .boolean:
                 if let boolValue = dataPoint.boolValue {
@@ -138,7 +146,8 @@ final class GoalHistoryViewModel {
         }
 
         if let numeric = dataPoint.numericValue {
-            return NumericFormatter.numberFormatter.string(from: NSNumber(value: numeric)) ?? String(numeric)
+            return NumericFormatter.numberFormatter.string(from: NSNumber(value: numeric))
+                ?? String(numeric)
         }
         if let text = dataPoint.textValue, !text.isEmpty {
             return text
@@ -169,7 +178,7 @@ final class GoalHistoryViewModel {
     private func deltaSummary(for dataPoint: DataPoint) -> String? {
         guard
             let responseType = dataPoint.question?.responseType,
-            (responseType == .scale || responseType == .slider),
+            responseType == .scale || responseType == .slider || responseType == .waterIntake,
             let afterValue = dataPoint.numericValue
         else {
             return nil
@@ -190,9 +199,13 @@ final class GoalHistoryViewModel {
         case .scale:
             return String(Int(value.rounded()))
         case .slider:
-            return NumericFormatter.numberFormatter.string(from: NSNumber(value: value)) ?? String(value)
+            return NumericFormatter.numberFormatter.string(from: NSNumber(value: value))
+                ?? String(value)
+        case .waterIntake:
+            return HydrationFormatter.ouncesString(value)
         default:
-            return NumericFormatter.numberFormatter.string(from: NSNumber(value: value)) ?? String(value)
+            return NumericFormatter.numberFormatter.string(from: NSNumber(value: value))
+                ?? String(value)
         }
     }
 }

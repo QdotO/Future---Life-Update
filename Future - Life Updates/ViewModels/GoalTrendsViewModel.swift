@@ -1,7 +1,7 @@
 import Foundation
-import os
 import Observation
 import SwiftData
+import os
 
 /// Observes a `TrackingGoal` and produces chart-ready analytics including daily averages
 /// and the user's current completion streak. All interactions occur on the main actor
@@ -85,44 +85,51 @@ final class GoalTrendsViewModel {
     }
 
     func refresh() {
-        let trace = PerformanceMetrics.trace("GoalTrends.refresh", metadata: ["goal": goal.id.uuidString])
+        let trace = PerformanceMetrics.trace(
+            "GoalTrends.refresh", metadata: ["goal": goal.id.uuidString])
         do {
             try rebuildNumericTrends()
         } catch {
             dailySeries = []
             currentStreakDays = 0
-            PerformanceMetrics.logger.error("GoalTrends numeric refresh failed: \(error.localizedDescription, privacy: .public)")
+            PerformanceMetrics.logger.error(
+                "GoalTrends numeric refresh failed: \(error.localizedDescription, privacy: .public)"
+            )
         }
 
         do {
             try rebuildBooleanStreaks()
         } catch {
             booleanStreaks = []
-            PerformanceMetrics.logger.error("GoalTrends boolean refresh failed: \(error.localizedDescription, privacy: .public)")
+            PerformanceMetrics.logger.error(
+                "GoalTrends boolean refresh failed: \(error.localizedDescription, privacy: .public)"
+            )
         }
 
         do {
             try rebuildResponseSnapshots()
         } catch {
             responseSnapshots = []
-            PerformanceMetrics.logger.error("GoalTrends snapshot refresh failed: \(error.localizedDescription, privacy: .public)")
+            PerformanceMetrics.logger.error(
+                "GoalTrends snapshot refresh failed: \(error.localizedDescription, privacy: .public)"
+            )
         }
 
         trace.end(extraMetadata: [
             "dailySeries": "\(dailySeries.count)",
             "booleanStreaks": "\(booleanStreaks.count)",
             "snapshots": "\(responseSnapshots.count)",
-            "streakDays": "\(currentStreakDays)"
+            "streakDays": "\(currentStreakDays)",
         ])
     }
 
     private func rebuildNumericTrends() throws {
-        let trace = PerformanceMetrics.trace("GoalTrends.rebuildNumeric", metadata: ["goal": goal.id.uuidString])
+        let trace = PerformanceMetrics.trace(
+            "GoalTrends.rebuildNumeric", metadata: ["goal": goal.id.uuidString])
         let goalIdentifier = goal.persistentModelID
         var descriptor = FetchDescriptor<DataPoint>(
             predicate: #Predicate<DataPoint> { dataPoint in
-                dataPoint.goal?.persistentModelID == goalIdentifier &&
-                dataPoint.numericValue != nil
+                dataPoint.goal?.persistentModelID == goalIdentifier && dataPoint.numericValue != nil
             },
             sortBy: [SortDescriptor(\.timestamp, order: .forward)]
         )
@@ -135,7 +142,8 @@ final class GoalTrendsViewModel {
     }
 
     private func rebuildBooleanStreaks() throws {
-        let trace = PerformanceMetrics.trace("GoalTrends.rebuildBoolean", metadata: ["goal": goal.id.uuidString])
+        let trace = PerformanceMetrics.trace(
+            "GoalTrends.rebuildBoolean", metadata: ["goal": goal.id.uuidString])
         let booleanQuestions = goal.questions.filter { $0.responseType == .boolean }
         guard !booleanQuestions.isEmpty else {
             booleanStreaks = []
@@ -148,8 +156,7 @@ final class GoalTrendsViewModel {
 
         var descriptor = FetchDescriptor<DataPoint>(
             predicate: #Predicate<DataPoint> { dataPoint in
-                dataPoint.goal?.persistentModelID == goalIdentifier &&
-                dataPoint.boolValue != nil
+                dataPoint.goal?.persistentModelID == goalIdentifier && dataPoint.boolValue != nil
             },
             sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
         )
@@ -173,10 +180,11 @@ final class GoalTrendsViewModel {
 
         for question in booleanQuestions {
             let questionPoints = pointsByQuestion[question.id] ?? []
-            let successDays: Set<Date> = Set(questionPoints.compactMap { point in
-                guard point.boolValue == true else { return nil }
-                return calendar.startOfDay(for: point.timestamp)
-            })
+            let successDays: Set<Date> = Set(
+                questionPoints.compactMap { point in
+                    guard point.boolValue == true else { return nil }
+                    return calendar.startOfDay(for: point.timestamp)
+                })
 
             let currentStreak = computeCurrentBooleanStreak(from: successDays)
             let bestStreak = computeBestBooleanStreak(from: successDays)
@@ -202,7 +210,7 @@ final class GoalTrendsViewModel {
         }
         trace.end(extraMetadata: [
             "questions": "\(booleanQuestions.count)",
-            "streaks": "\(booleanStreaks.count)"
+            "streaks": "\(booleanStreaks.count)",
         ])
     }
 
@@ -218,7 +226,8 @@ final class GoalTrendsViewModel {
             aggregates[day] = bucket
         }
 
-        dailySeries = aggregates
+        dailySeries =
+            aggregates
             .map { entry in
                 let (date, aggregate) = entry
                 return DailyAverage(
@@ -238,10 +247,11 @@ final class GoalTrendsViewModel {
 
         let now = dateProvider()
 
-        let daySet: Set<Date> = Set(dataPoints.compactMap { point in
-            guard point.timestamp <= now else { return nil }
-            return calendar.startOfDay(for: point.timestamp)
-        })
+        let daySet: Set<Date> = Set(
+            dataPoints.compactMap { point in
+                guard point.timestamp <= now else { return nil }
+                return calendar.startOfDay(for: point.timestamp)
+            })
 
         guard !daySet.isEmpty else {
             currentStreakDays = 0
@@ -285,8 +295,9 @@ final class GoalTrendsViewModel {
 
         for day in sortedDays {
             if let previousDay,
-               let expectedNext = calendar.date(byAdding: .day, value: 1, to: previousDay),
-               calendar.isDate(day, inSameDayAs: expectedNext) {
+                let expectedNext = calendar.date(byAdding: .day, value: 1, to: previousDay),
+                calendar.isDate(day, inSameDayAs: expectedNext)
+            {
                 current += 1
             } else {
                 current = 1
@@ -300,7 +311,8 @@ final class GoalTrendsViewModel {
     }
 
     private func rebuildResponseSnapshots() throws {
-        let trace = PerformanceMetrics.trace("GoalTrends.rebuildSnapshots", metadata: ["goal": goal.id.uuidString])
+        let trace = PerformanceMetrics.trace(
+            "GoalTrends.rebuildSnapshots", metadata: ["goal": goal.id.uuidString])
         let goalIdentifier = goal.persistentModelID
 
         var descriptor = FetchDescriptor<DataPoint>(
@@ -318,7 +330,7 @@ final class GoalTrendsViewModel {
             \.boolValue,
             \.selectedOptions,
             \.textValue,
-            \.timeValue
+            \.timeValue,
         ]
 
         let dataPoints = try modelContext.fetch(descriptor)
@@ -361,6 +373,18 @@ final class GoalTrendsViewModel {
                 status: .numeric(progress: progress, target: target),
                 timestamp: timestamp
             )
+        case .waterIntake:
+            guard let value = dataPoint.numericValue else { return nil }
+            let (progress, target) = progressInfo(for: value, rules: question.validationRules)
+            return ResponseSnapshot(
+                questionID: question.id,
+                questionTitle: question.text,
+                responseType: question.responseType,
+                primaryValue: HydrationFormatter.ouncesString(value),
+                detail: "Today's total",
+                status: .numeric(progress: progress, target: target),
+                timestamp: timestamp
+            )
         case .boolean:
             guard let value = dataPoint.boolValue else { return nil }
             let detail = value ? "Marked complete" : "Not completed yet"
@@ -374,7 +398,9 @@ final class GoalTrendsViewModel {
                 timestamp: timestamp
             )
         case .multipleChoice:
-            guard let selections = dataPoint.selectedOptions, !selections.isEmpty else { return nil }
+            guard let selections = dataPoint.selectedOptions, !selections.isEmpty else {
+                return nil
+            }
             let detail = selections.count == 1 ? "Latest choice" : "Latest choices"
             return ResponseSnapshot(
                 questionID: question.id,
@@ -386,7 +412,9 @@ final class GoalTrendsViewModel {
                 timestamp: timestamp
             )
         case .text:
-            guard let text = dataPoint.textValue?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return nil }
+            guard let text = dataPoint.textValue?.trimmingCharacters(in: .whitespacesAndNewlines),
+                !text.isEmpty
+            else { return nil }
             return ResponseSnapshot(
                 questionID: question.id,
                 questionTitle: question.text,
@@ -402,7 +430,8 @@ final class GoalTrendsViewModel {
                 questionID: question.id,
                 questionTitle: question.text,
                 responseType: question.responseType,
-                primaryValue: formatTime(value, timezoneIdentifier: goal.schedule.timezoneIdentifier),
+                primaryValue: formatTime(
+                    value, timezoneIdentifier: goal.schedule.timezoneIdentifier),
                 detail: "Logged time",
                 status: .time,
                 timestamp: timestamp

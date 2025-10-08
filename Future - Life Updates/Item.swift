@@ -9,6 +9,7 @@ enum ResponseType: String, CaseIterable, Codable, Sendable {
     case text
     case time
     case slider
+    case waterIntake
 }
 
 extension TrackingGoal {

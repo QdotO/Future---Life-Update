@@ -169,6 +169,10 @@ struct GoalDetailView: View {
                 if let value = dataPoint.numericValue {
                     return "Response: \(Int(value.rounded()))"
                 }
+            case .waterIntake:
+                if let value = dataPoint.numericValue {
+                    return "Response: \(HydrationFormatter.ouncesString(value))"
+                }
             case .boolean:
                 if let value = dataPoint.boolValue {
                     return value ? "Answered: Yes" : "Answered: No"
@@ -189,6 +193,9 @@ struct GoalDetailView: View {
         }
 
         if let value = dataPoint.numericValue {
+            if dataPoint.question?.responseType == .waterIntake {
+                return "Response: \(HydrationFormatter.ouncesString(value))"
+            }
             let formatted = value.formatted(.number.precision(.fractionLength(0...2)))
             return "Response: \(formatted)"
         }

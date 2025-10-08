@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct GoalCreationView: View {
     private enum FlowStep: Int, CaseIterable, Identifiable {
@@ -69,13 +69,17 @@ struct GoalCreationView: View {
     }
 
     private let maxReminderCount = 3
-    private let featuredCategories: [TrackingCategory] = [.fitness, .health, .productivity, .habits, .mood]
+    private let featuredCategories: [TrackingCategory] = [
+        .fitness, .health, .productivity, .habits, .mood,
+    ]
     private let primaryResponseTypes: [ResponseType] = [.boolean, .numeric, .scale, .text]
-    private let advancedResponseTypes: [ResponseType] = [.multipleChoice, .slider, .time]
+    private let advancedResponseTypes: [ResponseType] = [
+        .waterIntake, .multipleChoice, .slider, .time,
+    ]
     private let rangePresets: [RangePreset] = [
         RangePreset(id: "0-10", label: "0 – 10", minimum: 0, maximum: 10),
         RangePreset(id: "1-5", label: "1 – 5", minimum: 1, maximum: 5),
-        RangePreset(id: "1-10", label: "1 – 10", minimum: 1, maximum: 10)
+        RangePreset(id: "1-10", label: "1 – 10", minimum: 1, maximum: 10),
     ]
     private let chipColumns = [GridItem(.adaptive(minimum: 140), spacing: AppTheme.Spacing.sm)]
 
@@ -127,7 +131,7 @@ struct GoalCreationView: View {
             .background(AppTheme.Palette.background.ignoresSafeArea())
             .navigationTitle("New Tracking Goal")
             #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
+                .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -206,10 +210,10 @@ struct GoalCreationView: View {
                         text: motivationBinding,
                         axis: .vertical
                     )
-                        .platformAdaptiveTextField()
-                        .lineLimit(3, reservesSpace: true)
-                        .font(AppTheme.Typography.body)
-                        .focused($focusedField, equals: .motivation)
+                    .platformAdaptiveTextField()
+                    .lineLimit(3, reservesSpace: true)
+                    .font(AppTheme.Typography.body)
+                    .focused($focusedField, equals: .motivation)
                 }
             }
 
@@ -218,7 +222,9 @@ struct GoalCreationView: View {
                     Text("Pick a focus area")
                         .font(AppTheme.Typography.sectionHeader)
 
-                    LazyVGrid(columns: chipColumns, alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                    LazyVGrid(
+                        columns: chipColumns, alignment: .leading, spacing: AppTheme.Spacing.sm
+                    ) {
                         ForEach(featuredCategories, id: \.self) { category in
                             categoryChip(for: category)
                         }
@@ -239,7 +245,9 @@ struct GoalCreationView: View {
                             .frame(maxWidth: .infinity, minHeight: 92, alignment: .leading)
                             .background(
                                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                    .strokeBorder(AppTheme.Palette.primary.opacity(0.2), lineWidth: 1)
+                                    .strokeBorder(
+                                        AppTheme.Palette.primary.opacity(0.2), lineWidth: 1
+                                    )
                                     .background(
                                         RoundedRectangle(cornerRadius: 16, style: .continuous)
                                             .fill(AppTheme.Palette.surface)
@@ -259,10 +267,10 @@ struct GoalCreationView: View {
                         )
                         .platformMinimalTextField()
                         #if os(iOS)
-                        .textInputAutocapitalization(.words)
-                        .focused($focusedField, equals: .customCategory)
+                            .textInputAutocapitalization(.words)
+                            .focused($focusedField, equals: .customCategory)
                         #else
-                        .focused($focusedField, equals: .customCategory)
+                            .focused($focusedField, equals: .customCategory)
                         #endif
                         .font(AppTheme.Typography.body)
                     }
@@ -320,14 +328,16 @@ struct GoalCreationView: View {
                                 }
                             }
                         }
-                        let additional = viewModel.additionalTemplates(excluding: Set(suggested.map(\.id)))
+                        let additional = viewModel.additionalTemplates(
+                            excluding: Set(suggested.map(\.id)))
                         if !additional.isEmpty {
                             DisclosureGroup("More ideas") {
                                 VStack(spacing: AppTheme.Spacing.sm) {
                                     ForEach(additional) { template in
                                         TemplateCard(
                                             template: template,
-                                            isApplied: viewModel.appliedTemplateIDs.contains(template.id)
+                                            isApplied: viewModel.appliedTemplateIDs.contains(
+                                                template.id)
                                         ) {
                                             viewModel.applyTemplate(template)
                                             Haptics.success()
@@ -350,7 +360,8 @@ struct GoalCreationView: View {
                 VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
                     HStack {
                         statusPill(
-                            message: viewModel.canAdvanceFromQuestions() ? "Questions ready" : "Add at least one question",
+                            message: viewModel.canAdvanceFromQuestions()
+                                ? "Questions ready" : "Add at least one question",
                             isComplete: viewModel.canAdvanceFromQuestions()
                         )
                         Spacer()
@@ -367,7 +378,9 @@ struct GoalCreationView: View {
                         )
                     } else {
                         LazyVStack(spacing: AppTheme.Spacing.sm) {
-                            ForEach(Array(viewModel.draft.questionDrafts.enumerated()), id: \.element.id) { index, question in
+                            ForEach(
+                                Array(viewModel.draft.questionDrafts.enumerated()), id: \.element.id
+                            ) { index, question in
                                 questionSummaryCard(for: question, index: index)
                             }
                         }
@@ -409,7 +422,8 @@ struct GoalCreationView: View {
 
             if composerHasContent {
                 statusPill(
-                    message: composerIsReady ? "Prompt ready to save" : "Finish configuring before saving",
+                    message: composerIsReady
+                        ? "Prompt ready to save" : "Finish configuring before saving",
                     isComplete: composerIsReady
                 )
             }
@@ -454,7 +468,9 @@ struct GoalCreationView: View {
                 }
 
                 if showAdvancedResponseTypes {
-                    LazyVGrid(columns: chipColumns, alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                    LazyVGrid(
+                        columns: chipColumns, alignment: .leading, spacing: AppTheme.Spacing.sm
+                    ) {
                         ForEach(advancedResponseTypes, id: \.self) { type in
                             responseTypeChip(for: type)
                         }
@@ -465,10 +481,13 @@ struct GoalCreationView: View {
 
             configurationFields
 
-            Toggle("Allow skipping this question", isOn: Binding(
-                get: { composerAllowsEmpty },
-                set: { updateComposerAllowsEmpty($0) }
-            ))
+            Toggle(
+                "Allow skipping this question",
+                isOn: Binding(
+                    get: { composerAllowsEmpty },
+                    set: { updateComposerAllowsEmpty($0) }
+                )
+            )
             .toggleStyle(.switch)
 
             if let composerError {
@@ -504,7 +523,7 @@ struct GoalCreationView: View {
     @ViewBuilder
     private var configurationFields: some View {
         switch composerDraft.responseType {
-        case .numeric, .scale, .slider:
+        case .numeric, .scale, .slider, .waterIntake:
             VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
                 Text("Range presets")
                     .font(AppTheme.Typography.caption.weight(.semibold))
@@ -521,15 +540,23 @@ struct GoalCreationView: View {
                                 .padding(.vertical, AppTheme.Spacing.sm)
                                 .background(
                                     Capsule()
-                                        .fill(isPresetActive(preset) ? AppTheme.Palette.primary.opacity(0.12) : AppTheme.Palette.surface)
+                                        .fill(
+                                            isPresetActive(preset)
+                                                ? AppTheme.Palette.primary.opacity(0.12)
+                                                : AppTheme.Palette.surface)
                                 )
                                 .overlay(
                                     Capsule()
-                                        .stroke(isPresetActive(preset) ? AppTheme.Palette.primary : AppTheme.Palette.neutralBorder, lineWidth: isPresetActive(preset) ? 2 : 1)
+                                        .stroke(
+                                            isPresetActive(preset)
+                                                ? AppTheme.Palette.primary
+                                                : AppTheme.Palette.neutralBorder,
+                                            lineWidth: isPresetActive(preset) ? 2 : 1)
                                 )
                         }
                         .buttonStyle(.plain)
-                        .foregroundStyle(isPresetActive(preset) ? AppTheme.Palette.primary : .primary)
+                        .foregroundStyle(
+                            isPresetActive(preset) ? AppTheme.Palette.primary : .primary)
                     }
                 }
 
@@ -538,10 +565,12 @@ struct GoalCreationView: View {
                         Text("Minimum")
                             .font(AppTheme.Typography.caption)
                             .foregroundStyle(.secondary)
-                        Stepper(value: Binding(
-                            get: { composerMinimumValue },
-                            set: { updateComposerMinimum($0) }
-                        ), in: -1000...composerMaximumValue, step: 1) {
+                        Stepper(
+                            value: Binding(
+                                get: { composerMinimumValue },
+                                set: { updateComposerMinimum($0) }
+                            ), in: -1000...composerMaximumValue, step: 1
+                        ) {
                             Text(formattedValue(composerMinimumValue))
                         }
                     }
@@ -550,10 +579,12 @@ struct GoalCreationView: View {
                         Text("Maximum")
                             .font(AppTheme.Typography.caption)
                             .foregroundStyle(.secondary)
-                        Stepper(value: Binding(
-                            get: { composerMaximumValue },
-                            set: { updateComposerMaximum($0) }
-                        ), in: composerMinimumValue...1000, step: 1) {
+                        Stepper(
+                            value: Binding(
+                                get: { composerMaximumValue },
+                                set: { updateComposerMaximum($0) }
+                            ), in: composerMinimumValue...1000, step: 1
+                        ) {
                             Text(formattedValue(composerMaximumValue))
                         }
                     }
@@ -562,7 +593,9 @@ struct GoalCreationView: View {
         case .multipleChoice:
             VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
                 if !composerDraft.options.isEmpty {
-                    LazyVGrid(columns: chipColumns, alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                    LazyVGrid(
+                        columns: chipColumns, alignment: .leading, spacing: AppTheme.Spacing.sm
+                    ) {
                         ForEach(composerDraft.options, id: \.self) { option in
                             HStack(spacing: AppTheme.Spacing.xs) {
                                 Text(option)
@@ -617,10 +650,13 @@ struct GoalCreationView: View {
                     Text("Reminder cadence")
                         .font(AppTheme.Typography.sectionHeader)
 
-                    Picker("Frequency", selection: Binding(
-                        get: { selectedCadenceTag },
-                        set: { updateCadence(with: $0) }
-                    )) {
+                    Picker(
+                        "Frequency",
+                        selection: Binding(
+                            get: { selectedCadenceTag },
+                            set: { updateCadence(with: $0) }
+                        )
+                    ) {
                         ForEach(viewModel.cadencePresets()) { preset in
                             Text(preset.title).tag(preset.id)
                         }
@@ -641,23 +677,33 @@ struct GoalCreationView: View {
                                             .padding(.horizontal, AppTheme.Spacing.md)
                                             .padding(.vertical, AppTheme.Spacing.sm)
                                             .background(
-                                                Capsule().fill(day == weekday ? AppTheme.Palette.primary.opacity(0.12) : AppTheme.Palette.surface)
+                                                Capsule().fill(
+                                                    day == weekday
+                                                        ? AppTheme.Palette.primary.opacity(0.12)
+                                                        : AppTheme.Palette.surface)
                                             )
                                             .overlay(
                                                 Capsule()
-                                                    .stroke(day == weekday ? AppTheme.Palette.primary : AppTheme.Palette.neutralBorder, lineWidth: day == weekday ? 2 : 1)
+                                                    .stroke(
+                                                        day == weekday
+                                                            ? AppTheme.Palette.primary
+                                                            : AppTheme.Palette.neutralBorder,
+                                                        lineWidth: day == weekday ? 2 : 1)
                                             )
                                     }
                                     .buttonStyle(.plain)
-                                    .foregroundStyle(day == weekday ? AppTheme.Palette.primary : .primary)
+                                    .foregroundStyle(
+                                        day == weekday ? AppTheme.Palette.primary : .primary)
                                 }
                             }
                         }
                     case .custom(let interval):
-                        Stepper(value: Binding(
-                            get: { interval },
-                            set: { viewModel.updateCustomInterval(days: $0) }
-                        ), in: 2...30) {
+                        Stepper(
+                            value: Binding(
+                                get: { interval },
+                                set: { viewModel.updateCustomInterval(days: $0) }
+                            ), in: 2...30
+                        ) {
                             Text("Every \(interval) days")
                                 .font(AppTheme.Typography.body)
                         }
@@ -674,20 +720,25 @@ struct GoalCreationView: View {
                             .font(AppTheme.Typography.sectionHeader)
                         Spacer()
                         if !viewModel.draft.schedule.reminderTimes.isEmpty {
-                            Text("\(viewModel.draft.schedule.reminderTimes.count)/\(maxReminderCount)")
-                                .font(AppTheme.Typography.caption)
-                                .foregroundStyle(.secondary)
+                            Text(
+                                "\(viewModel.draft.schedule.reminderTimes.count)/\(maxReminderCount)"
+                            )
+                            .font(AppTheme.Typography.caption)
+                            .foregroundStyle(.secondary)
                         }
                     }
 
                     statusPill(
-                        message: viewModel.canAdvanceFromSchedule() ? "Reminders ready" : "Add at least one reminder",
+                        message: viewModel.canAdvanceFromSchedule()
+                            ? "Reminders ready" : "Add at least one reminder",
                         isComplete: viewModel.canAdvanceFromSchedule()
                     )
 
                     let recommended = viewModel.recommendedReminderTimes()
                     if !recommended.isEmpty {
-                        LazyVGrid(columns: chipColumns, alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                        LazyVGrid(
+                            columns: chipColumns, alignment: .leading, spacing: AppTheme.Spacing.sm
+                        ) {
                             ForEach(recommended, id: \.self) { time in
                                 Button {
                                     let succeeded = viewModel.toggleReminderTime(time)
@@ -695,7 +746,8 @@ struct GoalCreationView: View {
                                         scheduleError = nil
                                         Haptics.selection()
                                     } else {
-                                        scheduleError = "Reminders need to be at least five minutes apart or fewer than \(maxReminderCount)."
+                                        scheduleError =
+                                            "Reminders need to be at least five minutes apart or fewer than \(maxReminderCount)."
                                         Haptics.warning()
                                     }
                                 } label: {
@@ -704,15 +756,27 @@ struct GoalCreationView: View {
                                         .padding(.horizontal, AppTheme.Spacing.md)
                                         .padding(.vertical, AppTheme.Spacing.sm)
                                         .background(
-                                            Capsule().fill(viewModel.draft.schedule.reminderTimes.contains(time) ? AppTheme.Palette.primary.opacity(0.12) : AppTheme.Palette.surface)
+                                            Capsule().fill(
+                                                viewModel.draft.schedule.reminderTimes.contains(
+                                                    time)
+                                                    ? AppTheme.Palette.primary.opacity(0.12)
+                                                    : AppTheme.Palette.surface)
                                         )
                                         .overlay(
                                             Capsule()
-                                                .stroke(viewModel.draft.schedule.reminderTimes.contains(time) ? AppTheme.Palette.primary : AppTheme.Palette.neutralBorder, lineWidth: viewModel.draft.schedule.reminderTimes.contains(time) ? 2 : 1)
+                                                .stroke(
+                                                    viewModel.draft.schedule.reminderTimes.contains(
+                                                        time)
+                                                        ? AppTheme.Palette.primary
+                                                        : AppTheme.Palette.neutralBorder,
+                                                    lineWidth: viewModel.draft.schedule
+                                                        .reminderTimes.contains(time) ? 2 : 1)
                                         )
                                 }
                                 .buttonStyle(.plain)
-                                .foregroundStyle(viewModel.draft.schedule.reminderTimes.contains(time) ? AppTheme.Palette.primary : .primary)
+                                .foregroundStyle(
+                                    viewModel.draft.schedule.reminderTimes.contains(time)
+                                        ? AppTheme.Palette.primary : .primary)
                             }
                         }
                     }
@@ -744,7 +808,8 @@ struct GoalCreationView: View {
 
                     Button {
                         showCustomTimeSheet = true
-                        customReminderDate = viewModel.suggestedReminderDate(startingAt: customReminderDate)
+                        customReminderDate = viewModel.suggestedReminderDate(
+                            startingAt: customReminderDate)
                         Haptics.selection()
                     } label: {
                         Label("Custom time…", systemImage: "plus.circle.fill")
@@ -765,13 +830,16 @@ struct GoalCreationView: View {
                         Text("Timezone")
                             .font(AppTheme.Typography.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
-                        Picker("Timezone", selection: Binding(
-                            get: { viewModel.draft.schedule.timezone },
-                            set: { timezone in
-                                viewModel.updateTimezone(timezone)
-                                Haptics.selection()
-                            }
-                        )) {
+                        Picker(
+                            "Timezone",
+                            selection: Binding(
+                                get: { viewModel.draft.schedule.timezone },
+                                set: { timezone in
+                                    viewModel.updateTimezone(timezone)
+                                    Haptics.selection()
+                                }
+                            )
+                        ) {
                             ForEach(TimeZone.pickerOptions, id: \.identifier) { timezone in
                                 Text(timezone.localizedDisplayName())
                                     .tag(timezone)
@@ -790,9 +858,11 @@ struct GoalCreationView: View {
             VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
                 Text("Give future-you a boost")
                     .font(AppTheme.Typography.sectionHeader)
-                Text("Add an optional encouragement or celebration message we'll surface when you log progress.")
-                    .font(AppTheme.Typography.caption)
-                    .foregroundStyle(.secondary)
+                Text(
+                    "Add an optional encouragement or celebration message we'll surface when you log progress."
+                )
+                .font(AppTheme.Typography.caption)
+                .foregroundStyle(.secondary)
 
                 TextField(
                     "How will you celebrate showing up?",
@@ -822,21 +892,34 @@ struct GoalCreationView: View {
                             .font(AppTheme.Typography.caption.weight(.semibold))
                     }
                     if let category = viewModel.draft.category {
-                        Text(category == .custom ? (viewModel.draft.normalizedCustomCategoryLabel ?? category.displayName) : category.displayName)
-                            .font(AppTheme.Typography.caption)
-                            .foregroundStyle(.secondary)
+                        Text(
+                            category == .custom
+                                ? (viewModel.draft.normalizedCustomCategoryLabel
+                                    ?? category.displayName) : category.displayName
+                        )
+                        .font(AppTheme.Typography.caption)
+                        .foregroundStyle(.secondary)
                     }
-                    if !viewModel.draft.motivation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        Text(viewModel.draft.motivation.trimmingCharacters(in: .whitespacesAndNewlines))
-                            .font(AppTheme.Typography.body)
-                            .foregroundStyle(.secondary)
-                            .padding(.top, AppTheme.Spacing.sm)
+                    if !viewModel.draft.motivation.trimmingCharacters(in: .whitespacesAndNewlines)
+                        .isEmpty
+                    {
+                        Text(
+                            viewModel.draft.motivation.trimmingCharacters(
+                                in: .whitespacesAndNewlines)
+                        )
+                        .font(AppTheme.Typography.body)
+                        .foregroundStyle(.secondary)
+                        .padding(.top, AppTheme.Spacing.sm)
                     }
-                    if !viewModel.draft.celebrationMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        Text("Encouragement: \(viewModel.draft.celebrationMessage.trimmingCharacters(in: .whitespacesAndNewlines))")
-                            .font(AppTheme.Typography.caption)
-                            .foregroundStyle(.secondary)
-                            .padding(.top, AppTheme.Spacing.sm)
+                    if !viewModel.draft.celebrationMessage.trimmingCharacters(
+                        in: .whitespacesAndNewlines
+                    ).isEmpty {
+                        Text(
+                            "Encouragement: \(viewModel.draft.celebrationMessage.trimmingCharacters(in: .whitespacesAndNewlines))"
+                        )
+                        .font(AppTheme.Typography.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.top, AppTheme.Spacing.sm)
                     }
                 }
             }
@@ -860,10 +943,14 @@ struct GoalCreationView: View {
                             if question.templateID != nil || question.suggestionID != nil {
                                 HStack(spacing: AppTheme.Spacing.xs) {
                                     if question.templateID != nil {
-                                        sourceBadge(label: "Template", systemImage: "text.book.closed", tint: Color.secondary)
+                                        sourceBadge(
+                                            label: "Template", systemImage: "text.book.closed",
+                                            tint: Color.secondary)
                                     }
                                     if question.suggestionID != nil {
-                                        sourceBadge(label: "AI suggestion", systemImage: "sparkles", tint: AppTheme.Palette.primary)
+                                        sourceBadge(
+                                            label: "AI suggestion", systemImage: "sparkles",
+                                            tint: AppTheme.Palette.primary)
                                     }
                                 }
                             }
@@ -927,15 +1014,17 @@ struct GoalCreationView: View {
                     displayedComponents: .hourAndMinute
                 )
                 #if os(iOS)
-                .datePickerStyle(.wheel)
+                    .datePickerStyle(.wheel)
                 #else
-                .datePickerStyle(.graphical)
+                    .datePickerStyle(.graphical)
                 #endif
                 .labelsHidden()
 
-                Text("Times are saved in \(viewModel.draft.schedule.timezone.localizedDisplayName()).")
-                    .font(AppTheme.Typography.caption)
-                    .foregroundStyle(.secondary)
+                Text(
+                    "Times are saved in \(viewModel.draft.schedule.timezone.localizedDisplayName())."
+                )
+                .font(AppTheme.Typography.caption)
+                .foregroundStyle(.secondary)
 
                 Spacer()
             }
@@ -952,10 +1041,12 @@ struct GoalCreationView: View {
                         if viewModel.addReminderDate(customReminderDate) {
                             scheduleError = nil
                             showCustomTimeSheet = false
-                            customReminderDate = viewModel.suggestedReminderDate(startingAt: customReminderDate.addingTimeInterval(30 * 60))
+                            customReminderDate = viewModel.suggestedReminderDate(
+                                startingAt: customReminderDate.addingTimeInterval(30 * 60))
                             Haptics.success()
                         } else {
-                            scheduleError = "Reminders need to be at least five minutes apart or fewer than \(maxReminderCount)."
+                            scheduleError =
+                                "Reminders need to be at least five minutes apart or fewer than \(maxReminderCount)."
                             Haptics.warning()
                         }
                     }
@@ -982,10 +1073,16 @@ struct GoalCreationView: View {
             .frame(maxWidth: .infinity, minHeight: 92, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(isSelected ? AppTheme.Palette.primary.opacity(0.12) : AppTheme.Palette.surface)
+                    .fill(
+                        isSelected
+                            ? AppTheme.Palette.primary.opacity(0.12) : AppTheme.Palette.surface
+                    )
                     .overlay(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(isSelected ? AppTheme.Palette.primary : AppTheme.Palette.neutralBorder, lineWidth: isSelected ? 2 : 1)
+                            .stroke(
+                                isSelected
+                                    ? AppTheme.Palette.primary : AppTheme.Palette.neutralBorder,
+                                lineWidth: isSelected ? 2 : 1)
                     )
             )
         }
@@ -1022,11 +1119,16 @@ struct GoalCreationView: View {
             .padding(.vertical, AppTheme.Spacing.sm)
             .background(
                 Capsule()
-                    .fill(composerDraft.responseType == type ? AppTheme.Palette.primary.opacity(0.12) : AppTheme.Palette.surface)
+                    .fill(
+                        composerDraft.responseType == type
+                            ? AppTheme.Palette.primary.opacity(0.12) : AppTheme.Palette.surface)
             )
             .overlay(
                 Capsule()
-                    .stroke(composerDraft.responseType == type ? AppTheme.Palette.primary : AppTheme.Palette.neutralBorder, lineWidth: composerDraft.responseType == type ? 2 : 1)
+                    .stroke(
+                        composerDraft.responseType == type
+                            ? AppTheme.Palette.primary : AppTheme.Palette.neutralBorder,
+                        lineWidth: composerDraft.responseType == type ? 2 : 1)
             )
         }
         .buttonStyle(.plain)
@@ -1042,6 +1144,7 @@ struct GoalCreationView: View {
         case .boolean: return "checkmark.circle"
         case .text: return "text.alignleft"
         case .time: return "clock"
+        case .waterIntake: return "drop.fill"
         }
     }
 
@@ -1080,7 +1183,9 @@ struct GoalCreationView: View {
         .padding(.vertical, AppTheme.Spacing.xs)
         .background(
             Capsule()
-                .fill(isComplete ? AppTheme.Palette.primary.opacity(0.12) : Color.orange.opacity(0.12))
+                .fill(
+                    isComplete ? AppTheme.Palette.primary.opacity(0.12) : Color.orange.opacity(0.12)
+                )
         )
         .foregroundStyle(isComplete ? AppTheme.Palette.primary : Color.orange)
         .accessibilityLabel(message)
@@ -1113,7 +1218,7 @@ struct GoalCreationView: View {
         switch question.responseType {
         case .multipleChoice:
             return !question.options.isEmpty
-        case .numeric, .scale, .slider:
+        case .numeric, .scale, .slider, .waterIntake:
             guard let rules = question.validationRules else { return false }
             return rules.minimumValue != nil && rules.maximumValue != nil
         default:
@@ -1126,7 +1231,8 @@ struct GoalCreationView: View {
         guard !viewModel.isLoadingSuggestions else { return }
         if !force, !viewModel.suggestions.isEmpty { return }
         let trimmedTitle = viewModel.draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedDescription = viewModel.draft.motivation.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedDescription = viewModel.draft.motivation.trimmingCharacters(
+            in: .whitespacesAndNewlines)
         guard !trimmedTitle.isEmpty || !trimmedDescription.isEmpty else { return }
         viewModel.loadSuggestions(force: force)
     }
@@ -1147,9 +1253,13 @@ struct GoalCreationView: View {
         CardBackground {
             VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
                 HStack(alignment: .top, spacing: AppTheme.Spacing.sm) {
-                    Image(systemName: questionIsComplete(question) ? "checkmark.circle.fill" : "exclamationmark.circle")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(questionIsComplete(question) ? AppTheme.Palette.primary : Color.orange)
+                    Image(
+                        systemName: questionIsComplete(question)
+                            ? "checkmark.circle.fill" : "exclamationmark.circle"
+                    )
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(
+                        questionIsComplete(question) ? AppTheme.Palette.primary : Color.orange)
 
                     VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
                         Text(question.trimmedText)
@@ -1160,10 +1270,14 @@ struct GoalCreationView: View {
                         if question.templateID != nil || question.suggestionID != nil {
                             HStack(spacing: AppTheme.Spacing.xs) {
                                 if question.templateID != nil {
-                                    sourceBadge(label: "Template", systemImage: "text.book.closed", tint: Color.secondary)
+                                    sourceBadge(
+                                        label: "Template", systemImage: "text.book.closed",
+                                        tint: Color.secondary)
                                 }
                                 if question.suggestionID != nil {
-                                    sourceBadge(label: "AI suggestion", systemImage: "sparkles", tint: AppTheme.Palette.primary)
+                                    sourceBadge(
+                                        label: "AI suggestion", systemImage: "sparkles",
+                                        tint: AppTheme.Palette.primary)
                                 }
                             }
                         }
@@ -1217,8 +1331,18 @@ struct GoalCreationView: View {
         var parts: [String] = []
         switch question.responseType {
         case .numeric, .scale, .slider:
-            if let min = question.validationRules?.minimumValue, let max = question.validationRules?.maximumValue {
+            if let min = question.validationRules?.minimumValue,
+                let max = question.validationRules?.maximumValue
+            {
                 parts.append("Range: \(formattedValue(min)) – \(formattedValue(max))")
+            }
+        case .waterIntake:
+            if let min = question.validationRules?.minimumValue,
+                let max = question.validationRules?.maximumValue
+            {
+                parts.append(
+                    "Range: \(HydrationFormatter.ouncesString(min)) – \(HydrationFormatter.ouncesString(max))"
+                )
             }
         case .multipleChoice:
             if !question.options.isEmpty {
@@ -1255,9 +1379,14 @@ struct GoalCreationView: View {
     private func applyDefaults(for type: ResponseType, resetOptions: Bool) {
         switch type {
         case .numeric, .slider:
-            composerDraft.validationRules = ValidationRules(minimumValue: 0, maximumValue: 100, allowsEmpty: composerAllowsEmpty)
+            composerDraft.validationRules = ValidationRules(
+                minimumValue: 0, maximumValue: 100, allowsEmpty: composerAllowsEmpty)
+        case .waterIntake:
+            composerDraft.validationRules = ValidationRules(
+                minimumValue: 0, maximumValue: 128, allowsEmpty: composerAllowsEmpty)
         case .scale:
-            composerDraft.validationRules = ValidationRules(minimumValue: 1, maximumValue: 5, allowsEmpty: composerAllowsEmpty)
+            composerDraft.validationRules = ValidationRules(
+                minimumValue: 1, maximumValue: 5, allowsEmpty: composerAllowsEmpty)
         case .multipleChoice:
             if resetOptions {
                 composerDraft.options = []
@@ -1272,14 +1401,15 @@ struct GoalCreationView: View {
     }
 
     private func applyRangePreset(_ preset: RangePreset) {
-        composerDraft.validationRules = composerDraft.validationRules ?? ValidationRules(allowsEmpty: false)
+        composerDraft.validationRules =
+            composerDraft.validationRules ?? ValidationRules(allowsEmpty: false)
         composerDraft.validationRules?.minimumValue = preset.minimum
         composerDraft.validationRules?.maximumValue = preset.maximum
     }
 
     private func isPresetActive(_ preset: RangePreset) -> Bool {
-        composerDraft.validationRules?.minimumValue == preset.minimum &&
-        composerDraft.validationRules?.maximumValue == preset.maximum
+        composerDraft.validationRules?.minimumValue == preset.minimum
+            && composerDraft.validationRules?.maximumValue == preset.maximum
     }
 
     private var composerMinimumValue: Double {
@@ -1291,12 +1421,14 @@ struct GoalCreationView: View {
     }
 
     private func updateComposerMinimum(_ value: Double) {
-        composerDraft.validationRules = composerDraft.validationRules ?? ValidationRules(allowsEmpty: composerAllowsEmpty)
+        composerDraft.validationRules =
+            composerDraft.validationRules ?? ValidationRules(allowsEmpty: composerAllowsEmpty)
         composerDraft.validationRules?.minimumValue = min(value, composerMaximumValue)
     }
 
     private func updateComposerMaximum(_ value: Double) {
-        composerDraft.validationRules = composerDraft.validationRules ?? ValidationRules(allowsEmpty: composerAllowsEmpty)
+        composerDraft.validationRules =
+            composerDraft.validationRules ?? ValidationRules(allowsEmpty: composerAllowsEmpty)
         composerDraft.validationRules?.maximumValue = max(value, composerMinimumValue)
     }
 
@@ -1305,16 +1437,19 @@ struct GoalCreationView: View {
     }
 
     private func updateComposerAllowsEmpty(_ value: Bool) {
-        composerDraft.validationRules = composerDraft.validationRules ?? ValidationRules(allowsEmpty: value)
+        composerDraft.validationRules =
+            composerDraft.validationRules ?? ValidationRules(allowsEmpty: value)
         composerDraft.validationRules?.allowsEmpty = value
     }
 
     private var canSaveQuestion: Bool {
-        !composerDraft.trimmedText.isEmpty && (!requiresOptions || !composerDraft.options.isEmpty) && (!requiresRange || composerMinimumValue <= composerMaximumValue)
+        !composerDraft.trimmedText.isEmpty && (!requiresOptions || !composerDraft.options.isEmpty)
+            && (!requiresRange || composerMinimumValue <= composerMaximumValue)
     }
 
     private var composerHasContent: Bool {
-        !composerDraft.trimmedText.isEmpty || !composerDraft.options.isEmpty || editingQuestionID != nil
+        !composerDraft.trimmedText.isEmpty || !composerDraft.options.isEmpty
+            || editingQuestionID != nil
     }
 
     private var requiresOptions: Bool {
@@ -1323,7 +1458,7 @@ struct GoalCreationView: View {
 
     private var requiresRange: Bool {
         switch composerDraft.responseType {
-        case .numeric, .scale, .slider:
+        case .numeric, .scale, .slider, .waterIntake:
             return true
         default:
             return false
@@ -1382,7 +1517,9 @@ struct GoalCreationView: View {
     private func moveQuestion(from index: Int, direction: Int) {
         let destination = max(0, min(viewModel.draft.questionDrafts.count, index + direction))
         guard destination != index else { return }
-        viewModel.reorderQuestions(fromOffsets: IndexSet(integer: index), toOffset: destination > index ? destination + 1 : destination)
+        viewModel.reorderQuestions(
+            fromOffsets: IndexSet(integer: index),
+            toOffset: destination > index ? destination + 1 : destination)
         Haptics.selection()
     }
 
@@ -1461,7 +1598,8 @@ struct GoalCreationView: View {
                 return "Add a goal title to continue."
             }
             if !hasCategory {
-                return hasCustomCategory ? "Name your custom focus area." : "Pick a focus area to continue."
+                return hasCustomCategory
+                    ? "Name your custom focus area." : "Pick a focus area to continue."
             }
             return "Complete the checklist above before moving on."
         case .prompts:
@@ -1557,7 +1695,8 @@ struct GoalCreationView: View {
                         }
                     } label: {
                         Label(
-                            viewModel.suggestions.isEmpty ? "Generate suggestions" : "Regenerate suggestions",
+                            viewModel.suggestions.isEmpty
+                                ? "Generate suggestions" : "Regenerate suggestions",
                             systemImage: "sparkles"
                         )
                         .font(AppTheme.Typography.bodyStrong)
@@ -1570,9 +1709,11 @@ struct GoalCreationView: View {
                             .font(AppTheme.Typography.caption)
                             .foregroundStyle(Color.red)
                     } else if viewModel.suggestions.isEmpty && !viewModel.isLoadingSuggestions {
-                        Text("Add a goal title or description, then generate suggestions to jump-start tracking questions.")
-                            .font(AppTheme.Typography.caption)
-                            .foregroundStyle(.secondary)
+                        Text(
+                            "Add a goal title or description, then generate suggestions to jump-start tracking questions."
+                        )
+                        .font(AppTheme.Typography.caption)
+                        .foregroundStyle(.secondary)
                     }
 
                     if !viewModel.suggestions.isEmpty {
@@ -1728,7 +1869,11 @@ struct WeekdaySelector: View {
     @Binding var selectedWeekdays: Set<Weekday>
 
     var body: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: AppTheme.Spacing.sm), count: 4), spacing: AppTheme.Spacing.sm) {
+        LazyVGrid(
+            columns: Array(
+                repeating: GridItem(.flexible(), spacing: AppTheme.Spacing.sm), count: 4),
+            spacing: AppTheme.Spacing.sm
+        ) {
             ForEach(Weekday.allCases) { weekday in
                 let isSelected = selectedWeekdays.contains(weekday)
                 Button {
@@ -1745,10 +1890,13 @@ struct WeekdaySelector: View {
                         .frame(maxWidth: .infinity)
                         .background(
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(isSelected ? AppTheme.Palette.primary : AppTheme.Palette.surface)
+                                .fill(
+                                    isSelected ? AppTheme.Palette.primary : AppTheme.Palette.surface
+                                )
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                        .stroke(AppTheme.Palette.outline, lineWidth: isSelected ? 0 : 1)
+                                        .stroke(
+                                            AppTheme.Palette.outline, lineWidth: isSelected ? 0 : 1)
                                 )
                         )
                         .foregroundStyle(isSelected ? Color.white : .primary)

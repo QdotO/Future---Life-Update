@@ -1,5 +1,9 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
+
+#if os(iOS)
+    import UIKit
+#endif
 
 struct DataEntryView: View {
     @Environment(\.dismiss) private var dismiss
@@ -16,14 +20,15 @@ struct DataEntryView: View {
     ) {
         self.goal = goal
         self.mode = mode
-        let viewModel = DataEntryViewModel(goal: goal, modelContext: modelContext, dateProvider: dateProvider)
+        let viewModel = DataEntryViewModel(
+            goal: goal, modelContext: modelContext, dateProvider: dateProvider)
         self._viewModel = State(initialValue: viewModel)
     }
 
     var body: some View {
         NavigationStack {
             Form {
-                if case let .notification(_, isTest) = mode {
+                if case .notification(_, let isTest) = mode {
                     notificationIntro(isTest: isTest)
                 }
 
@@ -61,6 +66,8 @@ struct DataEntryView: View {
             scaleRow(for: question)
         case .slider:
             sliderRow(for: question)
+        case .waterIntake:
+            waterIntakeRow(for: question)
         case .boolean:
             booleanRow(for: question)
         case .text:
@@ -78,9 +85,13 @@ struct DataEntryView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text(focusQuestion?.text ?? "Log your latest update.")
                     .font(.headline)
-                Text(isTest ? "This test reminder helps confirm your notification setup." : "This reminder jumped you straight into logging—finish your check-in below.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                Text(
+                    isTest
+                        ? "This test reminder helps confirm your notification setup."
+                        : "This reminder jumped you straight into logging—finish your check-in below."
+                )
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
             }
             .padding(.vertical, 4)
         } header: {
@@ -103,7 +114,8 @@ struct DataEntryView: View {
 
     private var orderedActiveQuestions: [Question] {
         var active = goal.questions.filter { $0.isActive }
-        guard let focus = focusQuestion, let index = active.firstIndex(where: { $0.id == focus.id }) else {
+        guard let focus = focusQuestion, let index = active.firstIndex(where: { $0.id == focus.id })
+        else {
             return active
         }
         let highlighted = active.remove(at: index)
@@ -112,7 +124,7 @@ struct DataEntryView: View {
     }
 
     private var focusQuestion: Question? {
-        guard case let .notification(questionID?, _) = mode else { return nil }
+        guard case .notification(let questionID?, _) = mode else { return nil }
         return goal.questions.first(where: { $0.id == questionID })
     }
 
@@ -177,7 +189,9 @@ struct DataEntryView: View {
         let bounds = sliderBounds(for: question)
         let intBinding = Binding<Int>(
             get: {
-                let value = Int(round(viewModel.numericValue(for: question, default: Double(bounds.lowerBound))))
+                let value = Int(
+                    round(viewModel.numericValue(for: question, default: Double(bounds.lowerBound)))
+                )
                 return min(max(value, bounds.lowerBound), bounds.upperBound)
             },
             set: { newValue in
@@ -209,11 +223,77 @@ struct DataEntryView: View {
         }
     }
 
+    private func waterIntakeRow(for question: Question) -> some View {
+        let quickActions = HydrationQuickAddAction.presets
+        let pending = viewModel.waterIntakeDelta(for: question)
+        let deltaBinding = Binding<Double>(
+            get: { viewModel.waterIntakeDelta(for: question) },
+            set: { viewModel.setWaterIntake($0, for: question) }
+        )
+        let total = viewModel.waterIntakeTotal(for: question)
+        let actionsPerRow = 2
+        let gridColumns = Array(repeating: GridItem(.flexible(), spacing: 12), count: actionsPerRow)
+
+        return VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(question.text)
+                    .font(.headline)
+                deltaSummaryView(for: question)
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Pending add \(formattedOunces(deltaBinding.wrappedValue))")
+                    .font(.body.weight(.semibold))
+                    .monospacedDigit()
+
+                Stepper(
+                    value: deltaBinding,
+                    in: waterIntakeDeltaRange(for: question),
+                    step: 1
+                ) {
+                    Text("Adjust pending amount")
+                        .font(.subheadline)
+                }
+
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Today's total \(formattedOunces(total))")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Reset amount") {
+                        Haptics.selection()
+                        viewModel.resetWaterIntake(for: question)
+                    }
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(.pink)
+                    .disabled(pending == 0)
+                }
+            }
+
+            LazyVGrid(columns: gridColumns, alignment: .leading, spacing: 12) {
+                ForEach(quickActions) { action in
+                    Button {
+                        Haptics.selection()
+                        viewModel.incrementWaterIntake(by: action.ounces, for: question)
+                    } label: {
+                        HydrationQuickAddCard(action: action)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(
+                        "Add \(formattedOunces(action.ounces)) via \(action.label)"
+                    )
+                }
+            }
+        }
+    }
+
     private func booleanRow(for question: Question) -> some View {
-        Toggle(isOn: Binding(
-            get: { viewModel.booleanValue(for: question) },
-            set: { viewModel.updateBooleanResponse($0, for: question) }
-        )) {
+        Toggle(
+            isOn: Binding(
+                get: { viewModel.booleanValue(for: question) },
+                set: { viewModel.updateBooleanResponse($0, for: question) }
+            )
+        ) {
             Text(question.text)
         }
     }
@@ -221,10 +301,13 @@ struct DataEntryView: View {
     private func textRow(for question: Question) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(question.text)
-            TextField("Enter response", text: Binding(
-                get: { viewModel.textValue(for: question) },
-                set: { viewModel.updateTextResponse($0, for: question) }
-            ), axis: .vertical)
+            TextField(
+                "Enter response",
+                text: Binding(
+                    get: { viewModel.textValue(for: question) },
+                    set: { viewModel.updateTextResponse($0, for: question) }
+                ), axis: .vertical
+            )
             .platformAdaptiveTextField()
             .lineLimit(3, reservesSpace: true)
         }
@@ -235,10 +318,12 @@ struct DataEntryView: View {
             Text(question.text)
             if let options = question.options, !options.isEmpty {
                 ForEach(options, id: \.self) { option in
-                    Toggle(option, isOn: Binding(
-                        get: { viewModel.selectedOptions(for: question).contains(option) },
-                        set: { viewModel.setOption(option, isSelected: $0, for: question) }
-                    ))
+                    Toggle(
+                        option,
+                        isOn: Binding(
+                            get: { viewModel.selectedOptions(for: question).contains(option) },
+                            set: { viewModel.setOption(option, isSelected: $0, for: question) }
+                        ))
                 }
             } else {
                 Text("No options configured")
@@ -267,7 +352,9 @@ struct DataEntryView: View {
             if let previous = preview.previousValue {
                 let delta = preview.delta ?? (preview.resultingValue - previous)
                 HStack(spacing: 6) {
-                    Text("\(formattedValue(previous, for: question)) → \(formattedValue(preview.resultingValue, for: question))")
+                    Text(
+                        "\(formattedValue(previous, for: question)) → \(formattedValue(preview.resultingValue, for: question))"
+                    )
                     Text(formattedSignedDelta(delta, for: question))
                         .fontWeight(.semibold)
                         .foregroundStyle(delta >= 0 ? .green : .pink)
@@ -300,19 +387,39 @@ struct DataEntryView: View {
             return String(Int(value.rounded()))
         case .slider:
             return String(Int(value.rounded()))
+        case .waterIntake:
+            return formattedOunces(value)
         default:
             return value.formatted(.number.precision(.fractionLength(0...2)))
         }
     }
 
     private func formattedAbsolute(_ value: Double, for question: Question) -> String {
-        formattedValue(abs(value), for: question)
+        switch question.responseType {
+        case .waterIntake:
+            return formattedOunces(abs(value))
+        default:
+            return formattedValue(abs(value), for: question)
+        }
     }
 
     private func formattedSignedDelta(_ delta: Double, for question: Question) -> String {
         guard delta != 0 else { return "±0" }
         let sign = delta >= 0 ? "+" : "−"
-        return "\(sign)\(formattedAbsolute(delta, for: question))"
+        switch question.responseType {
+        case .waterIntake:
+            return HydrationFormatter.signedDelta(delta)
+        default:
+            return "\(sign)\(formattedAbsolute(delta, for: question))"
+        }
+    }
+
+    private func waterIntakeDeltaRange(for question: Question) -> ClosedRange<Double> {
+        viewModel.waterIntakeDeltaRange(for: question)
+    }
+
+    private func formattedOunces(_ value: Double) -> String {
+        HydrationFormatter.ouncesString(value)
     }
 
     private func numericBounds(for question: Question) -> ClosedRange<Double> {
@@ -362,11 +469,109 @@ extension DataEntryView {
     }
 }
 
+private struct HydrationQuickAddAction: Identifiable {
+    enum IconStyle {
+        case bottle
+        case tallGlass
+        case shortGlass
+        case largeCup
+
+        var accentColor: Color {
+            switch self {
+            case .bottle:
+                return .teal
+            case .tallGlass:
+                return .blue
+            case .shortGlass:
+                return .cyan
+            case .largeCup:
+                return .indigo
+            }
+        }
+
+        var systemImage: String {
+            switch self {
+            case .bottle:
+                return "drop.fill"
+            case .tallGlass:
+                return "drop.triangle.fill"
+            case .shortGlass:
+                return "drop.circle.fill"
+            case .largeCup:
+                return "humidity.fill"
+            }
+        }
+    }
+
+    let id: String
+    let label: String
+    let ounces: Double
+    let iconStyle: IconStyle
+
+    var accent: Color { iconStyle.accentColor }
+    var systemImage: String { iconStyle.systemImage }
+    var accessibilityLabel: String {
+        "Add \(HydrationFormatter.ouncesString(ounces))"
+    }
+
+    static let presets: [HydrationQuickAddAction] = [
+        .init(id: "hydration-bottle-17", label: "Bottle", ounces: 17, iconStyle: .bottle),
+        .init(id: "hydration-tall-glass-15", label: "Tall", ounces: 15, iconStyle: .tallGlass),
+        .init(id: "hydration-glass-19", label: "Glass", ounces: 19, iconStyle: .shortGlass),
+        .init(id: "hydration-carafe-32", label: "Carafe", ounces: 32, iconStyle: .largeCup),
+    ]
+}
+
+private struct HydrationQuickAddCard: View {
+    let action: HydrationQuickAddAction
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: action.systemImage)
+                .font(.system(size: 32, weight: .semibold))
+                .foregroundStyle(action.accent.gradient)
+                .frame(maxWidth: .infinity)
+
+            VStack(spacing: 2) {
+                Text(action.label)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Text(HydrationFormatter.ouncesString(action.ounces))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .frame(minHeight: 120)
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(backgroundColor)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(action.accent.opacity(0.25), lineWidth: 1)
+        )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(action.accessibilityLabel)
+    }
+
+    private var backgroundColor: Color {
+        #if os(iOS)
+            Color(UIColor.secondarySystemBackground)
+        #else
+            Color.gray.opacity(0.12)
+        #endif
+    }
+}
+
 #Preview {
     if let container = try? PreviewSampleData.makePreviewContainer() {
         let context = container.mainContext
         if let goals = try? context.fetch(FetchDescriptor<TrackingGoal>()),
-           let goal = goals.first {
+            let goal = goals.first
+        {
             DataEntryView(goal: goal, modelContext: context)
                 .modelContainer(container)
         } else {

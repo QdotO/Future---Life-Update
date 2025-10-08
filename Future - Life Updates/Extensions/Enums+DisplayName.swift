@@ -10,6 +10,7 @@ extension ResponseType {
         case .text: "Text"
         case .time: "Time"
         case .slider: "Slider"
+        case .waterIntake: "Water Intake"
         }
     }
 }
