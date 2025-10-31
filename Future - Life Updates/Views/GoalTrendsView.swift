@@ -135,6 +135,16 @@ struct GoalTrendsView: View {
     
     // MARK: - Chart Configuration Helpers
     
+    // X-axis tick count constants for different intervals
+    private enum ChartConfig {
+        static let dayViewMaxTicks = 6
+        static let weekViewMaxTicks = 8
+        static let monthViewMaxTicks = 6
+        static let quarterViewMaxTicks = 4
+        static let halfViewMaxTicks = 2
+        static let yearViewMaxTicks = 5
+    }
+    
     private var timeUnit: Calendar.Component {
         switch viewModel.currentInterval {
         case .day: return .day
@@ -151,12 +161,12 @@ struct GoalTrendsView: View {
     
     private var xAxisTickCount: Int {
         switch viewModel.currentInterval {
-        case .day: return min(6, viewModel.aggregatedSeries.count)
-        case .week: return min(8, viewModel.aggregatedSeries.count)
-        case .month: return min(6, viewModel.aggregatedSeries.count)
-        case .quarter: return min(4, viewModel.aggregatedSeries.count)
-        case .half: return 2
-        case .year: return min(5, viewModel.aggregatedSeries.count)
+        case .day: return min(ChartConfig.dayViewMaxTicks, viewModel.aggregatedSeries.count)
+        case .week: return min(ChartConfig.weekViewMaxTicks, viewModel.aggregatedSeries.count)
+        case .month: return min(ChartConfig.monthViewMaxTicks, viewModel.aggregatedSeries.count)
+        case .quarter: return min(ChartConfig.quarterViewMaxTicks, viewModel.aggregatedSeries.count)
+        case .half: return ChartConfig.halfViewMaxTicks
+        case .year: return min(ChartConfig.yearViewMaxTicks, viewModel.aggregatedSeries.count)
         }
     }
     

@@ -104,10 +104,17 @@ final class GoalTrendsViewModel {
         }
         
         // Compute available intervals AFTER dailySeries is built
-        let dataPoints = try? fetchAllDataPoints()
-        if let dataPoints = dataPoints {
+        do {
+            let dataPoints = try fetchAllDataPoints()
             computeAvailableIntervals(from: dataPoints)
             rebuildAggregatedSeries()
+        } catch {
+            availableIntervals = [.day]
+            dataSpanDays = 0
+            aggregatedSeries = []
+            PerformanceMetrics.logger.error(
+                "GoalTrends interval computation failed: \(error.localizedDescription, privacy: .public)"
+            )
         }
 
         do {
@@ -651,7 +658,9 @@ final class GoalTrendsViewModel {
             
             // Convert quarter to month (Q1 = Jan, Q2 = Apr, Q3 = Jul, Q4 = Oct)
             let month = (quarter - 1) * 3 + 1
-            let quarterStart = calendar.date(from: DateComponents(year: year, month: month, day: 1))!
+            guard let quarterStart = calendar.date(from: DateComponents(year: year, month: month, day: 1)) else {
+                continue
+            }
             
             buckets[quarterStart, default: []].append(daily)
         }
@@ -687,7 +696,9 @@ final class GoalTrendsViewModel {
             
             // Determine half: H1 (Jan-Jun), H2 (Jul-Dec)
             let halfStartMonth = month <= 6 ? 1 : 7
-            let halfStart = calendar.date(from: DateComponents(year: year, month: halfStartMonth, day: 1))!
+            guard let halfStart = calendar.date(from: DateComponents(year: year, month: halfStartMonth, day: 1)) else {
+                continue
+            }
             
             buckets[halfStart, default: []].append(daily)
         }
