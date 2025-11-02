@@ -1312,23 +1312,4 @@ extension GoalEditView {
     }
 }
 
-// MARK: - Platform-specific View Extensions
-extension View {
-    @ViewBuilder
-    fileprivate func platformNumericKeyboard() -> some View {
-        #if os(iOS)
-            self.keyboardType(.decimalPad)
-        #else
-            self
-        #endif
-    }
-
-    @ViewBuilder
-    fileprivate func platformTextField() -> some View {
-        #if os(iOS)
-            self.textFieldStyle(.roundedBorder)
-        #else
-            self.textFieldStyle(.plain)
-        #endif
-    }
-}
+// platformNumericKeyboard and platformTextField moved to Extensions/View+PlatformUI.swift

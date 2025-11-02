@@ -204,6 +204,140 @@ struct GoalCreationView: View {
     }
 
     private var intentStep: some View {
+        Group {
+            if designStyle == .brutalist {
+                brutalistIntentStep
+            } else {
+                legacyIntentStep
+            }
+        }
+    }
+
+    // MARK: - Brutalist redesign for "Clarify your goal"
+
+    private var brutalistIntentStep: some View {
+        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.lg) {
+            // Goal details
+            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
+                Text("Goal details".uppercased())
+                    .font(AppTheme.BrutalistTypography.overline)
+                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
+
+                VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
+                    TextField("Name your goal", text: titleBinding)
+                        .platformAdaptiveTextField()
+                        .font(AppTheme.BrutalistTypography.title)
+                        .focused($focusedField, equals: .title)
+                        .brutalistField(isFocused: focusedField == .title)
+                        .accessibilityIdentifier("goalTitleField")
+
+                    Rectangle()
+                        .fill(AppTheme.BrutalistPalette.border.opacity(0.18))
+                        .frame(height: 1)
+
+                    TextField(
+                        "Why does this matter to you?",
+                        text: motivationBinding,
+                        axis: .vertical
+                    )
+                    .platformAdaptiveTextField()
+                    .lineLimit(3, reservesSpace: true)
+                    .font(AppTheme.BrutalistTypography.body)
+                    .focused($focusedField, equals: .motivation)
+                    .brutalistField(isFocused: focusedField == .motivation)
+
+                    Text("Optional — a short why can boost follow-through.")
+                        .font(AppTheme.BrutalistTypography.caption)
+                        .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                }
+            }
+            .brutalistCard()
+
+            // Focus area
+            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
+                Text("Focus area".uppercased())
+                    .font(AppTheme.BrutalistTypography.overline)
+                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
+
+                VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
+                    LazyVGrid(
+                        columns: chipColumns,
+                        alignment: .leading,
+                        spacing: AppTheme.BrutalistSpacing.sm
+                    ) {
+                        ForEach(featuredCategories, id: \.self) { category in
+                            categoryChip(for: category)
+                        }
+
+                        let customSelected = viewModel.draft.category == .custom
+                        Button {
+                            viewModel.selectCategory(.custom)
+                            focusedField = .customCategory
+                            Haptics.selection()
+                        } label: {
+                            VStack(
+                                alignment: .leading,
+                                spacing: AppTheme.BrutalistSpacing.xs
+                            ) {
+                                Text("Something else…")
+                                    .font(AppTheme.BrutalistTypography.bodyBold)
+                                Text("Name your own area.")
+                                    .font(AppTheme.BrutalistTypography.caption)
+                                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                            }
+                            .padding(AppTheme.BrutalistSpacing.md)
+                            .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
+                            .background(AppTheme.BrutalistPalette.background)
+                            .overlay(
+                                Rectangle()
+                                    .stroke(
+                                        customSelected
+                                            ? AppTheme.BrutalistPalette.accent
+                                            : AppTheme.BrutalistPalette.border,
+                                        lineWidth: AppTheme.BrutalistBorder.standard
+                                    )
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(
+                            customSelected
+                                ? AppTheme.BrutalistPalette.accent
+                                : AppTheme.BrutalistPalette.foreground
+                        )
+                    }
+
+                    if viewModel.draft.category == .custom {
+                        Rectangle()
+                            .fill(AppTheme.BrutalistPalette.border.opacity(0.18))
+                            .frame(height: 1)
+
+                        TextField(
+                            "Give it a name",
+                            text: Binding(
+                                get: { viewModel.draft.customCategoryLabel },
+                                set: { viewModel.updateCustomCategoryLabel($0) }
+                            )
+                        )
+                        .platformMinimalTextField()
+                        #if os(iOS)
+                            .textInputAutocapitalization(.words)
+                            .focused($focusedField, equals: .customCategory)
+                        #else
+                            .focused($focusedField, equals: .customCategory)
+                        #endif
+                        .font(AppTheme.BrutalistTypography.body)
+                        .brutalistField(isFocused: focusedField == .customCategory)
+                    }
+                }
+            }
+            .brutalistCard()
+
+            // Removed step checklist per design direction
+        }
+    }
+
+    // Original (liquid) layout preserved for non-brutalist mode
+    private var legacyIntentStep: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.xl) {
             CardBackground {
                 VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
@@ -273,7 +407,7 @@ struct GoalCreationView: View {
                             )
                             .frame(
                                 maxWidth: .infinity,
-                                minHeight: designStyle == .brutalist ? 104 : 92, alignment: .leading
+                                minHeight: designStyle == .brutalist ? 96 : 92, alignment: .leading
                             )
                             .background(
                                 designStyle == .brutalist
@@ -336,30 +470,7 @@ struct GoalCreationView: View {
                 }
             }
 
-            CardBackground {
-                VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                    Text("Step checklist")
-                        .font(AppTheme.Typography.sectionHeader)
-                    checklistRow(
-                        title: "Add a goal title",
-                        subtitle: "Required",
-                        isComplete: hasGoalTitle,
-                        isRequired: true
-                    )
-                    checklistRow(
-                        title: "Pick a focus area",
-                        subtitle: hasCustomCategory ? "Custom label required" : "Required",
-                        isComplete: hasCategory,
-                        isRequired: true
-                    )
-                    checklistRow(
-                        title: "Share why this matters",
-                        subtitle: "Optional, but boosts commitment",
-                        isComplete: hasMotivation,
-                        isRequired: false
-                    )
-                }
-            }
+            // Removed step checklist per design direction
         }
     }
 
@@ -1313,7 +1424,7 @@ struct GoalCreationView: View {
         let padding =
             designStyle == .brutalist
             ? AppTheme.BrutalistSpacing.md : AppTheme.Spacing.md
-        let minHeight: CGFloat = designStyle == .brutalist ? 104 : 92
+        let minHeight: CGFloat = designStyle == .brutalist ? 96 : 92
         let baseBackground =
             designStyle == .brutalist
             ? AppTheme.BrutalistPalette.background : AppTheme.Palette.surface
