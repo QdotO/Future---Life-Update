@@ -58,7 +58,11 @@ struct ContentView: View {
                 .environment(\.designStyle, .brutalist)
             }
             .tabItem {
-                Label("Goals", systemImage: "target")
+                Label {
+                    Text("GOALS")
+                } icon: {
+                    Image(systemName: "target")
+                }
             }
             .tag(Tab.goals)
 
@@ -73,13 +77,17 @@ struct ContentView: View {
                             }
                     }
                 }
-                .navigationTitle("Today")
+                .navigationTitle("TODAY")
                 .toolbar {
                     ToolbarItem(placement: .primaryAction) {
                         Button {
                             todayViewModel?.refresh()
                         } label: {
-                            Label("Refresh", systemImage: "arrow.clockwise")
+                            Label {
+                                Text("REFRESH")
+                            } icon: {
+                                Image(systemName: "arrow.clockwise")
+                            }
                         }
                         .disabled(todayViewModel == nil)
                     }
@@ -87,17 +95,25 @@ struct ContentView: View {
                 .environment(\.designStyle, .brutalist)
             }
             .tabItem {
-                Label("Today", systemImage: "sun.max.fill")
+                Label {
+                    Text("TODAY")
+                } icon: {
+                    Image(systemName: "sun.max.fill")
+                }
             }
             .tag(Tab.today)
 
             NavigationStack {
                 InsightsOverviewView(goals: goals)
-                    .navigationTitle("Insights")
+                    .navigationTitle("INSIGHTS")
                     .environment(\.designStyle, .brutalist)
             }
             .tabItem {
-                Label("Insights", systemImage: "chart.line.uptrend.xyaxis")
+                Label {
+                    Text("INSIGHTS")
+                } icon: {
+                    Image(systemName: "chart.line.uptrend.xyaxis")
+                }
             }
             .tag(Tab.insights)
 
@@ -106,11 +122,15 @@ struct ContentView: View {
                     sendDailyDigest: $sendDailyDigest,
                     allowNotificationPreviews: $allowNotificationPreviews
                 )
-                .navigationTitle("Settings")
+                .navigationTitle("SETTINGS")
                 .environment(\.designStyle, .brutalist)
             }
             .tabItem {
-                Label("Settings", systemImage: "gearshape")
+                Label {
+                    Text("SETTINGS")
+                } icon: {
+                    Image(systemName: "gearshape")
+                }
             }
             .tag(Tab.settings)
         }
@@ -667,29 +687,32 @@ private func goalStatistics(from viewModel: GoalTrendsViewModel) -> [GoalStatist
     let todayEntry = viewModel.dailySeries.last(where: { calendar.isDateInToday($0.date) })
     let todayValue = todayEntry.map { viewModel.formattedNumber($0.averageValue) } ?? "No log"
 
-    let lastEntry = viewModel.dailySeries.last
-    let lastLogText: String
-    if let lastEntry {
-        if calendar.isDateInToday(lastEntry.date) {
+    let streak = viewModel.currentStreakDays
+    var stats: [GoalStatistic] = [
+        GoalStatistic(title: "Today", value: todayValue, icon: "target")
+    ]
+
+    if streak > 0 {
+        let unit = streak == 1 ? "day" : "days"
+        stats.append(GoalStatistic(title: "Streak", value: "\(streak) \(unit)", icon: "flame"))
+    }
+
+    let lastLogDate = viewModel.latestLogDate ?? viewModel.dailySeries.last?.date
+
+    if let lastLogDate {
+        let lastLogText: String
+        if calendar.isDateInToday(lastLogDate) {
             lastLogText = "Today"
         } else {
             lastLogText = goalStatsRelativeFormatter.localizedString(
-                for: lastEntry.date,
+                for: lastLogDate,
                 relativeTo: now
             )
         }
-    } else {
-        lastLogText = "--"
+        stats.append(GoalStatistic(title: "Last log", value: lastLogText, icon: "clock"))
     }
 
-    let streak = viewModel.currentStreakDays
-    let streakText = streak == 0 ? "None" : "\(streak) days"
-
-    return [
-        GoalStatistic(title: "Today", value: todayValue, icon: "target"),
-        GoalStatistic(title: "Streak", value: streakText, icon: "flame"),
-        GoalStatistic(title: "Last log", value: lastLogText, icon: "clock"),
-    ]
+    return stats
 }
 
 private let goalStatsRelativeFormatter: RelativeDateTimeFormatter = {

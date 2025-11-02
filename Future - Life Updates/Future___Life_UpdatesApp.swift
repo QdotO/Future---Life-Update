@@ -5,6 +5,12 @@ import SwiftUI
 struct Future___Life_UpdatesApp: App {
     @StateObject private var notificationRouter = NotificationRoutingController()
 
+    init() {
+        #if os(iOS)
+            BrutalistNavigationAppearance.apply()
+        #endif
+    }
+
     var body: some Scene {
         WindowGroup {
             #if os(macOS)

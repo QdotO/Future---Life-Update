@@ -53,6 +53,7 @@ final class GoalTrendsViewModel {
     private(set) var currentStreakDays: Int = 0
     private(set) var booleanStreaks: [BooleanStreak] = []
     private(set) var responseSnapshots: [ResponseSnapshot] = []
+    private(set) var latestLogDate: Date?
 
     private let modelContext: ModelContext
     private let calendar: Calendar
@@ -87,6 +88,7 @@ final class GoalTrendsViewModel {
     func refresh() {
         let trace = PerformanceMetrics.trace(
             "GoalTrends.refresh", metadata: ["goal": goal.id.uuidString])
+        latestLogDate = nil
         do {
             try rebuildNumericTrends()
         } catch {
@@ -334,6 +336,7 @@ final class GoalTrendsViewModel {
         ]
 
         let dataPoints = try modelContext.fetch(descriptor)
+        latestLogDate = dataPoints.first?.timestamp
         var snapshots: [UUID: ResponseSnapshot] = [:]
         snapshots.reserveCapacity(goal.questions.count)
 
