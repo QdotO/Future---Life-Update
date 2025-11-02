@@ -458,6 +458,10 @@ final class GoalTrendsViewModel {
         numberFormatter.string(from: NSNumber(value: value)) ?? String(format: "%.1f", value)
     }
 
+    func formattedNumber(_ value: Double) -> String {
+        formatNumber(value)
+    }
+
     private func formatTime(_ date: Date, timezoneIdentifier: String) -> String {
         timeFormatter.timeZone = TimeZone(identifier: timezoneIdentifier) ?? .current
         return timeFormatter.string(from: date)

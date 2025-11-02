@@ -38,16 +38,24 @@ struct ContentView: View {
                         goalsList
                     }
                 }
-                .navigationTitle("Goals")
+                .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
+                    ToolbarItem(placement: .principal) {
+                        Text("GOALS")
+                            .font(AppTheme.BrutalistTypography.title)
+                            .fontWeight(.bold)
+                    }
                     ToolbarItem(placement: .primaryAction) {
                         Button {
                             showingCreateGoal = true
                         } label: {
-                            Label("Add Goal", systemImage: "plus")
+                            Image(systemName: "plus")
+                                .font(.system(size: 17, weight: .semibold))
                         }
+                        .brutalistButton(style: .secondary)
                     }
                 }
+                .environment(\.designStyle, .brutalist)
             }
             .tabItem {
                 Label("Goals", systemImage: "target")
@@ -145,25 +153,60 @@ struct ContentView: View {
     }
 
     private var emptyState: some View {
-        ContentUnavailableView(
-            "Create your first goal",
-            systemImage: "target",
-            description: Text("Set up proactive prompts to stay on track.")
-        )
-        #if os(iOS)
-            .toolbarBackground(.automatic, for: .navigationBar)
-        #endif
+        VStack(spacing: AppTheme.BrutalistSpacing.lg) {
+            Spacer()
+
+            // Icon
+            Image(systemName: "target")
+                .font(.system(size: 64, weight: .regular))
+                .foregroundColor(AppTheme.BrutalistPalette.secondary)
+
+            // Title & Description
+            VStack(spacing: AppTheme.BrutalistSpacing.sm) {
+                Text("CREATE YOUR FIRST GOAL")
+                    .font(AppTheme.BrutalistTypography.headline)
+                    .fontWeight(.bold)
+                    .tracking(0.05)
+
+                Text("Set up proactive prompts to stay on track.")
+                    .font(AppTheme.BrutalistTypography.body)
+                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            Spacer()
+
+            // Call to Action
+            Button {
+                showingCreateGoal = true
+            } label: {
+                Text("+ CREATE GOAL")
+                    .font(AppTheme.BrutalistTypography.bodyBold)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 48)
+                    .contentShape(Rectangle())
+            }
+            .brutalistButton(style: .primary)
+            .padding(.horizontal, AppTheme.BrutalistSpacing.md)
+
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(AppTheme.BrutalistPalette.background)
+        .ignoresSafeArea()
     }
 
     private var goalsList: some View {
-        List {
-            ForEach(goals) { goal in
-                NavigationLink(destination: GoalDetailView(goal: goal)) {
-                    GoalCardView(goal: goal)
+        ScrollView {
+            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.md) {
+                ForEach(goals) { goal in
+                    BrutalistGoalCardView(goal: goal)
                 }
             }
-            .onDelete(perform: deleteGoals)
+            .padding(AppTheme.BrutalistSpacing.md)
         }
+        .background(AppTheme.BrutalistPalette.background)
+        .scrollBounceBehavior(.basedOnSize)
     }
 
     private func initializeDashboard() {
@@ -224,31 +267,6 @@ extension ContentView {
         case today
         case insights
         case settings
-    }
-}
-
-private struct GoalCardView: View {
-    @Bindable var goal: TrackingGoal
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(goal.title)
-                    .font(.headline)
-                Spacer()
-                Label(goal.categoryDisplayName, systemImage: "tag")
-                    .labelStyle(.titleAndIcon)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-
-            if !goal.goalDescription.isEmpty {
-                Text(goal.goalDescription)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding(.vertical, 8)
     }
 }
 
@@ -363,6 +381,370 @@ private struct GoalTrendFeedCard: View {
         } else {
             trendsViewModel = GoalTrendsViewModel(goal: goal, modelContext: modelContext)
         }
+    }
+}
+
+private struct BrutalistGoalCardView: View {
+    @Environment(\.modelContext) private var modelContext
+
+    let goal: TrackingGoal
+
+    @State private var trendsViewModel: GoalTrendsViewModel?
+    @State private var showingReminderDetails = false
+    @State private var presentingDataEntry = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.md) {
+            header
+
+            if let viewModel = trendsViewModel {
+                quickStats(using: viewModel)
+            }
+
+            actionRow()
+
+            sectionDivider
+            if let viewModel = trendsViewModel {
+                GoalTrendsView(viewModel: viewModel, displayMode: .compact)
+                    .environment(\.designStyle, .brutalist)
+            } else {
+                loadingState
+            }
+
+            DisclosureGroup(isExpanded: $showingReminderDetails) {
+                VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
+                    metaRow(label: "Cadence", value: scheduleSummary)
+                    if let timezoneLabel = goal.schedule.timezone.identifier.split(separator: "/")
+                        .last
+                    {
+                        metaRow(label: "Timezone", value: String(timezoneLabel))
+                    }
+                }
+                .padding(.top, AppTheme.BrutalistSpacing.sm)
+            } label: {
+                HStack {
+                    Text("Reminder details".uppercased())
+                        .font(AppTheme.BrutalistTypography.overline)
+                    Spacer()
+                }
+                .foregroundColor(AppTheme.BrutalistPalette.foreground)
+            }
+        }
+        .brutalistCard()
+        .task { updateViewModel(forceCreate: trendsViewModel == nil) }
+        .onChange(of: goal.persistentModelID) { _, _ in
+            updateViewModel(forceCreate: true)
+        }
+        .onChange(of: goal.updatedAt) { _, _ in
+            trendsViewModel?.refresh()
+        }
+        .sheet(isPresented: $presentingDataEntry) {
+            DataEntryView(goal: goal, modelContext: modelContext)
+                .environment(\.designStyle, .brutalist)
+        }
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.micro) {
+                    Text(goal.title)
+                        .font(AppTheme.BrutalistTypography.title)
+                        .foregroundColor(AppTheme.BrutalistPalette.foreground)
+
+                    if let category = goal.categoryDisplayName.nonEmpty {
+                        Text(category.uppercased())
+                            .font(AppTheme.BrutalistTypography.overline)
+                            .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                    }
+                }
+
+                Spacer()
+
+                statusBadge
+            }
+
+            if !goal.goalDescription.isEmpty {
+                Text(goal.goalDescription)
+                    .font(AppTheme.BrutalistTypography.body)
+                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                    .lineLimit(2)
+            }
+        }
+    }
+
+    private var statusBadge: some View {
+        Text(goal.isActive ? "ACTIVE" : "PAUSED")
+            .font(AppTheme.BrutalistTypography.captionMono)
+            .padding(.horizontal, AppTheme.BrutalistSpacing.xs)
+            .padding(.vertical, AppTheme.BrutalistSpacing.micro)
+            .background(
+                goal.isActive
+                    ? AppTheme.BrutalistPalette.accent
+                    : AppTheme.BrutalistPalette.border.opacity(0.2)
+            )
+            .foregroundColor(
+                goal.isActive
+                    ? AppTheme.BrutalistPalette.background : AppTheme.BrutalistPalette.foreground)
+    }
+
+    private func quickStats(using viewModel: GoalTrendsViewModel) -> some View {
+        let stats = statData(from: viewModel)
+
+        return LazyVGrid(
+            columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())],
+            spacing: AppTheme.BrutalistSpacing.sm
+        ) {
+            ForEach(stats, id: \.title) { stat in
+                statPill(title: stat.title, value: stat.value, icon: stat.icon)
+            }
+        }
+        .padding(.vertical, AppTheme.BrutalistSpacing.xs)
+    }
+
+    private func actionRow() -> some View {
+        ViewThatFits(in: .horizontal) {
+            // Full labels when space allows
+            HStack(spacing: AppTheme.BrutalistSpacing.sm) {
+                actionButtons(fullLabels: true)
+            }
+
+            // Icon-only fallback to keep actions on one row
+            HStack(spacing: AppTheme.BrutalistSpacing.sm) {
+                actionButtons(fullLabels: false)
+            }
+
+            // Final fallback stacks vertically
+            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
+                actionButtons(fullLabels: true)
+            }
+        }
+    }
+
+    private var loadingState: some View {
+        HStack(spacing: AppTheme.BrutalistSpacing.sm) {
+            ProgressView()
+                .progressViewStyle(.circular)
+            Text("Gathering insights…")
+                .font(AppTheme.BrutalistTypography.caption)
+                .foregroundColor(AppTheme.BrutalistPalette.secondary)
+        }
+    }
+
+    private func metaRow(label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.micro) {
+            Text(label.uppercased())
+                .font(AppTheme.BrutalistTypography.overline)
+                .foregroundColor(AppTheme.BrutalistPalette.secondary)
+            Text(value)
+                .font(AppTheme.BrutalistTypography.bodyMono)
+                .foregroundColor(AppTheme.BrutalistPalette.foreground)
+        }
+    }
+
+    private func statPill(title: String, value: String, icon: String) -> some View {
+        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.micro) {
+            HStack(spacing: AppTheme.BrutalistSpacing.micro) {
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(AppTheme.BrutalistPalette.foreground)
+                Text(title.uppercased())
+                    .font(AppTheme.BrutalistTypography.overline)
+                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
+            }
+
+            Text(value)
+                .font(AppTheme.BrutalistTypography.bodyMono)
+                .foregroundColor(AppTheme.BrutalistPalette.foreground)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+        }
+        .padding(.vertical, AppTheme.BrutalistSpacing.xs)
+        .padding(.horizontal, AppTheme.BrutalistSpacing.sm)
+        .background(AppTheme.BrutalistPalette.background)
+        .border(AppTheme.BrutalistPalette.border, width: AppTheme.BrutalistBorder.thin)
+        .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
+    }
+
+    private enum ActionChipStyle {
+        case primary
+        case secondary
+    }
+
+    @ViewBuilder
+    private func actionButtons(fullLabels: Bool) -> some View {
+        Button {
+            presentingDataEntry = true
+        } label: {
+            Group {
+                if fullLabels {
+                    actionChip(text: "Log", systemImage: "square.and.pencil", style: .primary)
+                } else {
+                    actionChipIconOnly(systemImage: "square.and.pencil", style: .primary)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+
+        NavigationLink {
+            GoalDetailView(goal: goal)
+                .environment(\.designStyle, .brutalist)
+        } label: {
+            Group {
+                if fullLabels {
+                    actionChip(
+                        text: "Details", systemImage: "arrow.right.square", style: .secondary)
+                } else {
+                    actionChipIconOnly(systemImage: "arrow.right.square", style: .secondary)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func actionChip(text: String, systemImage: String, style: ActionChipStyle) -> some View
+    {
+        let foreground: Color =
+            style == .primary
+            ? AppTheme.BrutalistPalette.background : AppTheme.BrutalistPalette.foreground
+        let background: Color =
+            style == .primary
+            ? AppTheme.BrutalistPalette.accent : AppTheme.BrutalistPalette.background
+        let border: Color =
+            style == .primary ? AppTheme.BrutalistPalette.accent : AppTheme.BrutalistPalette.border
+
+        return HStack(spacing: AppTheme.BrutalistSpacing.micro) {
+            Image(systemName: systemImage)
+                .font(.system(size: 14, weight: .semibold))
+            Text(text.uppercased())
+                .font(AppTheme.BrutalistTypography.captionMono)
+        }
+        .foregroundColor(foreground)
+        .padding(.vertical, AppTheme.BrutalistSpacing.micro)
+        .padding(.horizontal, AppTheme.BrutalistSpacing.sm)
+        .background(background)
+        .clipShape(RoundedRectangle(cornerRadius: 4))
+        .overlay(
+            RoundedRectangle(cornerRadius: 4)
+                .stroke(border, lineWidth: AppTheme.BrutalistBorder.thin)
+        )
+    }
+
+    private func actionChipIconOnly(systemImage: String, style: ActionChipStyle) -> some View {
+        let foreground: Color =
+            style == .primary
+            ? AppTheme.BrutalistPalette.background : AppTheme.BrutalistPalette.foreground
+        let background: Color =
+            style == .primary
+            ? AppTheme.BrutalistPalette.accent : AppTheme.BrutalistPalette.background
+        let border: Color =
+            style == .primary ? AppTheme.BrutalistPalette.accent : AppTheme.BrutalistPalette.border
+
+        return Image(systemName: systemImage)
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundColor(foreground)
+            .padding(.vertical, AppTheme.BrutalistSpacing.micro)
+            .padding(.horizontal, AppTheme.BrutalistSpacing.sm)
+            .background(background)
+            .clipShape(RoundedRectangle(cornerRadius: 4))
+            .overlay(
+                RoundedRectangle(cornerRadius: 4)
+                    .stroke(border, lineWidth: AppTheme.BrutalistBorder.thin)
+            )
+    }
+
+    private func statData(from viewModel: GoalTrendsViewModel) -> [(
+        title: String, value: String, icon: String
+    )] {
+        let todayEntry = viewModel.dailySeries.last(where: {
+            Calendar.current.isDateInToday($0.date)
+        })
+        let todayValue = todayEntry.map { viewModel.formattedNumber($0.averageValue) } ?? "No log"
+
+        let lastEntry = viewModel.dailySeries.last
+        let lastLogText: String
+        if let lastEntry {
+            if Calendar.current.isDateInToday(lastEntry.date) {
+                lastLogText = "Today"
+            } else {
+                lastLogText = Self.relativeFormatter.localizedString(
+                    for: lastEntry.date, relativeTo: Date())
+            }
+        } else {
+            lastLogText = "--"
+        }
+
+        let streak = viewModel.currentStreakDays
+        let streakText = streak == 0 ? "None" : "\(streak) days"
+
+        return [
+            (title: "Today", value: todayValue, icon: "target"),
+            (title: "Streak", value: streakText, icon: "flame"),
+            (title: "Last log", value: lastLogText, icon: "clock"),
+        ]
+    }
+
+    private static let relativeFormatter: RelativeDateTimeFormatter = {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .short
+        return formatter
+    }()
+
+    private var scheduleSummary: String {
+        let times = goal.schedule.times
+        guard !times.isEmpty else { return "No reminders" }
+        let timezone = goal.schedule.timezone
+        let timeDescription =
+            times
+            .map { $0.formattedTime(in: timezone) }
+            .joined(separator: ", ")
+
+        switch goal.schedule.frequency {
+        case .daily:
+            return "Daily @ " + timeDescription
+        case .weekly:
+            let weekdays = goal.schedule.normalizedWeekdays()
+            if weekdays.isEmpty {
+                return "Weekly @ " + timeDescription
+            }
+            let names = weekdays.map(\.shortDisplayName).joined(separator: ", ")
+            return "Weekly on \(names) @ \(timeDescription)"
+        case .monthly:
+            let day = Calendar.current.component(.day, from: goal.schedule.startDate)
+            return "Monthly on day \(day) @ \(timeDescription)"
+        case .custom:
+            if let interval = goal.schedule.intervalDayCount {
+                return "Every \(interval) days @ \(timeDescription)"
+            }
+            return "Custom cadence"
+        case .once:
+            let formatter = DateFormatter()
+            formatter.dateStyle = .medium
+            formatter.timeStyle = .short
+            formatter.timeZone = timezone
+            return formatter.string(from: goal.schedule.startDate)
+        }
+    }
+
+    private func updateViewModel(forceCreate: Bool) {
+        if forceCreate {
+            trendsViewModel = GoalTrendsViewModel(goal: goal, modelContext: modelContext)
+            return
+        }
+
+        guard let current = trendsViewModel else { return }
+
+        if current.goal.persistentModelID == goal.persistentModelID {
+            current.refresh()
+        } else {
+            trendsViewModel = GoalTrendsViewModel(goal: goal, modelContext: modelContext)
+        }
+    }
+
+    private var sectionDivider: some View {
+        Rectangle()
+            .fill(AppTheme.BrutalistPalette.border)
+            .frame(height: AppTheme.BrutalistBorder.thin)
     }
 }
 
