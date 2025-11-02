@@ -9,7 +9,6 @@ struct GoalDetailView: View {
     @Bindable var goal: TrackingGoal
     @State private var presentingDataEntry = false
     @State private var presentingEditor = false
-    @State private var showingNotificationTestAlert = false
     @State private var recentResponses: [DataPoint] = []
     @State private var trendsViewModel: GoalTrendsViewModel?
 
@@ -36,14 +35,6 @@ struct GoalDetailView: View {
         }
         .sheet(isPresented: $presentingEditor) {
             GoalEditView(viewModel: GoalEditorViewModel(goal: goal, modelContext: modelContext))
-        }
-        .alert(
-            "Test Notification Scheduled",
-            isPresented: $showingNotificationTestAlert
-        ) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("We'll send a preview notification to confirm your settings.")
         }
         .task {
             loadRecentResponses()
@@ -82,7 +73,7 @@ struct GoalDetailView: View {
     private var brutalistOverviewSection: some View {
         VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.xs) {
             brutalistHeader("Overview")
-            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.md) {
+            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
                 HStack(alignment: .firstTextBaseline, spacing: AppTheme.BrutalistSpacing.sm) {
                     statusBadge
                     if let category = goal.categoryDisplayName.nonEmpty {
@@ -105,14 +96,6 @@ struct GoalDetailView: View {
                         .font(AppTheme.BrutalistTypography.body)
                 }
 
-                VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.xs) {
-                    Text("Timezone")
-                        .font(AppTheme.BrutalistTypography.overline)
-                        .foregroundColor(AppTheme.BrutalistPalette.secondary)
-                    Text(goal.schedule.timezone.localizedDisplayName())
-                        .font(AppTheme.BrutalistTypography.body)
-                }
-
                 if designStyle == .brutalist {
                     brutalistActionRow
                 }
@@ -125,17 +108,24 @@ struct GoalDetailView: View {
 
     private var brutalistActionRow: some View {
         ViewThatFits {
-            HStack(spacing: AppTheme.BrutalistSpacing.sm) {
+            HStack(alignment: .center, spacing: AppTheme.BrutalistSpacing.sm) {
                 primaryLogButton
-                toggleGoalChip
-                editGoalChip
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                secondaryActionCluster
             }
 
             VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
                 primaryLogButton
-                toggleGoalChip
-                editGoalChip
+                secondaryActionCluster
             }
+        }
+    }
+
+    private var secondaryActionCluster: some View {
+        HStack(spacing: AppTheme.BrutalistSpacing.xs) {
+            editGoalChip
+            toggleGoalChip
         }
     }
 
@@ -145,17 +135,7 @@ struct GoalDetailView: View {
                 .fill(AppTheme.BrutalistPalette.border.opacity(0.25))
                 .frame(height: 1)
 
-            ViewThatFits {
-                HStack(spacing: AppTheme.BrutalistSpacing.sm) {
-                    sendTestButton
-                    historyLink
-                }
-
-                VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
-                    sendTestButton
-                    historyLink
-                }
-            }
+            historyLink
         }
     }
 
@@ -256,15 +236,9 @@ struct GoalDetailView: View {
                 LabeledContent("Status", value: goal.isActive ? "Active" : "Paused")
                 LabeledContent("Category", value: goal.categoryDisplayName)
                 LabeledContent("Schedule", value: formattedSchedule)
-                Button {
-                    NotificationScheduler.shared.sendTestNotification(for: goal)
-                    showingNotificationTestAlert = true
-                } label: {
-                    Label("Send Test Notification", systemImage: "paperplane")
-                }
-                .buttonStyle(.borderless)
                 NavigationLink {
                     GoalHistoryView(goal: goal, modelContext: modelContext)
+                        .environment(\.designStyle, designStyle)
                 } label: {
                     Label("View Full History", systemImage: "clock.arrow.circlepath")
                 }
@@ -309,47 +283,42 @@ struct GoalDetailView: View {
     }
 
     private var primaryLogButton: some View {
-        Button("Log Update") {
+        Button {
             presentLogEntry()
+        } label: {
+            Text("Log Update")
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .brutalistButton(style: .primary)
+        .frame(maxWidth: .infinity)
     }
+
 
     private var toggleGoalChip: some View {
         Button(goal.isActive ? "Pause Goal" : "Activate Goal") {
             toggleGoalState()
         }
-        .brutalistButton(style: .secondary)
+        .brutalistButton(style: .compactSecondary)
     }
 
     private var editGoalChip: some View {
         Button("Edit Goal") {
             presentEditor()
         }
-        .brutalistButton(style: .secondary)
-    }
-
-    private var sendTestButton: some View {
-        Button {
-            NotificationScheduler.shared.sendTestNotification(for: goal)
-            showingNotificationTestAlert = true
-        } label: {
-            Label("Send Test Notification", systemImage: "paperplane")
-                .labelStyle(.titleAndIcon)
-        }
-        .brutalistButton(style: .secondary)
+        .brutalistButton(style: .compactSecondary)
     }
 
     private var historyLink: some View {
         NavigationLink {
             GoalHistoryView(goal: goal, modelContext: modelContext)
+                .environment(\.designStyle, designStyle)
         } label: {
             Label("View Full History", systemImage: "clock.arrow.circlepath")
                 .labelStyle(.titleAndIcon)
                 .font(AppTheme.BrutalistTypography.bodyBold)
                 .textCase(.uppercase)
-                .padding(.vertical, 14)
-                .padding(.horizontal, 20)
+                .padding(.vertical, 10)
+                .padding(.horizontal, 16)
                 .background(AppTheme.BrutalistPalette.background)
                 .overlay(
                     Rectangle()
@@ -482,6 +451,9 @@ struct GoalDetailView: View {
             times
             .map { $0.formattedTime(in: timezone) }
             .joined(separator: ", ")
+        let abbreviation = timezone.abbreviation()
+            ?? timezone.localizedName(for: .shortGeneric, locale: .current)
+            ?? timezone.identifier
 
         let frequencyDescription: String
         switch goal.schedule.frequency {
@@ -515,7 +487,7 @@ struct GoalDetailView: View {
             frequencyDescription = "Once on \(formatter.string(from: goal.schedule.startDate))"
         }
 
-        return "\(frequencyDescription) at \(timeDescription)"
+        return "\(frequencyDescription) at \(timeDescription) (\(abbreviation))"
     }
 
     private func recentResponseValue(for dataPoint: DataPoint) -> String? {

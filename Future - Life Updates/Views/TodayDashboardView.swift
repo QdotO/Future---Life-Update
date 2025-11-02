@@ -4,6 +4,7 @@ import SwiftData
 struct TodayDashboardView: View {
     @Bindable var viewModel: TodayDashboardViewModel
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.designStyle) private var designStyle
 
     private let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -18,6 +19,16 @@ struct TodayDashboardView: View {
     }()
 
     var body: some View {
+        Group {
+            if designStyle == .brutalist {
+                brutalistDashboard
+            } else {
+                legacyDashboard
+            }
+        }
+    }
+
+    private var legacyDashboard: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: AppTheme.Spacing.xl) {
                 upcomingRemindersSection
@@ -28,6 +39,21 @@ struct TodayDashboardView: View {
         }
         .scrollBounceBehavior(.basedOnSize)
         .background(AppTheme.Palette.background.ignoresSafeArea())
+        .refreshable {
+            viewModel.refresh()
+        }
+    }
+
+    private var brutalistDashboard: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.xl) {
+                brutalistUpcomingRemindersSection
+                brutalistTodayHighlightsSection
+            }
+            .padding(AppTheme.BrutalistSpacing.md)
+        }
+        .scrollIndicators(.hidden)
+        .background(AppTheme.BrutalistPalette.background.ignoresSafeArea())
         .refreshable {
             viewModel.refresh()
         }
@@ -114,6 +140,132 @@ struct TodayDashboardView: View {
         }
     }
 
+    private var brutalistUpcomingRemindersSection: some View {
+        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.md) {
+            brutalistSectionLabel("Upcoming reminders")
+
+            if viewModel.upcomingReminders.isEmpty {
+                brutalistPlaceholder(
+                    title: "You're all caught up",
+                    subtitle: "No more reminders scheduled for today."
+                )
+            } else {
+                VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.md) {
+                    ForEach(viewModel.upcomingReminders) { reminder in
+                        brutalistReminderCard(for: reminder)
+                    }
+                }
+            }
+        }
+    }
+
+    private var brutalistTodayHighlightsSection: some View {
+        let summaries = viewModel.goalQuestionMetrics.filter { !$0.metrics.isEmpty }
+        return VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.md) {
+            brutalistSectionLabel("Today's highlights")
+
+            if summaries.isEmpty {
+                brutalistPlaceholder(
+                    title: "Log something today",
+                    subtitle: "Check-ins populate this feed with your progress."
+                )
+            } else {
+                VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.md) {
+                    ForEach(summaries) { summary in
+                        brutalistHighlightCard(for: summary)
+                    }
+                }
+            }
+        }
+    }
+
+    private func brutalistReminderCard(for reminder: TodayDashboardViewModel.UpcomingReminder)
+        -> some View
+    {
+        let relativeDescription = nextRelativeDescription(for: reminder)
+        let isPast = reminder.scheduledDate < Date()
+
+        return VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(reminder.goal.title)
+                    .font(AppTheme.BrutalistTypography.bodyBold)
+                    .foregroundColor(AppTheme.BrutalistPalette.foreground)
+                Spacer()
+                Text(formattedTime(for: reminder))
+                    .font(AppTheme.BrutalistTypography.captionBold)
+                    .foregroundColor(AppTheme.BrutalistPalette.accent)
+            }
+
+            if let category = reminder.goal.categoryDisplayName {
+                brutalistMetaLabel(category, systemImage: "tag")
+            }
+
+            Text(relativeDescription.uppercased())
+                .font(AppTheme.BrutalistTypography.captionMono)
+                .foregroundColor(isPast ? Color.red : AppTheme.BrutalistPalette.secondary)
+        }
+        .brutalistCard()
+    }
+
+    private func brutalistHighlightCard(for summary: TodayDashboardViewModel.GoalQuestionMetrics)
+        -> some View
+    {
+        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.md) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(summary.goal.title)
+                    .font(AppTheme.BrutalistTypography.bodyBold)
+                    .foregroundColor(AppTheme.BrutalistPalette.foreground)
+                Spacer()
+                if let category = summary.goal.categoryDisplayName {
+                    brutalistMetaLabel(category, systemImage: "tag")
+                }
+            }
+
+            if let lastID = summary.metrics.last?.id {
+                VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.md) {
+                    ForEach(summary.metrics) { metric in
+                        BrutalistMetricRow(metric: metric)
+
+                        if metric.id != lastID {
+                            Rectangle()
+                                .fill(AppTheme.BrutalistPalette.border.opacity(0.25))
+                                .frame(height: 1)
+                        }
+                    }
+                }
+            }
+        }
+        .brutalistCard()
+    }
+
+    private func brutalistSectionLabel(_ text: String) -> some View {
+        Text(text.uppercased())
+            .font(AppTheme.BrutalistTypography.overline)
+            .foregroundColor(AppTheme.BrutalistPalette.secondary)
+    }
+
+    private func brutalistPlaceholder(title: String, subtitle: String) -> some View {
+        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.xs) {
+            Text(title.uppercased())
+                .font(AppTheme.BrutalistTypography.captionBold)
+                .foregroundColor(AppTheme.BrutalistPalette.foreground)
+            Text(subtitle)
+                .font(AppTheme.BrutalistTypography.body)
+                .foregroundColor(AppTheme.BrutalistPalette.secondary)
+        }
+        .brutalistCard()
+    }
+
+    private func brutalistMetaLabel(_ text: String, systemImage: String) -> some View {
+        HStack(spacing: AppTheme.BrutalistSpacing.micro) {
+            Image(systemName: systemImage)
+                .font(.system(size: 11, weight: .bold))
+            Text(text.uppercased())
+                .font(AppTheme.BrutalistTypography.captionBold)
+        }
+        .foregroundColor(AppTheme.BrutalistPalette.secondary)
+    }
+
     private func headerLabel(_ title: String) -> some View {
         Text(title)
             .font(AppTheme.Typography.sectionHeader)
@@ -124,6 +276,7 @@ struct TodayDashboardView: View {
         CardBackground {
             VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
                 Text(title)
+
                     .font(AppTheme.Typography.body.weight(.semibold))
                 Text(subtitle)
                     .font(AppTheme.Typography.caption)
@@ -142,6 +295,63 @@ struct TodayDashboardView: View {
         relativeFormatter.localizedString(for: reminder.scheduledDate, relativeTo: Date())
     }
 }
+
+    private struct BrutalistMetricRow: View {
+        let metric: TodayDashboardViewModel.QuestionMetric
+
+        var body: some View {
+            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
+                HStack(alignment: .firstTextBaseline, spacing: AppTheme.BrutalistSpacing.xs) {
+                    Text(metric.questionText.uppercased())
+                        .font(AppTheme.BrutalistTypography.captionBold)
+                        .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                    Spacer()
+                    if let target = metric.targetValue {
+                        Text("vs \(target.uppercased())")
+                            .font(AppTheme.BrutalistTypography.captionMono)
+                            .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                    }
+                }
+
+                Text(metric.primaryValue)
+                    .font(AppTheme.BrutalistTypography.title)
+                    .foregroundColor(AppTheme.BrutalistPalette.foreground)
+                    .lineLimit(1)
+
+                if let progress = metric.progressFraction {
+                    BrutalistProgressBar(progress: progress)
+                        .frame(height: 8)
+                }
+
+                if metric.detail.nonEmpty != nil {
+                    Text(metric.detail)
+                        .font(AppTheme.BrutalistTypography.caption)
+                        .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                }
+            }
+        }
+    }
+
+    private struct BrutalistProgressBar: View {
+        let progress: Double
+
+        var body: some View {
+            GeometryReader { geometry in
+                let clamped = min(max(progress, 0), 1)
+                let width = geometry.size.width * clamped
+
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(AppTheme.BrutalistPalette.border.opacity(0.3))
+
+                    Capsule()
+                        .fill(AppTheme.BrutalistPalette.accent)
+                        .frame(width: max(0, width))
+                }
+                .animation(.easeInOut(duration: 0.35), value: clamped)
+            }
+        }
+    }
 
 private struct MetricTile: View {
     let metric: TodayDashboardViewModel.QuestionMetric
