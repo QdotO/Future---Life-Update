@@ -84,6 +84,7 @@ struct GoalCreationView: View {
     private let chipColumns = [GridItem(.adaptive(minimum: 140), spacing: AppTheme.Spacing.sm)]
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.designStyle) private var designStyle
 
     @State private var step: FlowStep = .intent
     @State private var composerDraft = GoalQuestionDraft()
@@ -111,7 +112,7 @@ struct GoalCreationView: View {
         NavigationStack {
             GeometryReader { geometry in
                 ScrollView {
-                    VStack(alignment: .leading, spacing: AppTheme.Spacing.xl) {
+                    VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.xl) {
                         WizardStepHeader(
                             title: step.title,
                             subtitle: step.subtitle,
@@ -122,17 +123,18 @@ struct GoalCreationView: View {
 
                         stepContent
                     }
-                    .padding(.horizontal, AppTheme.Spacing.xl)
-                    .padding(.bottom, AppTheme.Spacing.xl * 2)
+                    .padding(.horizontal, AppTheme.BrutalistSpacing.xl)
+                    .padding(.bottom, AppTheme.BrutalistSpacing.xl * 2)
                     .frame(minHeight: geometry.size.height, alignment: .top)
                 }
                 .accessibilityIdentifier("goalCreationScroll")
             }
-            .background(AppTheme.Palette.background.ignoresSafeArea())
+            .background(AppTheme.BrutalistPalette.background.ignoresSafeArea())
             .navigationTitle("New Tracking Goal")
             #if os(iOS)
                 .navigationBarTitleDisplayMode(.inline)
             #endif
+            .environment(\.designStyle, .brutalist)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel", role: .cancel) {
@@ -141,7 +143,7 @@ struct GoalCreationView: View {
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
                     if step == .rhythm, let conflict = viewModel.conflictMessage {
                         ConflictBanner(message: conflict)
                     }
@@ -153,9 +155,15 @@ struct GoalCreationView: View {
                         onBack: moveBackward,
                         onNext: moveForward
                     )
-                    .padding(.horizontal, AppTheme.Spacing.xl)
-                    .padding(.vertical, AppTheme.Spacing.lg)
-                    .background(.thinMaterial)
+                    .padding(.horizontal, AppTheme.BrutalistSpacing.xl)
+                    .padding(.vertical, AppTheme.BrutalistSpacing.md)
+                    .background(AppTheme.BrutalistPalette.background)
+                    .overlay(
+                        Rectangle()
+                            .fill(AppTheme.BrutalistPalette.border)
+                            .frame(height: 2),
+                        alignment: .top
+                    )
                 }
             }
             .sheet(isPresented: $showCustomTimeSheet) {
@@ -203,6 +211,7 @@ struct GoalCreationView: View {
                         .platformAdaptiveTextField()
                         .font(AppTheme.Typography.title)
                         .focused($focusedField, equals: .title)
+                        .brutalistField(isFocused: focusedField == .title)
                         .accessibilityIdentifier("goalTitleField")
 
                     TextField(
@@ -214,6 +223,7 @@ struct GoalCreationView: View {
                     .lineLimit(3, reservesSpace: true)
                     .font(AppTheme.Typography.body)
                     .focused($focusedField, equals: .motivation)
+                    .brutalistField(isFocused: focusedField == .motivation)
                 }
             }
 
@@ -229,32 +239,80 @@ struct GoalCreationView: View {
                             categoryChip(for: category)
                         }
 
+                        let customSelected = viewModel.draft.category == .custom
                         Button {
                             viewModel.selectCategory(.custom)
                             focusedField = .customCategory
                             Haptics.selection()
                         } label: {
-                            VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+                            VStack(
+                                alignment: .leading,
+                                spacing: designStyle == .brutalist
+                                    ? AppTheme.BrutalistSpacing.xs : AppTheme.Spacing.xs
+                            ) {
                                 Text("Something else…")
-                                    .font(AppTheme.Typography.bodyStrong)
+                                    .font(
+                                        designStyle == .brutalist
+                                            ? AppTheme.BrutalistTypography.bodyBold
+                                            : AppTheme.Typography.bodyStrong
+                                    )
                                 Text("Name your own area.")
-                                    .font(AppTheme.Typography.caption)
-                                    .foregroundStyle(.secondary)
+                                    .font(
+                                        designStyle == .brutalist
+                                            ? AppTheme.BrutalistTypography.caption
+                                            : AppTheme.Typography.caption
+                                    )
+                                    .foregroundStyle(
+                                        designStyle == .brutalist
+                                            ? AppTheme.BrutalistPalette.secondary : Color.secondary
+                                    )
                             }
-                            .padding(AppTheme.Spacing.md)
-                            .frame(maxWidth: .infinity, minHeight: 92, alignment: .leading)
+                            .padding(
+                                designStyle == .brutalist
+                                    ? AppTheme.BrutalistSpacing.md : AppTheme.Spacing.md
+                            )
+                            .frame(
+                                maxWidth: .infinity,
+                                minHeight: designStyle == .brutalist ? 104 : 92, alignment: .leading
+                            )
                             .background(
-                                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                    .strokeBorder(
-                                        AppTheme.Palette.primary.opacity(0.2), lineWidth: 1
-                                    )
-                                    .background(
+                                designStyle == .brutalist
+                                    ? AppTheme.BrutalistPalette.background
+                                    : AppTheme.Palette.surface
+                            )
+                            .overlay(
+                                Group {
+                                    if designStyle == .brutalist {
+                                        Rectangle()
+                                            .stroke(
+                                                customSelected
+                                                    ? AppTheme.BrutalistPalette.accent
+                                                    : AppTheme.BrutalistPalette.border,
+                                                lineWidth: AppTheme.BrutalistBorder.standard
+                                            )
+                                    } else {
                                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                            .fill(AppTheme.Palette.surface)
-                                    )
+                                            .strokeBorder(
+                                                AppTheme.Palette.primary.opacity(0.2), lineWidth: 1
+                                            )
+                                            .background(
+                                                RoundedRectangle(
+                                                    cornerRadius: 16, style: .continuous
+                                                )
+                                                .fill(AppTheme.Palette.surface)
+                                            )
+                                    }
+                                }
                             )
                         }
                         .buttonStyle(.plain)
+                        .foregroundStyle(
+                            designStyle == .brutalist
+                                ? (customSelected
+                                    ? AppTheme.BrutalistPalette.accent
+                                    : AppTheme.BrutalistPalette.foreground)
+                                : .primary
+                        )
                     }
 
                     if viewModel.draft.category == .custom {
@@ -273,6 +331,7 @@ struct GoalCreationView: View {
                             .focused($focusedField, equals: .customCategory)
                         #endif
                         .font(AppTheme.Typography.body)
+                        .brutalistField(isFocused: focusedField == .customCategory)
                     }
                 }
             }
@@ -457,11 +516,37 @@ struct GoalCreationView: View {
                             systemImage: showAdvancedResponseTypes ? "chevron.up" : "chevron.down"
                         )
                         .labelStyle(.titleAndIcon)
-                        .font(AppTheme.Typography.caption.weight(.semibold))
-                        .padding(.horizontal, AppTheme.Spacing.md)
-                        .padding(.vertical, AppTheme.Spacing.sm)
+                        .font(
+                            designStyle == .brutalist
+                                ? AppTheme.BrutalistTypography.caption : AppTheme.Typography.caption
+                        )
+                        .fontWeight(.semibold)
+                        .padding(
+                            .horizontal,
+                            designStyle == .brutalist
+                                ? AppTheme.BrutalistSpacing.md : AppTheme.Spacing.md
+                        )
+                        .padding(
+                            .vertical,
+                            designStyle == .brutalist
+                                ? AppTheme.BrutalistSpacing.xs : AppTheme.Spacing.sm
+                        )
                         .background(
-                            Capsule().fill(AppTheme.Palette.surface)
+                            designStyle == .brutalist
+                                ? AppTheme.BrutalistPalette.background
+                                : AppTheme.Palette.surface
+                        )
+                        .overlay(
+                            Group {
+                                if designStyle == .brutalist {
+                                    Rectangle()
+                                        .stroke(
+                                            AppTheme.BrutalistPalette.border,
+                                            lineWidth: AppTheme.BrutalistBorder.standard)
+                                } else {
+                                    Capsule().stroke(AppTheme.Palette.neutralBorder, lineWidth: 1)
+                                }
+                            }
                         )
                     }
                     .buttonStyle(.plain)
@@ -511,10 +596,9 @@ struct GoalCreationView: View {
 
                 Spacer()
 
-                Button(editingQuestionID == nil ? "Add question" : "Update question") {
+                primaryActionButton(editingQuestionID == nil ? "Add question" : "Update question") {
                     saveQuestionDraft()
                 }
-                .buttonStyle(.primaryProminent)
                 .disabled(!canSaveQuestion)
             }
         }
@@ -530,33 +614,66 @@ struct GoalCreationView: View {
                     .foregroundStyle(.secondary)
                 LazyVGrid(columns: chipColumns, alignment: .leading, spacing: AppTheme.Spacing.sm) {
                     ForEach(rangePresets) { preset in
+                        let isActive = isPresetActive(preset)
                         Button {
                             applyRangePreset(preset)
                             Haptics.selection()
                         } label: {
                             Text(preset.label)
-                                .font(AppTheme.Typography.caption.weight(.semibold))
-                                .padding(.horizontal, AppTheme.Spacing.md)
-                                .padding(.vertical, AppTheme.Spacing.sm)
+                                .font(
+                                    designStyle == .brutalist
+                                        ? AppTheme.BrutalistTypography.caption
+                                        : AppTheme.Typography.caption
+                                )
+                                .fontWeight(.semibold)
+                                .padding(
+                                    .horizontal,
+                                    designStyle == .brutalist
+                                        ? AppTheme.BrutalistSpacing.md : AppTheme.Spacing.md
+                                )
+                                .padding(
+                                    .vertical,
+                                    designStyle == .brutalist
+                                        ? AppTheme.BrutalistSpacing.xs : AppTheme.Spacing.sm
+                                )
                                 .background(
-                                    Capsule()
-                                        .fill(
-                                            isPresetActive(preset)
-                                                ? AppTheme.Palette.primary.opacity(0.12)
-                                                : AppTheme.Palette.surface)
+                                    designStyle == .brutalist
+                                        ? (isActive
+                                            ? AppTheme.BrutalistPalette.accent.opacity(0.12)
+                                            : AppTheme.BrutalistPalette.background)
+                                        : (isActive
+                                            ? AppTheme.Palette.primary.opacity(0.12)
+                                            : AppTheme.Palette.surface)
                                 )
                                 .overlay(
-                                    Capsule()
-                                        .stroke(
-                                            isPresetActive(preset)
-                                                ? AppTheme.Palette.primary
-                                                : AppTheme.Palette.neutralBorder,
-                                            lineWidth: isPresetActive(preset) ? 2 : 1)
+                                    Group {
+                                        if designStyle == .brutalist {
+                                            Rectangle()
+                                                .stroke(
+                                                    isActive
+                                                        ? AppTheme.BrutalistPalette.accent
+                                                        : AppTheme.BrutalistPalette.border,
+                                                    lineWidth: AppTheme.BrutalistBorder.standard
+                                                )
+                                        } else {
+                                            Capsule()
+                                                .stroke(
+                                                    isActive
+                                                        ? AppTheme.Palette.primary
+                                                        : AppTheme.Palette.neutralBorder,
+                                                    lineWidth: isActive ? 2 : 1)
+                                        }
+                                    }
                                 )
                         }
                         .buttonStyle(.plain)
                         .foregroundStyle(
-                            isPresetActive(preset) ? AppTheme.Palette.primary : .primary)
+                            designStyle == .brutalist
+                                ? (isActive
+                                    ? AppTheme.BrutalistPalette.accent
+                                    : AppTheme.BrutalistPalette.foreground)
+                                : (isActive ? AppTheme.Palette.primary : .primary)
+                        )
                     }
                 }
 
@@ -594,24 +711,62 @@ struct GoalCreationView: View {
             VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
                 if !composerDraft.options.isEmpty {
                     LazyVGrid(
-                        columns: chipColumns, alignment: .leading, spacing: AppTheme.Spacing.sm
+                        columns: chipColumns,
+                        alignment: .leading,
+                        spacing: designStyle == .brutalist
+                            ? AppTheme.BrutalistSpacing.sm : AppTheme.Spacing.sm
                     ) {
                         ForEach(composerDraft.options, id: \.self) { option in
-                            HStack(spacing: AppTheme.Spacing.xs) {
+                            HStack(
+                                spacing: designStyle == .brutalist
+                                    ? AppTheme.BrutalistSpacing.xs : AppTheme.Spacing.xs
+                            ) {
                                 Text(option)
-                                    .font(AppTheme.Typography.caption.weight(.semibold))
+                                    .font(
+                                        designStyle == .brutalist
+                                            ? AppTheme.BrutalistTypography.caption
+                                            : AppTheme.Typography.caption
+                                    )
+                                    .fontWeight(.semibold)
                                 Button {
                                     removeOption(option)
                                 } label: {
                                     Image(systemName: "xmark.circle.fill")
-                                        .font(.caption.bold())
+                                        .font(
+                                            designStyle == .brutalist
+                                                ? AppTheme.BrutalistTypography.caption
+                                                : .caption.bold()
+                                        )
                                 }
                                 .buttonStyle(.plain)
                             }
-                            .padding(.horizontal, AppTheme.Spacing.md)
-                            .padding(.vertical, AppTheme.Spacing.xs)
+                            .padding(
+                                .horizontal,
+                                designStyle == .brutalist
+                                    ? AppTheme.BrutalistSpacing.md : AppTheme.Spacing.md
+                            )
+                            .padding(
+                                .vertical,
+                                designStyle == .brutalist
+                                    ? AppTheme.BrutalistSpacing.xs : AppTheme.Spacing.xs
+                            )
                             .background(
-                                Capsule().fill(AppTheme.Palette.surfaceElevated)
+                                designStyle == .brutalist
+                                    ? AppTheme.BrutalistPalette.background
+                                    : AppTheme.Palette.surfaceElevated
+                            )
+                            .overlay(
+                                Group {
+                                    if designStyle == .brutalist {
+                                        Rectangle()
+                                            .stroke(
+                                                AppTheme.BrutalistPalette.border,
+                                                lineWidth: AppTheme.BrutalistBorder.standard)
+                                    } else {
+                                        Capsule().stroke(
+                                            AppTheme.Palette.neutralBorder, lineWidth: 1)
+                                    }
+                                }
                             )
                         }
                     }
@@ -621,10 +776,9 @@ struct GoalCreationView: View {
                     TextField("Add option", text: $newOptionText)
                         .platformMinimalTextField()
                         .focused($focusedField, equals: .questionOption)
-                    Button("Add") {
+                    secondaryActionButton("Add") {
                         appendCurrentOption()
                     }
-                    .buttonStyle(.secondaryProminent)
                     .disabled(newOptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
@@ -666,34 +820,78 @@ struct GoalCreationView: View {
                     switch viewModel.draft.schedule.cadence {
                     case .weekly(let weekday):
                         ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: AppTheme.Spacing.sm) {
+                            HStack(
+                                spacing: designStyle == .brutalist
+                                    ? AppTheme.BrutalistSpacing.sm : AppTheme.Spacing.sm
+                            ) {
                                 ForEach(Weekday.allCases) { day in
+                                    let isSelected = day == weekday
                                     Button {
                                         viewModel.selectCadence(.weekly(day))
                                         Haptics.selection()
                                     } label: {
                                         Text(day.shortDisplayName)
-                                            .font(AppTheme.Typography.caption.weight(.semibold))
-                                            .padding(.horizontal, AppTheme.Spacing.md)
-                                            .padding(.vertical, AppTheme.Spacing.sm)
+                                            .font(
+                                                designStyle == .brutalist
+                                                    ? AppTheme.BrutalistTypography.caption
+                                                    : AppTheme.Typography.caption
+                                            )
+                                            .fontWeight(.semibold)
+                                            .padding(
+                                                .horizontal,
+                                                designStyle == .brutalist
+                                                    ? AppTheme.BrutalistSpacing.md
+                                                    : AppTheme.Spacing.md
+                                            )
+                                            .padding(
+                                                .vertical,
+                                                designStyle == .brutalist
+                                                    ? AppTheme.BrutalistSpacing.xs
+                                                    : AppTheme.Spacing.sm
+                                            )
                                             .background(
-                                                Capsule().fill(
-                                                    day == weekday
+                                                designStyle == .brutalist
+                                                    ? (isSelected
+                                                        ? AppTheme.BrutalistPalette.accent.opacity(
+                                                            0.12)
+                                                        : AppTheme.BrutalistPalette.background)
+                                                    : (isSelected
                                                         ? AppTheme.Palette.primary.opacity(0.12)
                                                         : AppTheme.Palette.surface)
                                             )
                                             .overlay(
-                                                Capsule()
-                                                    .stroke(
-                                                        day == weekday
-                                                            ? AppTheme.Palette.primary
-                                                            : AppTheme.Palette.neutralBorder,
-                                                        lineWidth: day == weekday ? 2 : 1)
+                                                Group {
+                                                    if designStyle == .brutalist {
+                                                        Rectangle()
+                                                            .stroke(
+                                                                isSelected
+                                                                    ? AppTheme.BrutalistPalette
+                                                                        .accent
+                                                                    : AppTheme.BrutalistPalette
+                                                                        .border,
+                                                                lineWidth: AppTheme.BrutalistBorder
+                                                                    .standard
+                                                            )
+                                                    } else {
+                                                        Capsule()
+                                                            .stroke(
+                                                                isSelected
+                                                                    ? AppTheme.Palette.primary
+                                                                    : AppTheme.Palette
+                                                                        .neutralBorder,
+                                                                lineWidth: isSelected ? 2 : 1)
+                                                    }
+                                                }
                                             )
                                     }
                                     .buttonStyle(.plain)
                                     .foregroundStyle(
-                                        day == weekday ? AppTheme.Palette.primary : .primary)
+                                        designStyle == .brutalist
+                                            ? (isSelected
+                                                ? AppTheme.BrutalistPalette.accent
+                                                : AppTheme.BrutalistPalette.foreground)
+                                            : (isSelected ? AppTheme.Palette.primary : .primary)
+                                    )
                                 }
                             }
                         }
@@ -737,9 +935,14 @@ struct GoalCreationView: View {
                     let recommended = viewModel.recommendedReminderTimes()
                     if !recommended.isEmpty {
                         LazyVGrid(
-                            columns: chipColumns, alignment: .leading, spacing: AppTheme.Spacing.sm
+                            columns: chipColumns,
+                            alignment: .leading,
+                            spacing: designStyle == .brutalist
+                                ? AppTheme.BrutalistSpacing.sm : AppTheme.Spacing.sm
                         ) {
                             ForEach(recommended, id: \.self) { time in
+                                let isSelected = viewModel.draft.schedule.reminderTimes.contains(
+                                    time)
                                 Button {
                                     let succeeded = viewModel.toggleReminderTime(time)
                                     if succeeded {
@@ -752,31 +955,61 @@ struct GoalCreationView: View {
                                     }
                                 } label: {
                                     Text(time.formattedTime(in: viewModel.draft.schedule.timezone))
-                                        .font(AppTheme.Typography.caption.weight(.semibold))
-                                        .padding(.horizontal, AppTheme.Spacing.md)
-                                        .padding(.vertical, AppTheme.Spacing.sm)
+                                        .font(
+                                            designStyle == .brutalist
+                                                ? AppTheme.BrutalistTypography.caption
+                                                : AppTheme.Typography.caption
+                                        )
+                                        .fontWeight(.semibold)
+                                        .padding(
+                                            .horizontal,
+                                            designStyle == .brutalist
+                                                ? AppTheme.BrutalistSpacing.md : AppTheme.Spacing.md
+                                        )
+                                        .padding(
+                                            .vertical,
+                                            designStyle == .brutalist
+                                                ? AppTheme.BrutalistSpacing.xs : AppTheme.Spacing.sm
+                                        )
                                         .background(
-                                            Capsule().fill(
-                                                viewModel.draft.schedule.reminderTimes.contains(
-                                                    time)
+                                            designStyle == .brutalist
+                                                ? (isSelected
+                                                    ? AppTheme.BrutalistPalette.accent.opacity(0.12)
+                                                    : AppTheme.BrutalistPalette.background)
+                                                : (isSelected
                                                     ? AppTheme.Palette.primary.opacity(0.12)
                                                     : AppTheme.Palette.surface)
                                         )
                                         .overlay(
-                                            Capsule()
-                                                .stroke(
-                                                    viewModel.draft.schedule.reminderTimes.contains(
-                                                        time)
-                                                        ? AppTheme.Palette.primary
-                                                        : AppTheme.Palette.neutralBorder,
-                                                    lineWidth: viewModel.draft.schedule
-                                                        .reminderTimes.contains(time) ? 2 : 1)
+                                            Group {
+                                                if designStyle == .brutalist {
+                                                    Rectangle()
+                                                        .stroke(
+                                                            isSelected
+                                                                ? AppTheme.BrutalistPalette.accent
+                                                                : AppTheme.BrutalistPalette.border,
+                                                            lineWidth: AppTheme.BrutalistBorder
+                                                                .standard
+                                                        )
+                                                } else {
+                                                    Capsule()
+                                                        .stroke(
+                                                            isSelected
+                                                                ? AppTheme.Palette.primary
+                                                                : AppTheme.Palette.neutralBorder,
+                                                            lineWidth: isSelected ? 2 : 1)
+                                                }
+                                            }
                                         )
                                 }
                                 .buttonStyle(.plain)
                                 .foregroundStyle(
-                                    viewModel.draft.schedule.reminderTimes.contains(time)
-                                        ? AppTheme.Palette.primary : .primary)
+                                    designStyle == .brutalist
+                                        ? (isSelected
+                                            ? AppTheme.BrutalistPalette.accent
+                                            : AppTheme.BrutalistPalette.foreground)
+                                        : (isSelected ? AppTheme.Palette.primary : .primary)
+                                )
                             }
                         }
                     }
@@ -806,15 +1039,31 @@ struct GoalCreationView: View {
                         }
                     }
 
-                    Button {
-                        showCustomTimeSheet = true
-                        customReminderDate = viewModel.suggestedReminderDate(
-                            startingAt: customReminderDate)
-                        Haptics.selection()
-                    } label: {
-                        Label("Custom time…", systemImage: "plus.circle.fill")
+                    Group {
+                        if designStyle == .brutalist {
+                            Button {
+                                showCustomTimeSheet = true
+                                customReminderDate = viewModel.suggestedReminderDate(
+                                    startingAt: customReminderDate)
+                                Haptics.selection()
+                            } label: {
+                                Label("Custom time…", systemImage: "plus.circle.fill")
+                                    .font(AppTheme.BrutalistTypography.bodyBold)
+                                    .textCase(.uppercase)
+                            }
+                            .brutalistButton(style: .secondary)
+                        } else {
+                            Button {
+                                showCustomTimeSheet = true
+                                customReminderDate = viewModel.suggestedReminderDate(
+                                    startingAt: customReminderDate)
+                                Haptics.selection()
+                            } label: {
+                                Label("Custom time…", systemImage: "plus.circle.fill")
+                            }
+                            .buttonStyle(.secondaryProminent)
+                        }
                     }
-                    .buttonStyle(.secondaryProminent)
 
                     if let scheduleError {
                         Text(scheduleError)
@@ -1058,36 +1307,69 @@ struct GoalCreationView: View {
 
     private func categoryChip(for category: TrackingCategory) -> some View {
         let isSelected = viewModel.draft.category == category
+        let verticalSpacing =
+            designStyle == .brutalist
+            ? AppTheme.BrutalistSpacing.xs : AppTheme.Spacing.xs
+        let padding =
+            designStyle == .brutalist
+            ? AppTheme.BrutalistSpacing.md : AppTheme.Spacing.md
+        let minHeight: CGFloat = designStyle == .brutalist ? 104 : 92
+        let baseBackground =
+            designStyle == .brutalist
+            ? AppTheme.BrutalistPalette.background : AppTheme.Palette.surface
+        let selectedBackground =
+            designStyle == .brutalist
+            ? AppTheme.BrutalistPalette.background : AppTheme.Palette.primary.opacity(0.12)
+        let strokeColor =
+            designStyle == .brutalist
+            ? (isSelected ? AppTheme.BrutalistPalette.accent : AppTheme.BrutalistPalette.border)
+            : (isSelected ? AppTheme.Palette.primary : AppTheme.Palette.neutralBorder)
+        let strokeWidth =
+            designStyle == .brutalist
+            ? AppTheme.BrutalistBorder.standard : (isSelected ? 2 : 1)
+
         return Button {
             viewModel.selectCategory(category)
             Haptics.selection()
         } label: {
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+            VStack(alignment: .leading, spacing: verticalSpacing) {
                 Text(category.displayName)
-                    .font(AppTheme.Typography.bodyStrong)
+                    .font(
+                        designStyle == .brutalist
+                            ? AppTheme.BrutalistTypography.bodyBold : AppTheme.Typography.bodyStrong
+                    )
                 Text(categorySubtitle(for: category))
-                    .font(AppTheme.Typography.caption)
-                    .foregroundStyle(.secondary)
+                    .font(
+                        designStyle == .brutalist
+                            ? AppTheme.BrutalistTypography.caption : AppTheme.Typography.caption
+                    )
+                    .foregroundStyle(
+                        designStyle == .brutalist
+                            ? AppTheme.BrutalistPalette.secondary : Color.secondary
+                    )
             }
-            .padding(AppTheme.Spacing.md)
-            .frame(maxWidth: .infinity, minHeight: 92, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(
-                        isSelected
-                            ? AppTheme.Palette.primary.opacity(0.12) : AppTheme.Palette.surface
-                    )
-                    .overlay(
+            .padding(padding)
+            .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .leading)
+            .background(isSelected ? selectedBackground : baseBackground)
+            .overlay(
+                Group {
+                    if designStyle == .brutalist {
+                        Rectangle()
+                            .stroke(strokeColor, lineWidth: strokeWidth)
+                    } else {
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(
-                                isSelected
-                                    ? AppTheme.Palette.primary : AppTheme.Palette.neutralBorder,
-                                lineWidth: isSelected ? 2 : 1)
-                    )
+                            .stroke(strokeColor, lineWidth: strokeWidth)
+                    }
+                }
             )
         }
         .buttonStyle(.plain)
-        .foregroundStyle(isSelected ? AppTheme.Palette.primary : .primary)
+        .foregroundStyle(
+            designStyle == .brutalist
+                ? (isSelected
+                    ? AppTheme.BrutalistPalette.accent : AppTheme.BrutalistPalette.foreground)
+                : (isSelected ? AppTheme.Palette.primary : .primary)
+        )
     }
 
     private func categorySubtitle(for category: TrackingCategory) -> String {
@@ -1104,35 +1386,94 @@ struct GoalCreationView: View {
         }
     }
 
+    @ViewBuilder
+    private func primaryActionButton(_ title: String, action: @escaping () -> Void) -> some View {
+        if designStyle == .brutalist {
+            Button(title, action: action)
+                .brutalistButton(style: .primary)
+        } else {
+            Button(title, action: action)
+                .buttonStyle(.primaryProminent)
+        }
+    }
+
+    @ViewBuilder
+    private func secondaryActionButton(_ title: String, action: @escaping () -> Void) -> some View {
+        if designStyle == .brutalist {
+            Button(title, action: action)
+                .brutalistButton(style: .secondary)
+        } else {
+            Button(title, action: action)
+                .buttonStyle(.secondaryProminent)
+        }
+    }
+
     private func responseTypeChip(for type: ResponseType) -> some View {
-        Button {
+        let isSelected = composerDraft.responseType == type
+        let horizontalPadding =
+            designStyle == .brutalist
+            ? AppTheme.BrutalistSpacing.md : AppTheme.Spacing.md
+        let verticalPadding =
+            designStyle == .brutalist
+            ? AppTheme.BrutalistSpacing.xs : AppTheme.Spacing.sm
+        let background =
+            designStyle == .brutalist
+            ? (isSelected
+                ? AppTheme.BrutalistPalette.accent.opacity(0.12)
+                : AppTheme.BrutalistPalette.background)
+            : (isSelected ? AppTheme.Palette.primary.opacity(0.12) : AppTheme.Palette.surface)
+        let strokeColor =
+            designStyle == .brutalist
+            ? (isSelected ? AppTheme.BrutalistPalette.accent : AppTheme.BrutalistPalette.border)
+            : (isSelected ? AppTheme.Palette.primary : AppTheme.Palette.neutralBorder)
+        let strokeWidth =
+            designStyle == .brutalist
+            ? AppTheme.BrutalistBorder.standard : (isSelected ? 2 : 1)
+
+        return Button {
             selectComposerResponseType(type)
             Haptics.selection()
         } label: {
-            HStack(spacing: AppTheme.Spacing.xs) {
+            HStack(
+                spacing: designStyle == .brutalist
+                    ? AppTheme.BrutalistSpacing.xs : AppTheme.Spacing.xs
+            ) {
                 Image(systemName: iconName(for: type))
-                    .font(.caption.weight(.semibold))
+                    .font(
+                        designStyle == .brutalist
+                            ? AppTheme.BrutalistTypography.caption.weight(.semibold)
+                            : AppTheme.Typography.caption.weight(.semibold)
+                    )
                 Text(type.displayName)
-                    .font(AppTheme.Typography.caption.weight(.semibold))
+                    .font(
+                        designStyle == .brutalist
+                            ? AppTheme.BrutalistTypography.caption
+                            : AppTheme.Typography.caption
+                    )
+                    .fontWeight(.semibold)
             }
-            .padding(.horizontal, AppTheme.Spacing.md)
-            .padding(.vertical, AppTheme.Spacing.sm)
-            .background(
-                Capsule()
-                    .fill(
-                        composerDraft.responseType == type
-                            ? AppTheme.Palette.primary.opacity(0.12) : AppTheme.Palette.surface)
-            )
+            .padding(.horizontal, horizontalPadding)
+            .padding(.vertical, verticalPadding)
+            .background(background)
             .overlay(
-                Capsule()
-                    .stroke(
-                        composerDraft.responseType == type
-                            ? AppTheme.Palette.primary : AppTheme.Palette.neutralBorder,
-                        lineWidth: composerDraft.responseType == type ? 2 : 1)
+                Group {
+                    if designStyle == .brutalist {
+                        Rectangle()
+                            .stroke(strokeColor, lineWidth: strokeWidth)
+                    } else {
+                        Capsule()
+                            .stroke(strokeColor, lineWidth: strokeWidth)
+                    }
+                }
             )
         }
         .buttonStyle(.plain)
-        .foregroundStyle(composerDraft.responseType == type ? AppTheme.Palette.primary : .primary)
+        .foregroundStyle(
+            designStyle == .brutalist
+                ? (isSelected
+                    ? AppTheme.BrutalistPalette.accent : AppTheme.BrutalistPalette.foreground)
+                : (isSelected ? AppTheme.Palette.primary : .primary)
+        )
     }
 
     private func iconName(for type: ResponseType) -> String {
@@ -1178,16 +1519,48 @@ struct GoalCreationView: View {
         } icon: {
             Image(systemName: isComplete ? "checkmark.circle.fill" : "exclamationmark.circle")
         }
-        .font(AppTheme.Typography.caption.weight(.semibold))
-        .padding(.horizontal, AppTheme.Spacing.md)
-        .padding(.vertical, AppTheme.Spacing.xs)
-        .background(
-            Capsule()
-                .fill(
-                    isComplete ? AppTheme.Palette.primary.opacity(0.12) : Color.orange.opacity(0.12)
-                )
+        .font(
+            designStyle == .brutalist
+                ? AppTheme.BrutalistTypography.caption : AppTheme.Typography.caption
         )
-        .foregroundStyle(isComplete ? AppTheme.Palette.primary : Color.orange)
+        .fontWeight(.semibold)
+        .padding(
+            .horizontal,
+            designStyle == .brutalist ? AppTheme.BrutalistSpacing.md : AppTheme.Spacing.md
+        )
+        .padding(
+            .vertical,
+            designStyle == .brutalist ? AppTheme.BrutalistSpacing.xs : AppTheme.Spacing.xs
+        )
+        .background(
+            designStyle == .brutalist
+                ? AppTheme.BrutalistPalette.background
+                : (isComplete ? AppTheme.Palette.primary.opacity(0.12) : Color.orange.opacity(0.12))
+        )
+        .overlay(
+            Group {
+                if designStyle == .brutalist {
+                    Rectangle()
+                        .stroke(
+                            isComplete
+                                ? AppTheme.BrutalistPalette.accent
+                                : AppTheme.BrutalistPalette.border,
+                            lineWidth: AppTheme.BrutalistBorder.standard
+                        )
+                } else {
+                    Capsule()
+                        .stroke(
+                            isComplete ? AppTheme.Palette.primary : Color.orange, lineWidth: 1
+                        )
+                }
+            }
+        )
+        .foregroundStyle(
+            designStyle == .brutalist
+                ? (isComplete
+                    ? AppTheme.BrutalistPalette.accent : AppTheme.BrutalistPalette.foreground)
+                : (isComplete ? AppTheme.Palette.primary : Color.orange)
+        )
         .accessibilityLabel(message)
     }
 
@@ -1198,19 +1571,44 @@ struct GoalCreationView: View {
         isComplete: Bool,
         isRequired: Bool
     ) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: AppTheme.Spacing.sm) {
+        HStack(
+            alignment: .firstTextBaseline,
+            spacing: designStyle == .brutalist ? AppTheme.BrutalistSpacing.sm : AppTheme.Spacing.sm
+        ) {
             Image(systemName: iconNameForChecklist(isComplete: isComplete, isRequired: isRequired))
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(colorForChecklist(isComplete: isComplete, isRequired: isRequired))
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+                .font(
+                    designStyle == .brutalist
+                        ? AppTheme.BrutalistTypography.headline : .title3.weight(.semibold)
+                )
+                .foregroundStyle(
+                    designStyle == .brutalist
+                        ? AppTheme.BrutalistPalette.accent
+                        : colorForChecklist(isComplete: isComplete, isRequired: isRequired)
+                )
+            VStack(
+                alignment: .leading,
+                spacing: designStyle == .brutalist
+                    ? AppTheme.BrutalistSpacing.xs : AppTheme.Spacing.xs
+            ) {
                 Text(title)
-                    .font(AppTheme.Typography.bodyStrong)
+                    .font(
+                        designStyle == .brutalist
+                            ? AppTheme.BrutalistTypography.bodyBold : AppTheme.Typography.bodyStrong
+                    )
                 Text(subtitle)
-                    .font(AppTheme.Typography.caption)
-                    .foregroundStyle(.secondary)
+                    .font(
+                        designStyle == .brutalist
+                            ? AppTheme.BrutalistTypography.caption : AppTheme.Typography.caption
+                    )
+                    .foregroundStyle(
+                        designStyle == .brutalist
+                            ? AppTheme.BrutalistPalette.secondary : Color.secondary
+                    )
             }
         }
-        .padding(.vertical, AppTheme.Spacing.xs)
+        .padding(
+            .vertical,
+            designStyle == .brutalist ? AppTheme.BrutalistSpacing.xs : AppTheme.Spacing.xs)
     }
 
     private func questionIsComplete(_ question: GoalQuestionDraft) -> Bool {
@@ -1239,36 +1637,98 @@ struct GoalCreationView: View {
 
     private func sourceBadge(label: String, systemImage: String, tint: Color) -> some View {
         Label(label, systemImage: systemImage)
-            .font(AppTheme.Typography.caption.weight(.semibold))
-            .padding(.horizontal, AppTheme.Spacing.sm)
-            .padding(.vertical, AppTheme.Spacing.xs)
-            .background(
-                Capsule(style: .continuous)
-                    .fill(tint.opacity(0.12))
+            .font(
+                designStyle == .brutalist
+                    ? AppTheme.BrutalistTypography.caption : AppTheme.Typography.caption
             )
-            .foregroundStyle(tint)
+            .fontWeight(.semibold)
+            .padding(
+                .horizontal,
+                designStyle == .brutalist ? AppTheme.BrutalistSpacing.sm : AppTheme.Spacing.sm
+            )
+            .padding(
+                .vertical,
+                designStyle == .brutalist ? AppTheme.BrutalistSpacing.xs : AppTheme.Spacing.xs
+            )
+            .background(
+                designStyle == .brutalist
+                    ? AppTheme.BrutalistPalette.background
+                    : tint.opacity(0.12)
+            )
+            .overlay(
+                Group {
+                    if designStyle == .brutalist {
+                        Rectangle()
+                            .stroke(
+                                AppTheme.BrutalistPalette.border,
+                                lineWidth: AppTheme.BrutalistBorder.standard)
+                    } else {
+                        Capsule(style: .continuous)
+                            .stroke(tint.opacity(0.9), lineWidth: 1)
+                    }
+                }
+            )
+            .foregroundStyle(
+                designStyle == .brutalist
+                    ? AppTheme.BrutalistPalette.accent : tint
+            )
     }
 
     private func questionSummaryCard(for question: GoalQuestionDraft, index: Int) -> some View {
         CardBackground {
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                HStack(alignment: .top, spacing: AppTheme.Spacing.sm) {
+            VStack(
+                alignment: .leading,
+                spacing: designStyle == .brutalist
+                    ? AppTheme.BrutalistSpacing.sm : AppTheme.Spacing.sm
+            ) {
+                HStack(
+                    alignment: .top,
+                    spacing: designStyle == .brutalist
+                        ? AppTheme.BrutalistSpacing.sm : AppTheme.Spacing.sm
+                ) {
                     Image(
                         systemName: questionIsComplete(question)
                             ? "checkmark.circle.fill" : "exclamationmark.circle"
                     )
-                    .font(.title3.weight(.semibold))
+                    .font(
+                        designStyle == .brutalist
+                            ? AppTheme.BrutalistTypography.headline : .title3.weight(.semibold)
+                    )
                     .foregroundStyle(
-                        questionIsComplete(question) ? AppTheme.Palette.primary : Color.orange)
+                        designStyle == .brutalist
+                            ? (questionIsComplete(question)
+                                ? AppTheme.BrutalistPalette.accent
+                                : AppTheme.BrutalistPalette.secondary)
+                            : (questionIsComplete(question)
+                                ? AppTheme.Palette.primary : Color.orange)
+                    )
 
-                    VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+                    VStack(
+                        alignment: .leading,
+                        spacing: designStyle == .brutalist
+                            ? AppTheme.BrutalistSpacing.xs : AppTheme.Spacing.xs
+                    ) {
                         Text(question.trimmedText)
-                            .font(AppTheme.Typography.body.weight(.semibold))
+                            .font(
+                                designStyle == .brutalist
+                                    ? AppTheme.BrutalistTypography.bodyBold
+                                    : AppTheme.Typography.body.weight(.semibold)
+                            )
                         Text(question.responseType.displayName)
-                            .font(AppTheme.Typography.caption)
-                            .foregroundStyle(.secondary)
+                            .font(
+                                designStyle == .brutalist
+                                    ? AppTheme.BrutalistTypography.caption
+                                    : AppTheme.Typography.caption
+                            )
+                            .foregroundStyle(
+                                designStyle == .brutalist
+                                    ? AppTheme.BrutalistPalette.secondary : Color.secondary
+                            )
                         if question.templateID != nil || question.suggestionID != nil {
-                            HStack(spacing: AppTheme.Spacing.xs) {
+                            HStack(
+                                spacing: designStyle == .brutalist
+                                    ? AppTheme.BrutalistSpacing.xs : AppTheme.Spacing.xs
+                            ) {
                                 if question.templateID != nil {
                                     sourceBadge(
                                         label: "Template", systemImage: "text.book.closed",
@@ -1283,8 +1743,15 @@ struct GoalCreationView: View {
                         }
                         if let detail = detail(for: question) {
                             Text(detail)
-                                .font(AppTheme.Typography.caption)
-                                .foregroundStyle(.secondary)
+                                .font(
+                                    designStyle == .brutalist
+                                        ? AppTheme.BrutalistTypography.caption
+                                        : AppTheme.Typography.caption
+                                )
+                                .foregroundStyle(
+                                    designStyle == .brutalist
+                                        ? AppTheme.BrutalistPalette.secondary : Color.secondary
+                                )
                         }
                     }
 
@@ -1323,6 +1790,12 @@ struct GoalCreationView: View {
     }
 
     private func colorForChecklist(isComplete: Bool, isRequired: Bool) -> Color {
+        if designStyle == .brutalist {
+            if isComplete { return AppTheme.BrutalistPalette.accent }
+            return isRequired
+                ? AppTheme.BrutalistPalette.secondary
+                : AppTheme.BrutalistPalette.foreground.opacity(0.6)
+        }
         if isComplete { return .green }
         return isRequired ? Color.orange : .secondary
     }
@@ -1687,21 +2160,42 @@ struct GoalCreationView: View {
                         }
                     }
 
-                    Button {
-                        Haptics.selection()
-                        let forceRegeneration = !viewModel.suggestions.isEmpty
-                        withAnimation(.spring(response: 0.45, dampingFraction: 0.82)) {
-                            viewModel.loadSuggestions(force: forceRegeneration)
+                    Group {
+                        if designStyle == .brutalist {
+                            Button {
+                                Haptics.selection()
+                                let forceRegeneration = !viewModel.suggestions.isEmpty
+                                withAnimation(.spring(response: 0.45, dampingFraction: 0.82)) {
+                                    viewModel.loadSuggestions(force: forceRegeneration)
+                                }
+                            } label: {
+                                Label(
+                                    viewModel.suggestions.isEmpty
+                                        ? "Generate suggestions" : "Regenerate suggestions",
+                                    systemImage: "sparkles"
+                                )
+                                .font(AppTheme.BrutalistTypography.bodyBold)
+                                .textCase(.uppercase)
+                            }
+                            .brutalistButton(style: .primary)
+                        } else {
+                            Button {
+                                Haptics.selection()
+                                let forceRegeneration = !viewModel.suggestions.isEmpty
+                                withAnimation(.spring(response: 0.45, dampingFraction: 0.82)) {
+                                    viewModel.loadSuggestions(force: forceRegeneration)
+                                }
+                            } label: {
+                                Label(
+                                    viewModel.suggestions.isEmpty
+                                        ? "Generate suggestions" : "Regenerate suggestions",
+                                    systemImage: "sparkles"
+                                )
+                                .font(AppTheme.Typography.bodyStrong)
+                            }
+                            .buttonStyle(.primaryProminent)
                         }
-                    } label: {
-                        Label(
-                            viewModel.suggestions.isEmpty
-                                ? "Generate suggestions" : "Regenerate suggestions",
-                            systemImage: "sparkles"
-                        )
-                        .font(AppTheme.Typography.bodyStrong)
                     }
-                    .buttonStyle(.primaryProminent)
                     .disabled(viewModel.isLoadingSuggestions)
 
                     if let error = viewModel.suggestionError, !error.isEmpty {
@@ -1739,35 +2233,78 @@ private struct TemplateCard: View {
     let template: PromptTemplate
     let isApplied: Bool
     let action: () -> Void
+    @Environment(\.designStyle) private var designStyle
 
     var body: some View {
         Button(action: action) {
-            HStack(alignment: .top, spacing: AppTheme.Spacing.md) {
+            HStack(
+                alignment: .top,
+                spacing: designStyle == .brutalist
+                    ? AppTheme.BrutalistSpacing.md : AppTheme.Spacing.md
+            ) {
                 Image(systemName: template.iconName)
-                    .font(.title2.weight(.semibold))
-                    .foregroundStyle(AppTheme.Palette.primary)
+                    .font(
+                        designStyle == .brutalist
+                            ? AppTheme.BrutalistTypography.headline : .title2.weight(.semibold)
+                    )
+                    .foregroundStyle(
+                        designStyle == .brutalist
+                            ? AppTheme.BrutalistPalette.accent : AppTheme.Palette.primary
+                    )
                     .frame(width: 32, height: 32)
 
                 VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
                     Text(template.title)
-                        .font(AppTheme.Typography.bodyStrong)
+                        .font(
+                            designStyle == .brutalist
+                                ? AppTheme.BrutalistTypography.bodyBold
+                                : AppTheme.Typography.bodyStrong
+                        )
                     Text(template.subtitle)
-                        .font(AppTheme.Typography.caption)
-                        .foregroundStyle(.secondary)
+                        .font(
+                            designStyle == .brutalist
+                                ? AppTheme.BrutalistTypography.caption : AppTheme.Typography.caption
+                        )
+                        .foregroundStyle(
+                            designStyle == .brutalist
+                                ? AppTheme.BrutalistPalette.secondary : Color.secondary
+                        )
                 }
 
                 Spacer()
 
                 if isApplied {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(AppTheme.Palette.primary)
-                        .font(.title2)
+                        .foregroundStyle(
+                            designStyle == .brutalist
+                                ? AppTheme.BrutalistPalette.accent : AppTheme.Palette.primary
+                        )
+                        .font(
+                            designStyle == .brutalist
+                                ? AppTheme.BrutalistTypography.headline : .title2)
                 }
             }
-            .padding(AppTheme.Spacing.md)
+            .padding(designStyle == .brutalist ? AppTheme.BrutalistSpacing.md : AppTheme.Spacing.md)
             .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(AppTheme.Palette.surface)
+                designStyle == .brutalist
+                    ? AppTheme.BrutalistPalette.background
+                    : AppTheme.Palette.surface
+            )
+            .overlay(
+                Group {
+                    if designStyle == .brutalist {
+                        Rectangle()
+                            .stroke(
+                                isApplied
+                                    ? AppTheme.BrutalistPalette.accent
+                                    : AppTheme.BrutalistPalette.border,
+                                lineWidth: AppTheme.BrutalistBorder.standard
+                            )
+                    } else {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(AppTheme.Palette.neutralBorder, lineWidth: 1)
+                    }
+                }
             )
         }
         .buttonStyle(.plain)
@@ -1779,49 +2316,107 @@ private struct TemplateCard: View {
 private struct AISuggestionCard: View {
     let suggestion: GoalSuggestion
     let action: () -> Void
+    @Environment(\.designStyle) private var designStyle
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+            VStack(
+                alignment: .leading,
+                spacing: designStyle == .brutalist
+                    ? AppTheme.BrutalistSpacing.sm : AppTheme.Spacing.sm
+            ) {
                 Text(suggestion.prompt)
-                    .font(AppTheme.Typography.bodyStrong)
+                    .font(
+                        designStyle == .brutalist
+                            ? AppTheme.BrutalistTypography.bodyBold : AppTheme.Typography.bodyStrong
+                    )
                     .multilineTextAlignment(.leading)
 
-                HStack(spacing: AppTheme.Spacing.sm) {
+                HStack(
+                    spacing: designStyle == .brutalist
+                        ? AppTheme.BrutalistSpacing.sm : AppTheme.Spacing.sm
+                ) {
                     responseTypeBadge
                     if !suggestion.options.isEmpty {
                         Text(optionSummary)
-                            .font(AppTheme.Typography.caption)
-                            .foregroundStyle(.secondary)
+                            .font(
+                                designStyle == .brutalist
+                                    ? AppTheme.BrutalistTypography.caption
+                                    : AppTheme.Typography.caption
+                            )
+                            .foregroundStyle(
+                                designStyle == .brutalist
+                                    ? AppTheme.BrutalistPalette.secondary : Color.secondary
+                            )
                     }
                 }
 
                 if !suggestion.options.isEmpty {
                     Text("Options: \(suggestion.options.joined(separator: ", "))")
-                        .font(AppTheme.Typography.caption)
-                        .foregroundStyle(.secondary)
+                        .font(
+                            designStyle == .brutalist
+                                ? AppTheme.BrutalistTypography.caption : AppTheme.Typography.caption
+                        )
+                        .foregroundStyle(
+                            designStyle == .brutalist
+                                ? AppTheme.BrutalistPalette.secondary : Color.secondary
+                        )
                 }
 
                 if let rationale = suggestion.rationale, !rationale.isEmpty {
                     Text(rationale)
-                        .font(AppTheme.Typography.caption)
-                        .foregroundStyle(.secondary)
+                        .font(
+                            designStyle == .brutalist
+                                ? AppTheme.BrutalistTypography.caption : AppTheme.Typography.caption
+                        )
+                        .foregroundStyle(
+                            designStyle == .brutalist
+                                ? AppTheme.BrutalistPalette.secondary : Color.secondary
+                        )
                 }
 
-                HStack(spacing: AppTheme.Spacing.xs) {
+                HStack(
+                    spacing: designStyle == .brutalist
+                        ? AppTheme.BrutalistSpacing.xs : AppTheme.Spacing.xs
+                ) {
                     Label("Add to goal", systemImage: "plus.circle.fill")
-                        .font(AppTheme.Typography.caption.weight(.semibold))
+                        .font(
+                            designStyle == .brutalist
+                                ? AppTheme.BrutalistTypography.caption : AppTheme.Typography.caption
+                        )
+                        .fontWeight(.semibold)
                     Spacer(minLength: 0)
                     Image(systemName: "chevron.right")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                        .font(
+                            designStyle == .brutalist
+                                ? AppTheme.BrutalistTypography.caption : AppTheme.Typography.caption
+                        )
+                        .fontWeight(.semibold)
+                        .foregroundStyle(
+                            designStyle == .brutalist
+                                ? AppTheme.BrutalistPalette.secondary : Color.secondary
+                        )
                 }
             }
-            .padding(AppTheme.Spacing.md)
+            .padding(designStyle == .brutalist ? AppTheme.BrutalistSpacing.md : AppTheme.Spacing.md)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(AppTheme.Palette.surface)
+                designStyle == .brutalist
+                    ? AppTheme.BrutalistPalette.background
+                    : AppTheme.Palette.surface
+            )
+            .overlay(
+                Group {
+                    if designStyle == .brutalist {
+                        Rectangle()
+                            .stroke(
+                                AppTheme.BrutalistPalette.border,
+                                lineWidth: AppTheme.BrutalistBorder.standard)
+                    } else {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(AppTheme.Palette.neutralBorder, lineWidth: 1)
+                    }
+                }
             )
         }
         .buttonStyle(.plain)
@@ -1830,14 +2425,41 @@ private struct AISuggestionCard: View {
 
     private var responseTypeBadge: some View {
         Text(suggestion.responseType.displayName)
-            .font(AppTheme.Typography.caption.weight(.semibold))
-            .padding(.horizontal, AppTheme.Spacing.sm)
-            .padding(.vertical, AppTheme.Spacing.xs)
-            .background(
-                Capsule(style: .continuous)
-                    .fill(AppTheme.Palette.primary.opacity(0.12))
+            .font(
+                designStyle == .brutalist
+                    ? AppTheme.BrutalistTypography.caption : AppTheme.Typography.caption
             )
-            .foregroundStyle(AppTheme.Palette.primary)
+            .fontWeight(.semibold)
+            .padding(
+                .horizontal,
+                designStyle == .brutalist ? AppTheme.BrutalistSpacing.sm : AppTheme.Spacing.sm
+            )
+            .padding(
+                .vertical,
+                designStyle == .brutalist ? AppTheme.BrutalistSpacing.xs : AppTheme.Spacing.xs
+            )
+            .background(
+                designStyle == .brutalist
+                    ? AppTheme.BrutalistPalette.background
+                    : AppTheme.Palette.primary.opacity(0.12)
+            )
+            .overlay(
+                Group {
+                    if designStyle == .brutalist {
+                        Rectangle()
+                            .stroke(
+                                AppTheme.BrutalistPalette.accent,
+                                lineWidth: AppTheme.BrutalistBorder.standard)
+                    } else {
+                        Capsule(style: .continuous)
+                            .stroke(AppTheme.Palette.primary, lineWidth: 1)
+                    }
+                }
+            )
+            .foregroundStyle(
+                designStyle == .brutalist
+                    ? AppTheme.BrutalistPalette.accent : AppTheme.Palette.primary
+            )
     }
 
     private var optionSummary: String {
@@ -1847,26 +2469,52 @@ private struct AISuggestionCard: View {
 
 struct ConflictBanner: View {
     let message: String
+    @Environment(\.designStyle) private var designStyle
 
     var body: some View {
-        HStack(spacing: AppTheme.Spacing.sm) {
+        HStack(
+            spacing: designStyle == .brutalist ? AppTheme.BrutalistSpacing.sm : AppTheme.Spacing.sm
+        ) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(Color.orange)
+                .foregroundStyle(
+                    designStyle == .brutalist
+                        ? AppTheme.BrutalistPalette.accent : Color.orange
+                )
             Text(message)
-                .font(AppTheme.Typography.caption)
+                .font(
+                    designStyle == .brutalist
+                        ? AppTheme.BrutalistTypography.caption : AppTheme.Typography.caption
+                )
         }
-        .padding(AppTheme.Spacing.md)
+        .padding(designStyle == .brutalist ? AppTheme.BrutalistSpacing.md : AppTheme.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.orange.opacity(0.12))
+            designStyle == .brutalist
+                ? AppTheme.BrutalistPalette.background
+                : Color.orange.opacity(0.12)
         )
-        .padding(.horizontal, AppTheme.Spacing.xl)
+        .overlay(
+            Group {
+                if designStyle == .brutalist {
+                    Rectangle()
+                        .stroke(
+                            AppTheme.BrutalistPalette.accent,
+                            lineWidth: AppTheme.BrutalistBorder.standard)
+                } else {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(Color.orange.opacity(0.3), lineWidth: 1)
+                }
+            }
+        )
+        .padding(
+            .horizontal,
+            designStyle == .brutalist ? AppTheme.BrutalistSpacing.xl : AppTheme.Spacing.xl)
     }
 }
 
 struct WeekdaySelector: View {
     @Binding var selectedWeekdays: Set<Weekday>
+    @Environment(\.designStyle) private var designStyle
 
     var body: some View {
         LazyVGrid(
@@ -1885,21 +2533,48 @@ struct WeekdaySelector: View {
                     Haptics.selection()
                 } label: {
                     Text(weekday.shortDisplayName)
-                        .font(AppTheme.Typography.caption.weight(.semibold))
-                        .padding(.vertical, AppTheme.Spacing.sm)
+                        .font(
+                            designStyle == .brutalist
+                                ? AppTheme.BrutalistTypography.caption : AppTheme.Typography.caption
+                        )
+                        .fontWeight(.semibold)
+                        .padding(
+                            .vertical,
+                            designStyle == .brutalist
+                                ? AppTheme.BrutalistSpacing.sm : AppTheme.Spacing.sm
+                        )
                         .frame(maxWidth: .infinity)
                         .background(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(
-                                    isSelected ? AppTheme.Palette.primary : AppTheme.Palette.surface
-                                )
-                                .overlay(
+                            designStyle == .brutalist
+                                ? (isSelected
+                                    ? AppTheme.BrutalistPalette.accent
+                                    : AppTheme.BrutalistPalette.background)
+                                : AppTheme.Palette.surface
+                        )
+                        .overlay(
+                            Group {
+                                if designStyle == .brutalist {
+                                    Rectangle()
+                                        .stroke(
+                                            isSelected
+                                                ? AppTheme.BrutalistPalette.border
+                                                : AppTheme.BrutalistPalette.border.opacity(0.6),
+                                            lineWidth: AppTheme.BrutalistBorder.standard
+                                        )
+                                } else {
                                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                                         .stroke(
                                             AppTheme.Palette.outline, lineWidth: isSelected ? 0 : 1)
-                                )
+                                }
+                            }
                         )
-                        .foregroundStyle(isSelected ? Color.white : .primary)
+                        .foregroundStyle(
+                            designStyle == .brutalist
+                                ? (isSelected
+                                    ? AppTheme.BrutalistPalette.background
+                                    : AppTheme.BrutalistPalette.foreground)
+                                : (isSelected ? Color.white : .primary)
+                        )
                 }
                 .buttonStyle(.plain)
             }
