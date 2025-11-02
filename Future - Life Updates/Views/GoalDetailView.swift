@@ -293,7 +293,6 @@ struct GoalDetailView: View {
         .frame(maxWidth: .infinity)
     }
 
-
     private var toggleGoalChip: some View {
         Button(goal.isActive ? "Pause Goal" : "Activate Goal") {
             toggleGoalState()
@@ -451,7 +450,8 @@ struct GoalDetailView: View {
             times
             .map { $0.formattedTime(in: timezone) }
             .joined(separator: ", ")
-        let abbreviation = timezone.abbreviation()
+        let abbreviation =
+            timezone.abbreviation()
             ?? timezone.localizedName(for: .shortGeneric, locale: .current)
             ?? timezone.identifier
 

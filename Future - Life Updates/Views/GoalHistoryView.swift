@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct GoalHistoryView: View {
     @Environment(\.designStyle) private var designStyle
@@ -9,7 +9,8 @@ struct GoalHistoryView: View {
 
     init(goal: TrackingGoal, modelContext: ModelContext) {
         self._goal = Bindable(goal)
-        self._viewModel = State(initialValue: GoalHistoryViewModel(goal: goal, modelContext: modelContext))
+        self._viewModel = State(
+            initialValue: GoalHistoryViewModel(goal: goal, modelContext: modelContext))
     }
 
     var body: some View {
@@ -75,7 +76,9 @@ struct GoalHistoryView: View {
                         .background(AppTheme.BrutalistPalette.background)
                         .overlay(
                             Rectangle()
-                                .stroke(AppTheme.BrutalistPalette.border, lineWidth: AppTheme.BrutalistBorder.standard)
+                                .stroke(
+                                    AppTheme.BrutalistPalette.border,
+                                    lineWidth: AppTheme.BrutalistBorder.standard)
                         )
                 } else {
                     ForEach(viewModel.sections) { section in
@@ -85,7 +88,8 @@ struct GoalHistoryView: View {
                                 .foregroundColor(AppTheme.BrutalistPalette.secondary)
 
                             VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
-                                ForEach(Array(section.entries.enumerated()), id: \.element.id) { index, entry in
+                                ForEach(Array(section.entries.enumerated()), id: \.element.id) {
+                                    index, entry in
                                     brutalistHistoryRow(entry)
 
                                     if index < section.entries.count - 1 {

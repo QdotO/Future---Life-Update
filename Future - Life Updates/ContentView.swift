@@ -355,13 +355,17 @@ private struct BrutalistInsightsFeed: View {
     private var recentEntries: [RecentLogEntry] {
         guard !goals.isEmpty else { return [] }
         let now = Date()
-        return allDataPoints
+        return
+            allDataPoints
             .sorted(by: { $0.timestamp > $1.timestamp })
             .prefix(6)
             .compactMap { dataPoint in
-                guard let goalTitle = dataPoint.goal?.title ?? goals.first(where: {
-                    $0.id == dataPoint.goal?.id
-                })?.title else {
+                guard
+                    let goalTitle = dataPoint.goal?.title
+                        ?? goals.first(where: {
+                            $0.id == dataPoint.goal?.id
+                        })?.title
+                else {
                     return nil
                 }
 
@@ -444,7 +448,9 @@ private struct BrutalistInsightsFeed: View {
         if let numeric = dataPoint.numericValue {
             return Self.numberFormatter.string(from: NSNumber(value: numeric)) ?? "--"
         }
-        if let text = dataPoint.textValue, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if let text = dataPoint.textValue,
+            !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        {
             return text
         }
         return "--"
@@ -1208,124 +1214,19 @@ private struct SettingsRootView: View {
     @State private var alertInfo: SettingsAlert?
 
     var body: some View {
-        List {
-            Section("Notifications") {
-                Toggle(isOn: $sendDailyDigest) {
-                    Text("Daily summary digest")
-                }
-                Toggle(isOn: $allowNotificationPreviews) {
-                    Text("Allow reminder previews")
-                }
-
-                NavigationLink {
-                    SendTestNotificationView()
-                } label: {
-                    Label("Send test notification", systemImage: "paperplane")
-                }
-
-                Text("Pick a goal and we'll send a one-off reminder to confirm delivery.")
-                    .font(AppTheme.Typography.caption)
-                    .foregroundStyle(.secondary)
+        ScrollView {
+            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.lg) {
+                notificationsCard
+                dataManagementCard
+                supportCard
+                aboutCard
+                #if DEBUG
+                    debugCard
+                #endif
             }
-
-            Section("Data management") {
-                Button {
-                    handleExport()
-                } label: {
-                    Label("Export data", systemImage: "square.and.arrow.up")
-                }
-                .disabled(isProcessing || settingsViewModel == nil)
-
-                Text("Save a backup of your goals and history to Files.")
-                    .font(AppTheme.Typography.caption)
-                    .foregroundStyle(.secondary)
-
-                Button {
-                    isPresentingImporter = true
-                } label: {
-                    Label("Import data", systemImage: "square.and.arrow.down")
-                }
-                .disabled(isProcessing || settingsViewModel == nil)
-
-                Text("Restore a previous backup. Existing data will be replaced.")
-                    .font(AppTheme.Typography.caption)
-                    .foregroundStyle(.secondary)
-
-                NavigationLink {
-                    TrashInboxView()
-                } label: {
-                    Label("Trash", systemImage: "trash")
-                }
-
-                Text("Restore deleted goals within 30 days.")
-                    .font(AppTheme.Typography.caption)
-                    .foregroundStyle(.secondary)
-
-                NavigationLink {
-                    BackupMergeView()
-                } label: {
-                    Label("Merge Backups (Advanced)", systemImage: "arrow.triangle.merge")
-                }
-
-                Text("Combine two backup files into one.")
-                    .font(AppTheme.Typography.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Section("Support") {
-                Link(destination: URL(string: "https://future.life/support")!) {
-                    Label("Help Center", systemImage: "questionmark.circle")
-                }
-                Link(destination: URL(string: "https://future.life/privacy")!) {
-                    Label("Privacy Policy", systemImage: "lock.shield")
-                }
-            }
-
-            Section("About") {
-                VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
-                    Text("Future – Life Updates")
-                        .font(AppTheme.Typography.bodyStrong)
-                    Text("Build 26.0")
-                        .font(AppTheme.Typography.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            #if DEBUG
-                Section("Debug") {
-                    NavigationLink {
-                        NotificationInspectorView()
-                    } label: {
-                        Label("Notification Inspector", systemImage: "bell.badge")
-                    }
-                    Text("View and manage all scheduled notifications.")
-                        .font(AppTheme.Typography.caption)
-                        .foregroundStyle(.secondary)
-
-                    if #available(iOS 18.0, macOS 15.0, watchOS 11.0, tvOS 18.0, visionOS 2.0, *) {
-                        NavigationLink {
-                            DebugAIChatView()
-                        } label: {
-                            Label("AI Debug Chat", systemImage: "bubble.left.and.bubble.right")
-                        }
-                        Text("Inspect Apple Intelligence responses in a local conversation.")
-                            .font(AppTheme.Typography.caption)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Label(
-                            "AI Debug Chat requires the latest OS",
-                            systemImage: "exclamationmark.triangle"
-                        )
-                        .font(AppTheme.Typography.caption)
-                        .foregroundStyle(.secondary)
-                    }
-                }
-            #endif
+            .padding(AppTheme.BrutalistSpacing.md)
         }
-        #if os(iOS)
-            .listStyle(.insetGrouped)
-        #else
-            .listStyle(.inset)
-        #endif
+        .background(AppTheme.BrutalistPalette.background)
         .task {
             if settingsViewModel == nil {
                 settingsViewModel = SettingsViewModel(modelContext: modelContext)
@@ -1386,6 +1287,249 @@ private struct SettingsRootView: View {
             )
         }
     }
+
+    // MARK: - Brutalist Cards
+
+    private var notificationsCard: some View {
+        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
+            Text("Notifications".uppercased())
+                .font(AppTheme.BrutalistTypography.overline)
+                .foregroundColor(AppTheme.BrutalistPalette.secondary)
+
+            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
+                Toggle(isOn: $sendDailyDigest) {
+                    Text("Daily summary digest")
+                        .font(AppTheme.BrutalistTypography.body)
+                }
+                Toggle(isOn: $allowNotificationPreviews) {
+                    Text("Allow reminder previews")
+                        .font(AppTheme.BrutalistTypography.body)
+                }
+
+                Rectangle()
+                    .fill(AppTheme.BrutalistPalette.border.opacity(0.25))
+                    .frame(height: 1)
+                    .padding(.vertical, AppTheme.BrutalistSpacing.xs)
+
+                NavigationLink {
+                    SendTestNotificationView()
+                        .environment(\.designStyle, .brutalist)
+                } label: {
+                    HStack(spacing: AppTheme.BrutalistSpacing.sm) {
+                        Image(systemName: "paperplane")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text("SEND TEST NOTIFICATION")
+                            .font(AppTheme.BrutalistTypography.captionMono)
+                    }
+                }
+                .buttonStyle(.plain)
+
+                Text("Pick a goal and we'll send a one-off reminder to confirm delivery.")
+                    .font(AppTheme.BrutalistTypography.caption)
+                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
+            }
+        }
+        .brutalistCard()
+    }
+
+    private var dataManagementCard: some View {
+        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
+            Text("Data management".uppercased())
+                .font(AppTheme.BrutalistTypography.overline)
+                .foregroundColor(AppTheme.BrutalistPalette.secondary)
+
+            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
+                HStack {
+                    Button(action: handleExport) {
+                        HStack(spacing: AppTheme.BrutalistSpacing.micro) {
+                            Image(systemName: "square.and.arrow.up")
+                                .font(.system(size: 14, weight: .semibold))
+                            Text("EXPORT DATA")
+                                .font(AppTheme.BrutalistTypography.captionMono)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isProcessing || settingsViewModel == nil)
+                    Spacer()
+                }
+                Text("Save a backup of your goals and history to Files.")
+                    .font(AppTheme.BrutalistTypography.caption)
+                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
+
+                Rectangle()
+                    .fill(AppTheme.BrutalistPalette.border.opacity(0.25))
+                    .frame(height: 1)
+                    .padding(.vertical, AppTheme.BrutalistSpacing.xs)
+
+                HStack {
+                    Button {
+                        isPresentingImporter = true
+                    } label: {
+                        HStack(spacing: AppTheme.BrutalistSpacing.micro) {
+                            Image(systemName: "square.and.arrow.down")
+                                .font(.system(size: 14, weight: .semibold))
+                            Text("IMPORT DATA")
+                                .font(AppTheme.BrutalistTypography.captionMono)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isProcessing || settingsViewModel == nil)
+                    Spacer()
+                }
+                Text("Restore a previous backup. Existing data will be replaced.")
+                    .font(AppTheme.BrutalistTypography.caption)
+                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
+
+                Rectangle()
+                    .fill(AppTheme.BrutalistPalette.border.opacity(0.25))
+                    .frame(height: 1)
+                    .padding(.vertical, AppTheme.BrutalistSpacing.xs)
+
+                NavigationLink {
+                    TrashInboxView().environment(\.designStyle, .brutalist)
+                } label: {
+                    HStack(spacing: AppTheme.BrutalistSpacing.sm) {
+                        Image(systemName: "trash")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text("TRASH")
+                            .font(AppTheme.BrutalistTypography.captionMono)
+                    }
+                }
+                .buttonStyle(.plain)
+                Text("Restore deleted goals within 30 days.")
+                    .font(AppTheme.BrutalistTypography.caption)
+                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
+
+                Rectangle()
+                    .fill(AppTheme.BrutalistPalette.border.opacity(0.25))
+                    .frame(height: 1)
+                    .padding(.vertical, AppTheme.BrutalistSpacing.xs)
+
+                NavigationLink {
+                    BackupMergeView().environment(\.designStyle, .brutalist)
+                } label: {
+                    HStack(spacing: AppTheme.BrutalistSpacing.sm) {
+                        Image(systemName: "arrow.triangle.merge")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text("MERGE BACKUPS (ADVANCED)")
+                            .font(AppTheme.BrutalistTypography.captionMono)
+                    }
+                }
+                .buttonStyle(.plain)
+                Text("Combine two backup files into one.")
+                    .font(AppTheme.BrutalistTypography.caption)
+                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
+            }
+        }
+        .brutalistCard()
+    }
+
+    private var supportCard: some View {
+        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
+            Text("Support".uppercased())
+                .font(AppTheme.BrutalistTypography.overline)
+                .foregroundColor(AppTheme.BrutalistPalette.secondary)
+
+            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
+                Link(destination: URL(string: "https://future.life/support")!) {
+                    HStack(spacing: AppTheme.BrutalistSpacing.sm) {
+                        Image(systemName: "questionmark.circle")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text("HELP CENTER")
+                            .font(AppTheme.BrutalistTypography.captionMono)
+                    }
+                }
+
+                Rectangle()
+                    .fill(AppTheme.BrutalistPalette.border.opacity(0.25))
+                    .frame(height: 1)
+                    .padding(.vertical, AppTheme.BrutalistSpacing.xs)
+
+                Link(destination: URL(string: "https://future.life/privacy")!) {
+                    HStack(spacing: AppTheme.BrutalistSpacing.sm) {
+                        Image(systemName: "lock.shield")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text("PRIVACY POLICY")
+                            .font(AppTheme.BrutalistTypography.captionMono)
+                    }
+                }
+            }
+        }
+        .brutalistCard()
+    }
+
+    private var aboutCard: some View {
+        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
+            Text("About".uppercased())
+                .font(AppTheme.BrutalistTypography.overline)
+                .foregroundColor(AppTheme.BrutalistPalette.secondary)
+            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.xs) {
+                Text("Future – Life Updates")
+                    .font(AppTheme.BrutalistTypography.bodyBold)
+                Text("Build 26.0")
+                    .font(AppTheme.BrutalistTypography.caption)
+                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
+            }
+        }
+        .brutalistCard()
+    }
+
+    #if DEBUG
+        private var debugCard: some View {
+            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
+                Text("Debug".uppercased())
+                    .font(AppTheme.BrutalistTypography.overline)
+                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
+
+                NavigationLink {
+                    NotificationInspectorView().environment(\.designStyle, .brutalist)
+                } label: {
+                    HStack(spacing: AppTheme.BrutalistSpacing.sm) {
+                        Image(systemName: "bell.badge")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text("NOTIFICATION INSPECTOR")
+                            .font(AppTheme.BrutalistTypography.captionMono)
+                    }
+                }
+                .buttonStyle(.plain)
+                Text("View and manage all scheduled notifications.")
+                    .font(AppTheme.BrutalistTypography.caption)
+                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
+
+                Rectangle()
+                    .fill(AppTheme.BrutalistPalette.border.opacity(0.25))
+                    .frame(height: 1)
+                    .padding(.vertical, AppTheme.BrutalistSpacing.xs)
+
+                Group {
+                    if #available(iOS 18.0, macOS 15.0, watchOS 11.0, tvOS 18.0, visionOS 2.0, *) {
+                        NavigationLink {
+                            DebugAIChatView().environment(\.designStyle, .brutalist)
+                        } label: {
+                            HStack(spacing: AppTheme.BrutalistSpacing.sm) {
+                                Image(systemName: "bubble.left.and.bubble.right")
+                                    .font(.system(size: 14, weight: .semibold))
+                                Text("AI DEBUG CHAT")
+                                    .font(AppTheme.BrutalistTypography.captionMono)
+                            }
+                        }
+                        Text("Inspect Apple Intelligence responses in a local conversation.")
+                            .font(AppTheme.BrutalistTypography.caption)
+                            .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                    } else {
+                        HStack(spacing: AppTheme.BrutalistSpacing.sm) {
+                            Image(systemName: "exclamationmark.triangle")
+                                .font(.system(size: 14, weight: .semibold))
+                            Text("AI DEBUG CHAT REQUIRES THE LATEST OS")
+                                .font(AppTheme.BrutalistTypography.captionMono)
+                        }
+                        .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                    }
+                }
+            }
+            .brutalistCard()
+        }
+    #endif
 
     private func handleExport() {
         guard let viewModel = settingsViewModel else { return }

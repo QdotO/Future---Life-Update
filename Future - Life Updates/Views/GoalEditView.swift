@@ -86,7 +86,10 @@ struct GoalEditView: View {
             VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
                 brutalistFieldLabel("Category")
 
-                LazyVGrid(columns: categoryColumns, alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
+                LazyVGrid(
+                    columns: categoryColumns, alignment: .leading,
+                    spacing: AppTheme.BrutalistSpacing.sm
+                ) {
                     ForEach(categoryOptionsToDisplay) { option in
                         brutalistCategoryButton(for: option)
                     }
@@ -152,7 +155,9 @@ struct GoalEditView: View {
         return viewModel.overflowCategoryOptions.contains(selectedOption)
     }
 
-    private func brutalistCategoryButton(for option: GoalCreationViewModel.CategoryOption) -> some View {
+    private func brutalistCategoryButton(for option: GoalCreationViewModel.CategoryOption)
+        -> some View
+    {
         let isSelected = isOptionSelected(option)
 
         return Button {
@@ -175,7 +180,8 @@ struct GoalEditView: View {
             return viewModel.selectedCategory == category
         case .custom(let label):
             guard viewModel.selectedCategory == .custom else { return false }
-            let trimmedLabel = viewModel.customCategoryLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+            let trimmedLabel = viewModel.customCategoryLabel.trimmingCharacters(
+                in: .whitespacesAndNewlines)
             return !trimmedLabel.isEmpty
                 && trimmedLabel.caseInsensitiveCompare(label) == .orderedSame
         }
@@ -248,7 +254,9 @@ struct GoalEditView: View {
         .brutalistCard()
     }
 
-    private func brutalistQuestionEditor(for draft: Binding<GoalEditorViewModel.QuestionDraft>) -> some View {
+    private func brutalistQuestionEditor(for draft: Binding<GoalEditorViewModel.QuestionDraft>)
+        -> some View
+    {
         let draftID = draft.wrappedValue.id
 
         return VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
@@ -298,7 +306,9 @@ struct GoalEditView: View {
     }
 
     @ViewBuilder
-    private func brutalistQuestionConfiguration(for draft: Binding<GoalEditorViewModel.QuestionDraft>) -> some View {
+    private func brutalistQuestionConfiguration(
+        for draft: Binding<GoalEditorViewModel.QuestionDraft>
+    ) -> some View {
         let draftID = draft.wrappedValue.id
         switch draft.responseType.wrappedValue {
         case .numeric, .scale, .slider, .waterIntake:
@@ -548,7 +558,8 @@ struct GoalEditView: View {
                     .foregroundColor(AppTheme.BrutalistPalette.secondary)
             } else {
                 VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
-                    ForEach(Array(viewModel.scheduleDraft.times.enumerated()), id: \.offset) { index, _ in
+                    ForEach(Array(viewModel.scheduleDraft.times.enumerated()), id: \.offset) {
+                        index, _ in
                         brutalistReminderRow(index: index)
                     }
                 }
@@ -559,7 +570,8 @@ struct GoalEditView: View {
                     Haptics.selection()
                     scheduleError = nil
                     conflictMessage = viewModel.conflictDescription()
-                    newReminderTime = Calendar.current.date(byAdding: .minute, value: 30, to: newReminderTime)
+                    newReminderTime =
+                        Calendar.current.date(byAdding: .minute, value: 30, to: newReminderTime)
                         ?? newReminderTime
                 } else {
                     scheduleError = "Reminders must be at least 5 minutes apart."
@@ -661,7 +673,6 @@ struct GoalEditView: View {
     private func timezoneDisplayName(_ timezone: TimeZone) -> String {
         timezone.localizedName(for: .shortGeneric, locale: .current) ?? timezone.identifier
     }
-
 
     var body: some View {
         NavigationStack {
