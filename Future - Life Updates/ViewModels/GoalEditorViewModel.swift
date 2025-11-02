@@ -6,7 +6,7 @@ import SwiftData
 @Observable
 final class GoalEditorViewModel {
     private enum Constants {
-        static let minimumReminderSpacing: TimeInterval = 5 * 60
+        static let minimumReminderSpacing: Foundation.TimeInterval = 5 * 60
         static let defaultIntervalDays: Int = 3
     }
     enum UpdateError: LocalizedError {
@@ -242,7 +242,7 @@ final class GoalEditorViewModel {
         scheduleDraft.timezone = timezone
     }
 
-    func conflictDescription(window overrideWindow: TimeInterval? = nil) -> String? {
+    func conflictDescription(window overrideWindow: Foundation.TimeInterval? = nil) -> String? {
         guard !scheduleDraft.times.isEmpty else { return nil }
 
         let window = overrideWindow ?? Constants.minimumReminderSpacing

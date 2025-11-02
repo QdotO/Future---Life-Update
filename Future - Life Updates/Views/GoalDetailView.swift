@@ -12,55 +12,20 @@ struct GoalDetailView: View {
     @State private var recentResponses: [DataPoint] = []
 
     var body: some View {
-        List {
-            Section("Overview") {
-                LabeledContent("Status", value: goal.isActive ? "Active" : "Paused")
-                LabeledContent("Category", value: goal.categoryDisplayName)
-                LabeledContent("Schedule", value: formattedSchedule)
-                Button {
-                    NotificationScheduler.shared.sendTestNotification(for: goal)
-                    showingNotificationTestAlert = true
-                } label: {
-                    Label("Send Test Notification", systemImage: "paperplane")
+        ScrollView {
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
+                overviewCard
+                if !goal.questions.isEmpty {
+                    questionsCard
                 }
-                .buttonStyle(.borderless)
-                NavigationLink {
-                    GoalHistoryView(goal: goal, modelContext: modelContext)
-                } label: {
-                    Label("View Full History", systemImage: "clock.arrow.circlepath")
+                if !recentResponses.isEmpty {
+                    recentResponsesCard
                 }
             }
-
-            Section("Questions") {
-                ForEach(goal.questions) { question in
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(question.text)
-                            .font(.headline)
-                        Text(question.responseType.displayName)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-
-            if !recentResponses.isEmpty {
-                Section("Recent Responses") {
-                    ForEach(recentResponses) { point in
-                        VStack(alignment: .leading, spacing: 4) {
-                            if let question = point.question {
-                                Text(question.text)
-                                    .font(.headline)
-                            }
-                            Text(point.timestamp, style: .date)
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                            Text(recentResponseSummary(for: point))
-                                .font(.subheadline)
-                        }
-                    }
-                }
-            }
+            .padding(.horizontal, AppTheme.Spacing.xl)
+            .padding(.vertical, AppTheme.Spacing.lg)
         }
+        .background(AppTheme.Palette.background.ignoresSafeArea())
         .navigationTitle(goal.title)
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
@@ -110,6 +75,141 @@ struct GoalDetailView: View {
         }
         .onChange(of: goal.updatedAt) { _, _ in
             loadRecentResponses()
+        }
+    }
+
+    private var overviewCard: some View {
+        CardBackground {
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
+                VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                    statusRow
+                    infoRow(title: "Category", value: goal.categoryDisplayName)
+                    infoRow(title: "Schedule", value: formattedSchedule)
+                }
+
+                Divider()
+
+                VStack(spacing: AppTheme.Spacing.sm) {
+                    Button {
+                        presentingDataEntry = true
+                    } label: {
+                        Label("Log Entry", systemImage: "square.and.pencil")
+                    }
+                    .buttonStyle(.brutalistPrimary)
+
+                    Button {
+                        NotificationScheduler.shared.sendTestNotification(for: goal)
+                        showingNotificationTestAlert = true
+                    } label: {
+                        Label("Send Test Notification", systemImage: "paperplane")
+                    }
+                    .buttonStyle(.brutalistSecondary)
+
+                    NavigationLink {
+                        GoalHistoryView(goal: goal, modelContext: modelContext)
+                    } label: {
+                        BrutalistNavigationRow(
+                            title: "View full history", systemImage: "clock.arrow.circlepath")
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private var questionsCard: some View {
+        CardBackground {
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+                Text("Questions")
+                    .font(AppTheme.Typography.sectionHeader)
+
+                VStack(spacing: AppTheme.Spacing.md) {
+                    ForEach(Array(goal.questions.enumerated()), id: \.element.id) {
+                        index, question in
+                        VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+                            Text(question.text)
+                                .font(AppTheme.Typography.bodyStrong)
+                            Text(question.responseType.displayName)
+                                .font(AppTheme.Typography.caption)
+                                .foregroundStyle(AppTheme.Palette.neutralSubdued)
+                        }
+
+                        if index < goal.questions.count - 1 {
+                            Divider()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var recentResponsesCard: some View {
+        CardBackground {
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+                Text("Recent responses")
+                    .font(AppTheme.Typography.sectionHeader)
+
+                VStack(spacing: AppTheme.Spacing.md) {
+                    ForEach(Array(recentResponses.enumerated()), id: \.element.id) { index, point in
+                        VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+                            if let question = point.question {
+                                Text(question.text)
+                                    .font(AppTheme.Typography.bodyStrong)
+                            }
+                            Text(point.timestamp, style: .date)
+                                .font(AppTheme.Typography.caption)
+                                .foregroundStyle(AppTheme.Palette.neutralSubdued)
+                            Text(recentResponseSummary(for: point))
+                                .font(AppTheme.Typography.body)
+                                .foregroundStyle(AppTheme.Palette.neutralStrong)
+                        }
+
+                        if index < recentResponses.count - 1 {
+                            Divider()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var statusRow: some View {
+        HStack(spacing: AppTheme.Spacing.sm) {
+            statusBadge
+            if let updatedLabel = lastUpdatedLabel {
+                Text(updatedLabel)
+                    .font(AppTheme.Typography.caption)
+                    .foregroundStyle(AppTheme.Palette.neutralSubdued)
+            }
+        }
+    }
+
+    private var statusBadge: some View {
+        Text(goal.isActive ? "Active" : "Paused")
+            .font(AppTheme.Typography.caption.weight(.semibold))
+            .padding(.vertical, AppTheme.Spacing.xs)
+            .padding(.horizontal, AppTheme.Spacing.sm)
+            .background(
+                RoundedRectangle(cornerRadius: BorderTokens.CornerRadius.small, style: .continuous)
+                    .fill((goal.isActive ? AppTheme.Palette.primary : Color.orange).opacity(0.12))
+            )
+            .foregroundStyle(goal.isActive ? AppTheme.Palette.primary : Color.orange)
+    }
+
+    private var lastUpdatedLabel: String? {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return "Updated " + formatter.localizedString(for: goal.updatedAt, relativeTo: Date())
+    }
+
+    private func infoRow(title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+            Text(title.uppercased())
+                .font(AppTheme.Typography.caption.weight(.semibold))
+                .foregroundStyle(AppTheme.Palette.neutralSubdued)
+            Text(value)
+                .font(AppTheme.Typography.body)
+                .foregroundStyle(AppTheme.Palette.neutralStrong)
         }
     }
 
@@ -245,6 +345,34 @@ struct GoalDetailView: View {
                 "GoalDetail recent fetch failed: \(error.localizedDescription, privacy: .public)")
             trace.end(extraMetadata: ["error": error.localizedDescription])
         }
+    }
+}
+
+private struct BrutalistNavigationRow: View {
+    let title: String
+    let systemImage: String
+
+    var body: some View {
+        HStack(spacing: AppTheme.Spacing.md) {
+            Label(title, systemImage: systemImage)
+                .font(AppTheme.Typography.bodyStrong)
+                .labelStyle(.titleAndIcon)
+            Spacer(minLength: AppTheme.Spacing.lg)
+            Image(systemName: "chevron.right")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(AppTheme.Palette.neutralSubdued)
+        }
+        .padding(.vertical, AppTheme.Spacing.md)
+        .padding(.horizontal, AppTheme.Spacing.lg)
+        .background(
+            RoundedRectangle(cornerRadius: BorderTokens.CornerRadius.minimal, style: .continuous)
+                .fill(AppTheme.Palette.surface.opacity(0.65))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: BorderTokens.CornerRadius.minimal, style: .continuous)
+                .stroke(AppTheme.Palette.outline, lineWidth: 1)
+        )
+        .foregroundStyle(AppTheme.Palette.neutralStrong)
     }
 }
 

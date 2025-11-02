@@ -118,14 +118,8 @@ extension View {
 	}
 }
 
-private extension Color {
-	init(hex: UInt) {
-		let red = Double((hex >> 16) & 0xFF) / 255
-		let green = Double((hex >> 8) & 0xFF) / 255
-		let blue = Double(hex & 0xFF) / 255
-		self.init(red: red, green: green, blue: blue)
-	}
 
+private extension Color {
 	init(dynamicLight light: Color, dynamicDark dark: Color) {
 		#if os(iOS)
 		self.init(UIColor { trait in
