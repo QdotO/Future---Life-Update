@@ -6,7 +6,7 @@ import SwiftData
 @Observable
 final class GoalCreationViewModel {
     private enum Constants {
-        static let minimumReminderSpacing: TimeInterval = 5 * 60
+        static let minimumReminderSpacing: Foundation.TimeInterval = 5 * 60
         static let defaultIntervalDays: Int = 3
         static let primaryCategoryLimit: Int = 6
         static let defaultReminderHour: Int = 9
@@ -88,7 +88,7 @@ final class GoalCreationViewModel {
     private let modelContext: ModelContext
     private let dateProvider: () -> Date
     private let calendar: Calendar
-    private static let scheduleCacheTTL: TimeInterval = 30
+    private static let scheduleCacheTTL: Foundation.TimeInterval = 30
 
     var title: String = ""
     var goalDescription: String = ""
@@ -424,7 +424,7 @@ final class GoalCreationViewModel {
         replaceTimes(newTimes)
     }
 
-    func hasConflict(with scheduleTime: ScheduleTime, window overrideWindow: TimeInterval? = nil) -> Bool {
+    func hasConflict(with scheduleTime: ScheduleTime, window overrideWindow: Foundation.TimeInterval? = nil) -> Bool {
         let window = overrideWindow ?? Constants.minimumReminderSpacing
         return scheduleDraft.times.contains { $0.isWithin(window: window, of: scheduleTime) }
     }
@@ -444,7 +444,7 @@ final class GoalCreationViewModel {
         }
     }
 
-    func conflictDescription(window overrideWindow: TimeInterval? = nil) -> String? {
+    func conflictDescription(window overrideWindow: Foundation.TimeInterval? = nil) -> String? {
         guard !scheduleDraft.times.isEmpty else { return nil }
 
         let window = overrideWindow ?? Constants.minimumReminderSpacing

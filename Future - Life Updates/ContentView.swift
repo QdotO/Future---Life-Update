@@ -13,12 +13,14 @@ struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var notificationRouter: NotificationRoutingController
     @Environment(\.scenePhase) private var scenePhase
-    @State private var showingCreateGoal = false
-    @State private var notificationRoute: NotificationRoutingController.Route?
-    @State private var todayViewModel: TodayDashboardViewModel?
-    @State private var selectedTab: Tab = .today
-    @State private var sendDailyDigest = true
+    @State private var goalToDelete: TrackingGoal?
+    @State private var showingDeleteConfirmation = false
+    @State private var sendDailyDigest = false
     @State private var allowNotificationPreviews = true
+    @State private var selectedTab: Tab = .goals
+    @State private var showingCreateGoal = false
+    @State private var todayViewModel: TodayDashboardViewModel?
+    @State private var notificationRoute: NotificationRoutingController.Route?
 
     @Query(sort: \TrackingGoal.updatedAt, order: .reverse)
     private var allGoals: [TrackingGoal]
@@ -48,6 +50,7 @@ struct ContentView: View {
                         }
                     }
                 }
+                .background(AppTheme.Palette.background.ignoresSafeArea())
             }
             .tabItem {
                 Label("Goals", systemImage: "target")
@@ -94,7 +97,9 @@ struct ContentView: View {
             NavigationStack {
                 SettingsRootView(
                     sendDailyDigest: $sendDailyDigest,
-                    allowNotificationPreviews: $allowNotificationPreviews
+                    allowNotificationPreviews: $allowNotificationPreviews,
+                    goalToDelete: $goalToDelete,
+                    showingDeleteConfirmation: $showingDeleteConfirmation
                 )
                 .navigationTitle("Settings")
             }
@@ -153,6 +158,7 @@ struct ContentView: View {
         #if os(iOS)
             .toolbarBackground(.automatic, for: .navigationBar)
         #endif
+        .background(AppTheme.Palette.background.ignoresSafeArea())
     }
 
     private var goalsList: some View {
@@ -161,9 +167,15 @@ struct ContentView: View {
                 NavigationLink(destination: GoalDetailView(goal: goal)) {
                     GoalCardView(goal: goal)
                 }
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+                .padding(.vertical, AppTheme.Spacing.xs)
             }
             .onDelete(perform: deleteGoals)
         }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .background(AppTheme.Palette.background.ignoresSafeArea())
     }
 
     private func initializeDashboard() {
@@ -231,24 +243,111 @@ private struct GoalCardView: View {
     @Bindable var goal: TrackingGoal
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(goal.title)
-                    .font(.headline)
-                Spacer()
-                Label(goal.categoryDisplayName, systemImage: "tag")
-                    .labelStyle(.titleAndIcon)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
+        CardBackground {
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+                header
 
-            if !goal.goalDescription.isEmpty {
-                Text(goal.goalDescription)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                if let description = goalDescriptionText {
+                    Text(description)
+                        .font(AppTheme.Typography.body)
+                        .foregroundStyle(AppTheme.Palette.neutralSubdued)
+                }
+
+                if let cadence = scheduleSummary {
+                    infoRow(systemImage: "bell.fill", text: cadence)
+                }
+
+                if let lastLogged = lastLogSummary {
+                    infoRow(systemImage: "clock.arrow.circlepath", text: lastLogged)
+                }
             }
         }
-        .padding(.vertical, 8)
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(goal.title)
+                    .font(AppTheme.Typography.bodyStrong)
+                Spacer()
+                statusBadge
+            }
+
+            if let category = goal.categoryDisplayName.nonEmpty {
+                Label(category, systemImage: "tag")
+                    .font(AppTheme.Typography.caption)
+                    .labelStyle(.titleAndIcon)
+                    .foregroundStyle(AppTheme.Palette.neutralSubdued)
+            }
+        }
+    }
+
+    private var statusBadge: some View {
+        Text(goal.isActive ? "Active" : "Paused")
+            .font(AppTheme.Typography.caption.weight(.semibold))
+            .padding(.vertical, AppTheme.Spacing.xs)
+            .padding(.horizontal, AppTheme.Spacing.sm)
+            .background(
+                RoundedRectangle(cornerRadius: BorderTokens.CornerRadius.small, style: .continuous)
+                    .fill((goal.isActive ? AppTheme.Palette.primary : Color.orange).opacity(0.12))
+            )
+            .foregroundStyle(goal.isActive ? AppTheme.Palette.primary : Color.orange)
+    }
+
+    private var goalDescriptionText: String? {
+        let trimmed = goal.goalDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private var scheduleSummary: String? {
+        guard let firstTime = goal.schedule.times.first else { return nil }
+        let time = firstTime.formattedTime(in: goal.schedule.timezone)
+        switch goal.schedule.frequency {
+        case .daily:
+            return "Daily at \(time)"
+        case .weekly:
+            let weekdays = goal.schedule.normalizedWeekdays().map(\.shortDisplayName).joined(
+                separator: ", ")
+            if weekdays.isEmpty {
+                return "Weekly at \(time)"
+            }
+            return "Weekly on \(weekdays) at \(time)"
+        case .monthly:
+            let day = Calendar.current.component(.day, from: goal.schedule.startDate)
+            return "Monthly on day \(day) at \(time)"
+        case .custom:
+            if let every = goal.schedule.intervalDayCount {
+                return "Every \(every) days at \(time)"
+            }
+            return "Custom cadence at \(time)"
+        case .once:
+            let formatter = DateFormatter()
+            formatter.dateStyle = .medium
+            formatter.timeStyle = .none
+            formatter.timeZone = goal.schedule.timezone
+            return "Once on \(formatter.string(from: goal.schedule.startDate)) at \(time)"
+        }
+    }
+
+    private var lastLogSummary: String? {
+        guard let latest = goal.dataPoints.max(by: { $0.timestamp < $1.timestamp }) else {
+            return nil
+        }
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .short
+        let relative = formatter.localizedString(for: latest.timestamp, relativeTo: Date())
+        return "Last logged \(relative)"
+    }
+
+    private func infoRow(systemImage: String, text: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: AppTheme.Spacing.sm) {
+            Image(systemName: systemImage)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(AppTheme.Palette.primary)
+            Text(text)
+                .font(AppTheme.Typography.caption)
+                .foregroundStyle(AppTheme.Palette.neutralSubdued)
+        }
     }
 }
 
@@ -367,9 +466,14 @@ private struct GoalTrendFeedCard: View {
 }
 
 private struct SettingsRootView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Query(sort: \TrackingGoal.updatedAt, order: .reverse)
+    private var allGoals: [TrackingGoal]
+
     @Binding var sendDailyDigest: Bool
     @Binding var allowNotificationPreviews: Bool
-    @Environment(\.modelContext) private var modelContext
+    @Binding var goalToDelete: TrackingGoal?
+    @Binding var showingDeleteConfirmation: Bool
 
     @State private var settingsViewModel: SettingsViewModel?
     @State private var exportDocument = BackupDocument()
@@ -436,12 +540,31 @@ private struct SettingsRootView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Section("Support") {
-                Link(destination: URL(string: "https://future.life/support")!) {
-                    Label("Help Center", systemImage: "questionmark.circle")
-                }
-                Link(destination: URL(string: "https://future.life/privacy")!) {
-                    Label("Privacy Policy", systemImage: "lock.shield")
+            Section("Goal Management") {
+                if allGoals.isEmpty {
+                    Text("No goals to manage.")
+                        .font(AppTheme.Typography.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(allGoals) { goal in
+                        HStack {
+                            VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+                                Text(goal.title)
+                                    .font(AppTheme.Typography.bodyStrong)
+                                Text(goal.isActive ? "Active" : "Paused")
+                                    .font(AppTheme.Typography.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Button(role: .destructive) {
+                                goalToDelete = goal
+                                showingDeleteConfirmation = true
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                            .buttonStyle(.borderless)
+                        }
+                    }
                 }
             }
 
@@ -456,6 +579,16 @@ private struct SettingsRootView: View {
             }
             #if DEBUG
                 Section("Debug") {
+                    Button {
+                        handlePopulateDummyData()
+                    } label: {
+                        Label("Populate 45-day dummy data", systemImage: "wand.and.stars")
+                    }
+                    .disabled(isProcessing || settingsViewModel == nil)
+                    Text("Create sample goals and 45 days of data points for testing.")
+                        .font(AppTheme.Typography.caption)
+                        .foregroundStyle(.secondary)
+
                     NavigationLink {
                         NotificationInspectorView()
                     } label: {
@@ -529,18 +662,16 @@ private struct SettingsRootView: View {
             }
         }
         .confirmationDialog(
-            "Replace existing data?",
-            isPresented: $showImportConfirmation,
-            presenting: pendingImportData
-        ) { data in
-            Button("Replace data", role: .destructive) {
-                performImport(with: data)
+            "Delete goal?",
+            isPresented: $showingDeleteConfirmation,
+            presenting: goalToDelete
+        ) { goal in
+            Button("Delete", role: .destructive) {
+                deleteGoal(goal)
             }
-            Button("Cancel", role: .cancel) {
-                pendingImportData = nil
-            }
-        } message: { _ in
-            Text("This will delete your current goals before restoring the backup.")
+            Button("Cancel", role: .cancel) {}
+        } message: { goal in
+            Text("This will move \"\(goal.title)\" to trash. You can restore it within 30 days.")
         }
         .alert(item: $alertInfo) { info in
             Alert(
@@ -563,6 +694,24 @@ private struct SettingsRootView: View {
             alertInfo = SettingsAlert(title: "Export failed", message: error.localizedDescription)
             isProcessing = false
         }
+    }
+
+    private func handlePopulateDummyData() {
+        guard let viewModel = settingsViewModel else { return }
+        isProcessing = true
+        do {
+            try viewModel.populateDummyData()
+            alertInfo = SettingsAlert(
+                title: "Data populated",
+                message: "Created 4 goals with 45 days of sample data."
+            )
+        } catch {
+            alertInfo = SettingsAlert(
+                title: "Population failed",
+                message: error.localizedDescription
+            )
+        }
+        isProcessing = false
     }
 
     private func prepareImport(from url: URL) {
@@ -596,6 +745,22 @@ private struct SettingsRootView: View {
         }
         pendingImportData = nil
         isProcessing = false
+    }
+
+    private func deleteGoal(_ goal: TrackingGoal) {
+        let deletionService = GoalDeletionService(modelContext: modelContext)
+        do {
+            try deletionService.moveToTrash(goal)
+            alertInfo = SettingsAlert(
+                title: "Goal deleted",
+                message: "\"\(goal.title)\" has been moved to trash."
+            )
+        } catch {
+            alertInfo = SettingsAlert(
+                title: "Delete failed",
+                message: error.localizedDescription
+            )
+        }
     }
 
     private func accessData(at url: URL) throws -> Data {

@@ -53,6 +53,12 @@ final class GoalTrendsViewModel {
     private(set) var currentStreakDays: Int = 0
     private(set) var booleanStreaks: [BooleanStreak] = []
     private(set) var responseSnapshots: [ResponseSnapshot] = []
+    
+    // MARK: - Time Interval Aggregation
+    private(set) var availableIntervals: [TimeInterval] = []
+    private(set) var currentInterval: TimeInterval = .day
+    private(set) var aggregatedSeries: [AggregatedDataPoint] = []
+    private(set) var dataSpanDays: Int = 0
 
     private let modelContext: ModelContext
     private let calendar: Calendar
@@ -96,6 +102,20 @@ final class GoalTrendsViewModel {
                 "GoalTrends numeric refresh failed: \(error.localizedDescription, privacy: .public)"
             )
         }
+        
+        // Compute available intervals AFTER dailySeries is built
+        do {
+            let dataPoints = try fetchAllDataPoints()
+            computeAvailableIntervals(from: dataPoints)
+            rebuildAggregatedSeries()
+        } catch {
+            availableIntervals = [.day]
+            dataSpanDays = 0
+            aggregatedSeries = []
+            PerformanceMetrics.logger.error(
+                "GoalTrends interval computation failed: \(error.localizedDescription, privacy: .public)"
+            )
+        }
 
         do {
             try rebuildBooleanStreaks()
@@ -117,10 +137,21 @@ final class GoalTrendsViewModel {
 
         trace.end(extraMetadata: [
             "dailySeries": "\(dailySeries.count)",
+            "aggregatedSeries": "\(aggregatedSeries.count)",
+            "currentInterval": currentInterval.rawValue,
+            "dataSpanDays": "\(dataSpanDays)",
             "booleanStreaks": "\(booleanStreaks.count)",
             "snapshots": "\(responseSnapshots.count)",
             "streakDays": "\(currentStreakDays)",
         ])
+    }
+    
+    // MARK: - Public Methods for Time Interval
+    
+    func setInterval(_ interval: TimeInterval) {
+        guard availableIntervals.contains(interval) else { return }
+        currentInterval = interval
+        rebuildAggregatedSeries()
     }
 
     private func rebuildNumericTrends() throws {
@@ -461,5 +492,268 @@ final class GoalTrendsViewModel {
     private func formatTime(_ date: Date, timezoneIdentifier: String) -> String {
         timeFormatter.timeZone = TimeZone(identifier: timezoneIdentifier) ?? .current
         return timeFormatter.string(from: date)
+    }
+    
+    // MARK: - Time Interval Aggregation Methods
+    
+    private func fetchAllDataPoints() throws -> [DataPoint] {
+        let goalIdentifier = goal.persistentModelID
+        var descriptor = FetchDescriptor<DataPoint>(
+            predicate: #Predicate<DataPoint> { dataPoint in
+                dataPoint.goal?.persistentModelID == goalIdentifier
+            },
+            sortBy: [SortDescriptor(\.timestamp, order: .forward)]
+        )
+        descriptor.propertiesToFetch = [\.timestamp, \.numericValue]
+        return try modelContext.fetch(descriptor)
+    }
+    
+    private func computeAvailableIntervals(from dataPoints: [DataPoint]) {
+        guard !dataPoints.isEmpty else {
+            availableIntervals = [.day]
+            dataSpanDays = 0
+            return
+        }
+        
+        let sortedDates = dataPoints.map { $0.timestamp }.sorted()
+        guard let firstDate = sortedDates.first,
+              let lastDate = sortedDates.last else {
+            availableIntervals = [.day]
+            dataSpanDays = 0
+            return
+        }
+        
+        let daySpan = calendar.dateComponents([.day], from: firstDate, to: lastDate).day ?? 0
+        dataSpanDays = daySpan
+        
+        // Filter intervals based on minimum data requirements
+        availableIntervals = TimeInterval.allCases.filter { interval in
+            daySpan >= interval.minimumDataDays
+        }
+        
+        // Auto-select interval based on data span
+        currentInterval = autoSelectInterval(for: daySpan)
+    }
+    
+    private func autoSelectInterval(for daySpan: Int) -> TimeInterval {
+        if daySpan < 14 {
+            return .day
+        } else if daySpan < 28 {
+            return .week
+        } else if daySpan < 90 {
+            return .month
+        } else if daySpan < 180 {
+            return .quarter
+        } else if daySpan < 365 {
+            return .half
+        } else {
+            return .year
+        }
+    }
+    
+    private func rebuildAggregatedSeries() {
+        guard !dailySeries.isEmpty else {
+            aggregatedSeries = []
+            return
+        }
+        
+        switch currentInterval {
+        case .day:
+            // Use dailySeries as-is, convert to AggregatedDataPoint for consistency
+            aggregatedSeries = dailySeries.map { daily in
+                AggregatedDataPoint(
+                    startDate: daily.date,
+                    endDate: daily.date,
+                    averageValue: daily.averageValue,
+                    minValue: daily.averageValue,
+                    maxValue: daily.averageValue,
+                    sampleCount: daily.sampleCount,
+                    interval: .day
+                )
+            }
+        case .week:
+            aggregatedSeries = aggregateByWeek()
+        case .month:
+            aggregatedSeries = aggregateByMonth()
+        case .quarter:
+            aggregatedSeries = aggregateByQuarter()
+        case .half:
+            aggregatedSeries = aggregateByHalf()
+        case .year:
+            aggregatedSeries = aggregateByYear()
+        }
+    }
+    
+    private func aggregateByWeek() -> [AggregatedDataPoint] {
+        var buckets: [Date: [DailyAverage]] = [:]
+        
+        for daily in dailySeries {
+            // Get start of week
+            let weekStart = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: daily.date)
+            guard let weekDate = calendar.date(from: weekStart) else { continue }
+            
+            buckets[weekDate, default: []].append(daily)
+        }
+        
+        return buckets.map { (weekStart, dailies) in
+            let values = dailies.map { $0.averageValue }
+            let avgValue = values.reduce(0, +) / Double(values.count)
+            let minValue = values.min() ?? avgValue
+            let maxValue = values.max() ?? avgValue
+            let totalSamples = dailies.map { $0.sampleCount }.reduce(0, +)
+            
+            // End date is 6 days after start
+            let weekEnd = calendar.date(byAdding: .day, value: 6, to: weekStart) ?? weekStart
+            
+            return AggregatedDataPoint(
+                startDate: weekStart,
+                endDate: weekEnd,
+                averageValue: avgValue,
+                minValue: minValue,
+                maxValue: maxValue,
+                sampleCount: totalSamples,
+                interval: .week
+            )
+        }.sorted(by: { $0.startDate < $1.startDate })
+    }
+    
+    private func aggregateByMonth() -> [AggregatedDataPoint] {
+        var buckets: [Date: [DailyAverage]] = [:]
+        
+        for daily in dailySeries {
+            let monthStart = calendar.dateComponents([.year, .month], from: daily.date)
+            guard let monthDate = calendar.date(from: monthStart) else { continue }
+            
+            buckets[monthDate, default: []].append(daily)
+        }
+        
+        return buckets.map { (monthStart, dailies) in
+            let values = dailies.map { $0.averageValue }
+            let avgValue = values.reduce(0, +) / Double(values.count)
+            let minValue = values.min() ?? avgValue
+            let maxValue = values.max() ?? avgValue
+            let totalSamples = dailies.map { $0.sampleCount }.reduce(0, +)
+            
+            // End date is last day of month
+            let monthEnd = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: monthStart) ?? monthStart
+            
+            return AggregatedDataPoint(
+                startDate: monthStart,
+                endDate: monthEnd,
+                averageValue: avgValue,
+                minValue: minValue,
+                maxValue: maxValue,
+                sampleCount: totalSamples,
+                interval: .month
+            )
+        }.sorted(by: { $0.startDate < $1.startDate })
+    }
+    
+    private func aggregateByQuarter() -> [AggregatedDataPoint] {
+        var buckets: [Date: [DailyAverage]] = [:]
+        
+        for daily in dailySeries {
+            let components = calendar.dateComponents([.year, .quarter], from: daily.date)
+            guard let year = components.year, let quarter = components.quarter else { continue }
+            
+            // Convert quarter to month (Q1 = Jan, Q2 = Apr, Q3 = Jul, Q4 = Oct)
+            let month = (quarter - 1) * 3 + 1
+            guard let quarterStart = calendar.date(from: DateComponents(year: year, month: month, day: 1)) else {
+                continue
+            }
+            
+            buckets[quarterStart, default: []].append(daily)
+        }
+        
+        return buckets.map { (quarterStart, dailies) in
+            let values = dailies.map { $0.averageValue }
+            let avgValue = values.reduce(0, +) / Double(values.count)
+            let minValue = values.min() ?? avgValue
+            let maxValue = values.max() ?? avgValue
+            let totalSamples = dailies.map { $0.sampleCount }.reduce(0, +)
+            
+            // End date is last day of quarter (3 months - 1 day)
+            let quarterEnd = calendar.date(byAdding: DateComponents(month: 3, day: -1), to: quarterStart) ?? quarterStart
+            
+            return AggregatedDataPoint(
+                startDate: quarterStart,
+                endDate: quarterEnd,
+                averageValue: avgValue,
+                minValue: minValue,
+                maxValue: maxValue,
+                sampleCount: totalSamples,
+                interval: .quarter
+            )
+        }.sorted(by: { $0.startDate < $1.startDate })
+    }
+    
+    private func aggregateByHalf() -> [AggregatedDataPoint] {
+        var buckets: [Date: [DailyAverage]] = [:]
+        
+        for daily in dailySeries {
+            let components = calendar.dateComponents([.year, .month], from: daily.date)
+            guard let year = components.year, let month = components.month else { continue }
+            
+            // Determine half: H1 (Jan-Jun), H2 (Jul-Dec)
+            let halfStartMonth = month <= 6 ? 1 : 7
+            guard let halfStart = calendar.date(from: DateComponents(year: year, month: halfStartMonth, day: 1)) else {
+                continue
+            }
+            
+            buckets[halfStart, default: []].append(daily)
+        }
+        
+        return buckets.map { (halfStart, dailies) in
+            let values = dailies.map { $0.averageValue }
+            let avgValue = values.reduce(0, +) / Double(values.count)
+            let minValue = values.min() ?? avgValue
+            let maxValue = values.max() ?? avgValue
+            let totalSamples = dailies.map { $0.sampleCount }.reduce(0, +)
+            
+            // End date is last day of half (6 months - 1 day)
+            let halfEnd = calendar.date(byAdding: DateComponents(month: 6, day: -1), to: halfStart) ?? halfStart
+            
+            return AggregatedDataPoint(
+                startDate: halfStart,
+                endDate: halfEnd,
+                averageValue: avgValue,
+                minValue: minValue,
+                maxValue: maxValue,
+                sampleCount: totalSamples,
+                interval: .half
+            )
+        }.sorted(by: { $0.startDate < $1.startDate })
+    }
+    
+    private func aggregateByYear() -> [AggregatedDataPoint] {
+        var buckets: [Date: [DailyAverage]] = [:]
+        
+        for daily in dailySeries {
+            let yearStart = calendar.dateComponents([.year], from: daily.date)
+            guard let yearDate = calendar.date(from: yearStart) else { continue }
+            
+            buckets[yearDate, default: []].append(daily)
+        }
+        
+        return buckets.map { (yearStart, dailies) in
+            let values = dailies.map { $0.averageValue }
+            let avgValue = values.reduce(0, +) / Double(values.count)
+            let minValue = values.min() ?? avgValue
+            let maxValue = values.max() ?? avgValue
+            let totalSamples = dailies.map { $0.sampleCount }.reduce(0, +)
+            
+            // End date is last day of year
+            let yearEnd = calendar.date(byAdding: DateComponents(year: 1, day: -1), to: yearStart) ?? yearStart
+            
+            return AggregatedDataPoint(
+                startDate: yearStart,
+                endDate: yearEnd,
+                averageValue: avgValue,
+                minValue: minValue,
+                maxValue: maxValue,
+                sampleCount: totalSamples,
+                interval: .year
+            )
+        }.sorted(by: { $0.startDate < $1.startDate })
     }
 }

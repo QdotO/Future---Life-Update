@@ -112,7 +112,7 @@ struct ScheduleTime: Codable, Hashable, Sendable {
         max(0, min(23, hour)) * 60 + max(0, min(59, minute))
     }
 
-    func isWithin(window: TimeInterval, of other: ScheduleTime) -> Bool {
+    func isWithin(window: Foundation.TimeInterval, of other: ScheduleTime) -> Bool {
         let difference = abs(totalMinutes - other.totalMinutes)
         return Double(difference * 60) < window
     }
@@ -192,7 +192,7 @@ final class Schedule {
         selectedWeekdays.contains(weekday)
     }
 
-    func hasConflicts(with scheduleTime: ScheduleTime, window: TimeInterval) -> Bool {
+    func hasConflicts(with scheduleTime: ScheduleTime, window: Foundation.TimeInterval) -> Bool {
         times.contains { $0.isWithin(window: window, of: scheduleTime) }
     }
 }

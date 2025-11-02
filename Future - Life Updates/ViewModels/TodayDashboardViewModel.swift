@@ -66,7 +66,7 @@ final class TodayDashboardViewModel {
     private(set) var upcomingReminders: [UpcomingReminder] = []
     private(set) var goalQuestionMetrics: [GoalQuestionMetrics] = []
     private var snapshotCache: DashboardSnapshot?
-    private static let cacheTTL: TimeInterval = 20
+    private static let cacheTTL: Foundation.TimeInterval = 20
 
     init(
         modelContext: ModelContext,

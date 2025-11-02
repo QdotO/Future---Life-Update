@@ -50,6 +50,35 @@ enum AppTheme {
 
 	enum Shadow {
 		static let card = ShadowStyle(color: .black.opacity(0.08), radius: 12, x: 0, y: 6)
+		// Brutalist shadows (hard, offset)
+		static let brutalistSmall = ShadowStyle(color: .black.opacity(0.8), radius: 0, x: 2, y: 2)
+		static let brutalistMedium = ShadowStyle(color: .black.opacity(0.8), radius: 0, x: 4, y: 4)
+		static let brutalistLarge = ShadowStyle(color: .black.opacity(0.8), radius: 0, x: 6, y: 6)
+	}
+	
+	// MARK: - Brutalist Extensions
+	
+	/// Brutalist-specific colors for high contrast design
+	enum BrutalistColors {
+		static let accentRed = ColorTokens.Accent.red.color
+		static let accentBlue = ColorTokens.Accent.blue.color
+		static let accentGreen = ColorTokens.Accent.green.color
+		static let accentYellow = ColorTokens.Accent.yellow.color
+		static let accentOrange = ColorTokens.Accent.orange.color
+		
+		static let borderDefault = ColorTokens.Semantic.borderDefault.color
+		static let borderSubdued = ColorTokens.Semantic.borderSubdued.color
+		static let borderFocus = ColorTokens.Semantic.borderFocus.color
+	}
+	
+	/// Border widths for brutalist design
+	enum BrutalistBorders {
+		static let thin: CGFloat = BorderTokens.thin
+		static let standard: CGFloat = BorderTokens.standard
+		static let thick: CGFloat = BorderTokens.thick
+		
+		static let sharp: CGFloat = BorderTokens.CornerRadius.sharp
+		static let minimal: CGFloat = BorderTokens.CornerRadius.minimal
 	}
 
 	static func backgroundGradient(colorScheme: ColorScheme) -> LinearGradient {
@@ -89,14 +118,8 @@ extension View {
 	}
 }
 
-private extension Color {
-	init(hex: UInt) {
-		let red = Double((hex >> 16) & 0xFF) / 255
-		let green = Double((hex >> 8) & 0xFF) / 255
-		let blue = Double(hex & 0xFF) / 255
-		self.init(red: red, green: green, blue: blue)
-	}
 
+private extension Color {
 	init(dynamicLight light: Color, dynamicDark dark: Color) {
 		#if os(iOS)
 		self.init(UIColor { trait in

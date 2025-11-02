@@ -44,44 +44,83 @@ struct GoalTrendsView: View {
 
     private var numericSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Daily progress")
-                .font(.headline)
+            HStack {
+                Text("Daily progress")
+                    .font(.headline)
+                Spacer()
+                intervalPicker
+            }
             numericChart
             streakSummary
         }
     }
+    
+    private var intervalPicker: some View {
+        Menu {
+            ForEach(viewModel.availableIntervals) { interval in
+                Button {
+                    viewModel.setInterval(interval)
+                } label: {
+                    HStack {
+                        Text(interval.rawValue)
+                        if viewModel.currentInterval == interval {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Text(viewModel.currentInterval.rawValue)
+                    .font(.caption.weight(.semibold))
+                Image(systemName: "chevron.down")
+                    .font(.caption2)
+            }
+            .foregroundStyle(Color.accentColor)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color.accentColor.opacity(0.1))
+            )
+        }
+    }
 
     private var numericChart: some View {
-        Chart(viewModel.dailySeries) { entry in
+        Chart(viewModel.aggregatedSeries) { entry in
             AreaMark(
-                x: .value("Date", entry.date, unit: .day),
+                x: .value("Date", entry.startDate, unit: timeUnit),
                 y: .value("Average", entry.averageValue)
             )
             .foregroundStyle(.linearGradient(colors: [Color.accentColor.opacity(0.3), Color.accentColor.opacity(0.05)], startPoint: .top, endPoint: .bottom))
 
             LineMark(
-                x: .value("Date", entry.date, unit: .day),
+                x: .value("Date", entry.startDate, unit: timeUnit),
                 y: .value("Average", entry.averageValue)
             )
             .foregroundStyle(Color.accentColor)
-            .symbol(Circle())
+            .lineStyle(StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round))
             .interpolationMethod(.monotone)
 
-            PointMark(
-                x: .value("Date", entry.date, unit: .day),
-                y: .value("Average", entry.averageValue)
-            )
-            .annotation(position: .top) {
-                Text(entry.averageValue, format: .number.precision(.fractionLength(0...1)))
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+            // Only show point markers for day view
+            if viewModel.currentInterval == .day {
+                PointMark(
+                    x: .value("Date", entry.startDate, unit: timeUnit),
+                    y: .value("Average", entry.averageValue)
+                )
+                .symbol(Circle())
+                .annotation(position: .top) {
+                    Text(entry.averageValue, format: .number.precision(.fractionLength(0...1)))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
         .chartXAxis {
-            AxisMarks(values: .automatic(desiredCount: min(6, viewModel.dailySeries.count))) { value in
+            AxisMarks(values: .automatic(desiredCount: xAxisTickCount)) { value in
                 if let dateValue = value.as(Date.self) {
                     AxisValueLabel {
-                        Text(dateValue, format: .dateTime.month().day())
+                        Text(dateValue, format: xAxisFormat)
                     }
                 }
                 AxisGridLine()
@@ -91,7 +130,59 @@ struct GoalTrendsView: View {
             AxisMarks(position: .leading)
         }
         .frame(height: 220)
-        .accessibilityLabel("Trend of daily averages")
+        .accessibilityLabel("Trend of \(viewModel.currentInterval.rawValue.lowercased()) averages")
+    }
+    
+    // MARK: - Chart Configuration Helpers
+    
+    // X-axis tick count constants for different intervals
+    private enum ChartConfig {
+        static let dayViewMaxTicks = 6
+        static let weekViewMaxTicks = 8
+        static let monthViewMaxTicks = 6
+        static let quarterViewMaxTicks = 4
+        static let halfViewMaxTicks = 2
+        static let yearViewMaxTicks = 5
+    }
+    
+    private var timeUnit: Calendar.Component {
+        switch viewModel.currentInterval {
+        case .day: return .day
+        case .week: return .weekOfYear
+        case .month: return .month
+        case .quarter, .half: return .month
+        case .year: return .year
+        }
+    }
+    
+    private var lineWidth: CGFloat {
+        viewModel.currentInterval == .day ? 2 : 3
+    }
+    
+    private var xAxisTickCount: Int {
+        switch viewModel.currentInterval {
+        case .day: return min(ChartConfig.dayViewMaxTicks, viewModel.aggregatedSeries.count)
+        case .week: return min(ChartConfig.weekViewMaxTicks, viewModel.aggregatedSeries.count)
+        case .month: return min(ChartConfig.monthViewMaxTicks, viewModel.aggregatedSeries.count)
+        case .quarter: return min(ChartConfig.quarterViewMaxTicks, viewModel.aggregatedSeries.count)
+        case .half: return ChartConfig.halfViewMaxTicks
+        case .year: return min(ChartConfig.yearViewMaxTicks, viewModel.aggregatedSeries.count)
+        }
+    }
+    
+    private var xAxisFormat: Date.FormatStyle {
+        switch viewModel.currentInterval {
+        case .day:
+            return .dateTime.month().day()
+        case .week:
+            return .dateTime.month().day()
+        case .month:
+            return .dateTime.month().year()
+        case .quarter, .half:
+            return .dateTime.month(.abbreviated).year()
+        case .year:
+            return .dateTime.year()
+        }
     }
 
     private var streakSummary: some View {
