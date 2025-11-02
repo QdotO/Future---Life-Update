@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct TodayDashboardView: View {
     @Bindable var viewModel: TodayDashboardViewModel
@@ -91,7 +91,9 @@ struct TodayDashboardView: View {
 
                                 Text(nextRelativeDescription(for: reminder))
                                     .font(AppTheme.Typography.caption)
-                                    .foregroundStyle(reminder.scheduledDate < Date() ? Color.secondary : AppTheme.Palette.primary)
+                                    .foregroundStyle(
+                                        reminder.scheduledDate < Date()
+                                            ? Color.secondary : AppTheme.Palette.primary)
                             }
                         }
                     }
@@ -119,7 +121,7 @@ struct TodayDashboardView: View {
                                     Text(summary.goal.title)
                                         .font(AppTheme.Typography.body.weight(.semibold))
                                     Spacer()
-                                            if let category = summary.goal.categoryDisplayName {
+                                    if let category = summary.goal.categoryDisplayName {
                                         Label(category, systemImage: "tag")
                                             .font(AppTheme.Typography.caption)
                                             .labelStyle(.titleAndIcon)
@@ -291,67 +293,69 @@ struct TodayDashboardView: View {
         return timeFormatter.string(from: reminder.scheduledDate)
     }
 
-    private func nextRelativeDescription(for reminder: TodayDashboardViewModel.UpcomingReminder) -> String {
+    private func nextRelativeDescription(for reminder: TodayDashboardViewModel.UpcomingReminder)
+        -> String
+    {
         relativeFormatter.localizedString(for: reminder.scheduledDate, relativeTo: Date())
     }
 }
 
-    private struct BrutalistMetricRow: View {
-        let metric: TodayDashboardViewModel.QuestionMetric
+private struct BrutalistMetricRow: View {
+    let metric: TodayDashboardViewModel.QuestionMetric
 
-        var body: some View {
-            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
-                HStack(alignment: .firstTextBaseline, spacing: AppTheme.BrutalistSpacing.xs) {
-                    Text(metric.questionText.uppercased())
-                        .font(AppTheme.BrutalistTypography.captionBold)
-                        .foregroundColor(AppTheme.BrutalistPalette.secondary)
-                    Spacer()
-                    if let target = metric.targetValue {
-                        Text("vs \(target.uppercased())")
-                            .font(AppTheme.BrutalistTypography.captionMono)
-                            .foregroundColor(AppTheme.BrutalistPalette.secondary)
-                    }
-                }
-
-                Text(metric.primaryValue)
-                    .font(AppTheme.BrutalistTypography.title)
-                    .foregroundColor(AppTheme.BrutalistPalette.foreground)
-                    .lineLimit(1)
-
-                if let progress = metric.progressFraction {
-                    BrutalistProgressBar(progress: progress)
-                        .frame(height: 8)
-                }
-
-                if metric.detail.nonEmpty != nil {
-                    Text(metric.detail)
-                        .font(AppTheme.BrutalistTypography.caption)
+    var body: some View {
+        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
+            HStack(alignment: .firstTextBaseline, spacing: AppTheme.BrutalistSpacing.xs) {
+                Text(metric.questionText.uppercased())
+                    .font(AppTheme.BrutalistTypography.captionBold)
+                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                Spacer()
+                if let target = metric.targetValue {
+                    Text("vs \(target.uppercased())")
+                        .font(AppTheme.BrutalistTypography.captionMono)
                         .foregroundColor(AppTheme.BrutalistPalette.secondary)
                 }
             }
-        }
-    }
 
-    private struct BrutalistProgressBar: View {
-        let progress: Double
+            Text(metric.primaryValue)
+                .font(AppTheme.BrutalistTypography.title)
+                .foregroundColor(AppTheme.BrutalistPalette.foreground)
+                .lineLimit(1)
 
-        var body: some View {
-            GeometryReader { geometry in
-                let clamped = min(max(progress, 0), 1)
-                let width = geometry.size.width * clamped
+            if let progress = metric.progressFraction {
+                BrutalistProgressBar(progress: progress)
+                    .frame(height: 8)
+            }
 
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(AppTheme.BrutalistPalette.border.opacity(0.3))
-
-                    Capsule()
-                        .fill(AppTheme.BrutalistPalette.accent)
-                        .frame(width: max(0, width))
-                }
-                .animation(.easeInOut(duration: 0.35), value: clamped)
+            if metric.detail.nonEmpty != nil {
+                Text(metric.detail)
+                    .font(AppTheme.BrutalistTypography.caption)
+                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
             }
         }
     }
+}
+
+private struct BrutalistProgressBar: View {
+    let progress: Double
+
+    var body: some View {
+        GeometryReader { geometry in
+            let clamped = min(max(progress, 0), 1)
+            let width = geometry.size.width * clamped
+
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(AppTheme.BrutalistPalette.border.opacity(0.3))
+
+                Capsule()
+                    .fill(AppTheme.BrutalistPalette.accent)
+                    .frame(width: max(0, width))
+            }
+            .animation(.easeInOut(duration: 0.35), value: clamped)
+        }
+    }
+}
 
 private struct MetricTile: View {
     let metric: TodayDashboardViewModel.QuestionMetric

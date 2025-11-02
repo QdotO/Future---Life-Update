@@ -22,7 +22,9 @@ struct SendTestNotificationView: View {
                     "No goals yet",
                     systemImage: "target",
                     description: Text(
-                        "Create a goal first, then come back here to send yourself a preview reminder."))
+                        "Create a goal first, then come back here to send yourself a preview reminder."
+                    )
+                )
                 .frame(maxWidth: .infinity)
                 .listRowBackground(Color.clear)
             } else {
