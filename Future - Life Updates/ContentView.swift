@@ -50,9 +50,10 @@ struct ContentView: View {
                             showingCreateGoal = true
                         } label: {
                             Image(systemName: "plus")
-                                .font(.system(size: 17, weight: .semibold))
+                                .renderingMode(.template)
                         }
-                        .brutalistButton(style: .secondary)
+                        .brutalistIconButton()
+                        .accessibilityLabel("Create goal")
                     }
                 }
                 .environment(\.designStyle, .brutalist)
@@ -79,6 +80,11 @@ struct ContentView: View {
                 }
                 .navigationTitle("TODAY")
                 .toolbar {
+                    ToolbarItem(placement: .principal) {
+                        Text("TODAY")
+                            .font(AppTheme.BrutalistTypography.title)
+                            .fontWeight(.bold)
+                    }
                     ToolbarItem(placement: .primaryAction) {
                         Button {
                             todayViewModel?.refresh()
@@ -92,6 +98,7 @@ struct ContentView: View {
                         .disabled(todayViewModel == nil)
                     }
                 }
+                .navigationBarTitleDisplayMode(.inline)
                 .environment(\.designStyle, .brutalist)
             }
             .tabItem {
@@ -106,7 +113,15 @@ struct ContentView: View {
             NavigationStack {
                 InsightsOverviewView(goals: goals)
                     .navigationTitle("INSIGHTS")
+                    .navigationBarTitleDisplayMode(.inline)
                     .environment(\.designStyle, .brutalist)
+                    .toolbar {
+                        ToolbarItem(placement: .principal) {
+                            Text("INSIGHTS")
+                                .font(AppTheme.BrutalistTypography.title)
+                                .fontWeight(.bold)
+                        }
+                    }
             }
             .tabItem {
                 Label {
@@ -123,7 +138,15 @@ struct ContentView: View {
                     allowNotificationPreviews: $allowNotificationPreviews
                 )
                 .navigationTitle("SETTINGS")
+                .navigationBarTitleDisplayMode(.inline)
                 .environment(\.designStyle, .brutalist)
+                .toolbar {
+                    ToolbarItem(placement: .principal) {
+                        Text("SETTINGS")
+                            .font(AppTheme.BrutalistTypography.title)
+                            .fontWeight(.bold)
+                    }
+                }
             }
             .tabItem {
                 Label {

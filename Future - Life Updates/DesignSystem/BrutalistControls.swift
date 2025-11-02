@@ -88,6 +88,59 @@ struct BrutalistButtonStyle: ButtonStyle {
     }
 }
 
+struct BrutalistIconButtonStyle: ButtonStyle {
+    enum Variant {
+        case accent
+        case neutral
+    }
+
+    let variant: Variant
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 18, weight: .bold))
+            .frame(width: 44, height: 44)
+            .foregroundColor(foregroundColor)
+            .background(backgroundColor(isPressed: configuration.isPressed))
+            .overlay(
+                Rectangle()
+                    .stroke(
+                        borderColor,
+                        lineWidth: configuration.isPressed
+                            ? AppTheme.BrutalistBorder.thick : AppTheme.BrutalistBorder.standard
+                    )
+            )
+            .contentShape(Rectangle())
+            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+            .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
+    }
+
+    private var foregroundColor: Color {
+        switch variant {
+        case .accent:
+            return AppTheme.BrutalistPalette.background
+        case .neutral:
+            return AppTheme.BrutalistPalette.foreground
+        }
+    }
+
+    private var borderColor: Color {
+        AppTheme.BrutalistPalette.border
+    }
+
+    private func backgroundColor(isPressed: Bool) -> Color {
+        switch variant {
+        case .accent:
+            return isPressed
+                ? AppTheme.BrutalistPalette.accent.opacity(0.85) : AppTheme.BrutalistPalette.accent
+        case .neutral:
+            return isPressed
+                ? AppTheme.BrutalistPalette.border.opacity(0.1)
+                : AppTheme.BrutalistPalette.background
+        }
+    }
+}
+
 private struct BrutalistFieldModifier: ViewModifier {
     @Environment(\.designStyle) private var designStyle
     let isFocused: Bool
@@ -118,6 +171,10 @@ private struct BrutalistFieldModifier: ViewModifier {
 extension Button {
     func brutalistButton(style: BrutalistButtonStyle.Variant = .primary) -> some View {
         buttonStyle(BrutalistButtonStyle(variant: style))
+    }
+
+    func brutalistIconButton(variant: BrutalistIconButtonStyle.Variant = .accent) -> some View {
+        buttonStyle(BrutalistIconButtonStyle(variant: variant))
     }
 }
 
