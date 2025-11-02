@@ -21,6 +21,24 @@
 			"command": "xcodebuild -project \"Future - Life Updates.xcodeproj\" -scheme \"Future - Life Updates\" -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' -only-testing \"Future - Life UpdatesUITests/testReminderTimeDisplaysAfterAdding\" test",
 			"isBackground": false,
 			"group": "build"
+		},
+		{
+			"label": "Build app (iOS Simulator)",
+			"type": "shell",
+			"command": "xcodebuild -project \"Future - Life Updates.xcodeproj\" -scheme \"Future - Life Updates\" -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' build",
+			"isBackground": false,
+			"problemMatcher": [
+				"$xcode"
+			]
+		},
+		{
+			"label": "Clean build app (iOS Simulator)",
+			"type": "shell",
+			"command": "xcodebuild -project \"Future - Life Updates.xcodeproj\" -scheme \"Future - Life Updates\" -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' clean build",
+			"isBackground": false,
+			"problemMatcher": [
+				"$xcode"
+			]
 		}
 	]
 }

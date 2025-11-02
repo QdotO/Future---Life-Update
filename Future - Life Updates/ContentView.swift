@@ -115,7 +115,8 @@ struct ContentView: View {
             .tag(Tab.settings)
         }
         .sheet(isPresented: $showingCreateGoal) {
-            GoalCreationView(viewModel: GoalCreationViewModel(modelContext: modelContext))
+            GoalCreateView(modelContext: modelContext)
+                .environment(\.designStyle, .brutalist)
         }
         .onAppear(perform: initializeDashboard)
         .onReceive(notificationRouter.$activeRoute) { route in
