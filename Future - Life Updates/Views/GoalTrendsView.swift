@@ -32,7 +32,7 @@ struct GoalTrendsView: View {
             spacing: designStyle == .brutalist ? AppTheme.BrutalistSpacing.lg : 20
         ) {
             let hasNumeric = !viewModel.dailySeries.isEmpty
-            let hasBoolean = !viewModel.booleanStreaks.isEmpty
+            let hasBoolean = viewModel.booleanStreaks.contains { $0.currentStreak > 0 }
             let hasSnapshots = !viewModel.responseSnapshots.isEmpty
 
             if !hasNumeric && !hasBoolean && !hasSnapshots {
@@ -102,11 +102,15 @@ struct GoalTrendsView: View {
 
     private var compactProgress: some View {
         VStack(alignment: .leading, spacing: displayStyleSpacing) {
-            HStack(alignment: .top, spacing: displayStyleSpacing) {
-                calendarHeatMap(showLegend: false)
-                    .frame(maxWidth: 220)
+            if viewModel.currentStreakDays > 0 {
+                HStack(alignment: .top, spacing: displayStyleSpacing) {
+                    calendarHeatMap(showLegend: false)
+                        .frame(maxWidth: 220)
 
-                compactStreakSummary
+                    compactStreakSummary
+                }
+            } else {
+                calendarHeatMap(showLegend: false)
             }
 
             if let summary = compactProgressSummary {
@@ -234,31 +238,75 @@ struct GoalTrendsView: View {
 
         return VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.xs) {
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .top, spacing: columnSpacing) {
-                    dayLabelColumn(rowSpacing: rowSpacing, font: labelFont, color: labelColor)
+                let calendar = heatmapCalendar
+                let annotatedWeeks: [(week: HeatmapWeek, showMonth: Bool)] = weeks.enumerated()
+                    .map { index, week in
+                        let showMonth: Bool
+                        if index == 0 {
+                            showMonth = true
+                        } else {
+                            showMonth = !calendar.isDate(
+                                week.startDate,
+                                equalTo: weeks[index - 1].startDate,
+                                toGranularity: .month
+                            )
+                        }
+                        return (week, showMonth)
+                    }
 
-                    ForEach(weeks) { week in
-                        VStack(spacing: rowSpacing) {
-                            ForEach(week.cells.sorted(by: { $0.weekdayIndex < $1.weekdayIndex })) {
-                                cell in
-                                heatCell(
-                                    cell,
-                                    cellSize: cellSize,
-                                    cornerRadius: cornerRadius,
-                                    baseColor: baseColor,
-                                    emptyFill: emptyFill,
-                                    borderColor: borderColor,
-                                    maxValue: maxValue
-                                )
+                VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.xs) {
+                    HStack(alignment: .top, spacing: columnSpacing) {
+                        dayLabelColumn(
+                            cellSize: cellSize,
+                            rowSpacing: rowSpacing,
+                            font: labelFont,
+                            color: labelColor
+                        )
+
+                        ForEach(annotatedWeeks, id: \.week.id) { entry in
+                            let week = entry.week
+
+                            VStack(spacing: rowSpacing) {
+                                ForEach(
+                                    week.cells.sorted(by: { $0.weekdayIndex < $1.weekdayIndex })
+                                ) { cell in
+                                    heatCell(
+                                        cell,
+                                        cellSize: cellSize,
+                                        cornerRadius: cornerRadius,
+                                        baseColor: baseColor,
+                                        emptyFill: emptyFill,
+                                        borderColor: borderColor,
+                                        maxValue: maxValue
+                                    )
+                                }
                             }
+                        }
+                    }
 
-                            Text(week.label)
-                                .font(labelFont)
-                                .foregroundColor(labelColor)
-                                .frame(width: cellSize)
-                                .multilineTextAlignment(.center)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.75)
+                    HStack(alignment: .top, spacing: columnSpacing) {
+                        Color.clear
+                            .frame(width: dayLabelColumnWidth(for: cellSize), height: 1)
+
+                        ForEach(annotatedWeeks, id: \.week.id) { entry in
+                            VStack(spacing: AppTheme.BrutalistSpacing.micro) {
+                                if entry.showMonth {
+                                    Text(monthLabel(for: entry.week.startDate))
+                                        .font(labelFont)
+                                        .foregroundColor(labelColor)
+                                        .multilineTextAlignment(.center)
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.75)
+                                }
+
+                                Text(dayLabel(for: entry.week.startDate))
+                                    .font(labelFont)
+                                    .foregroundColor(labelColor)
+                                    .multilineTextAlignment(.center)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.75)
+                            }
+                            .frame(width: cellSize)
                         }
                     }
                 }
@@ -272,19 +320,25 @@ struct GoalTrendsView: View {
         }
     }
 
-    private func dayLabelColumn(rowSpacing: CGFloat, font: Font, color: Color) -> some View {
+    private func dayLabelColumn(
+        cellSize: CGFloat,
+        rowSpacing: CGFloat,
+        font: Font,
+        color: Color
+    ) -> some View {
         VStack(spacing: rowSpacing) {
             ForEach(weekdaySymbols.indices, id: \.self) { index in
                 Text(weekdaySymbols[index])
                     .font(font)
                     .foregroundColor(color)
-                    .frame(width: 32, height: 24, alignment: .leading)
+                    .frame(width: dayLabelColumnWidth(for: cellSize), height: cellSize, alignment: .leading)
                     .accessibilityHidden(true)
             }
-
-            Text("")
-                .frame(width: 32, height: 0)
         }
+    }
+
+    private func dayLabelColumnWidth(for cellSize: CGFloat) -> CGFloat {
+        max(cellSize, 24)
     }
 
     private func heatCell(
@@ -384,8 +438,7 @@ struct GoalTrendsView: View {
                 cells.append(cell)
             }
 
-            let week = HeatmapWeek(
-                startDate: currentWeekStart, label: weekLabel(for: currentWeekStart), cells: cells)
+            let week = HeatmapWeek(startDate: currentWeekStart, cells: cells)
             result.append(week)
 
             guard
@@ -426,10 +479,6 @@ struct GoalTrendsView: View {
         return zeroIndexed
     }
 
-    private func weekLabel(for date: Date) -> String {
-        heatmapWeekFormatter.string(from: date)
-    }
-
     private func color(for value: Double?, baseColor: Color, emptyFill: Color, maxValue: Double)
         -> Color
     {
@@ -457,13 +506,30 @@ struct GoalTrendsView: View {
         return "\(dateText), no data recorded"
     }
 
-    private static let heatmapWeekFormatterStorage: DateFormatter = {
+    private static let heatmapMonthFormatterStorage: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d"
+        formatter.dateFormat = "MMM"
         return formatter
     }()
 
-    private var heatmapWeekFormatter: DateFormatter { Self.heatmapWeekFormatterStorage }
+    private var heatmapMonthFormatter: DateFormatter { Self.heatmapMonthFormatterStorage }
+
+    private static let heatmapDayFormatterStorage: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "d"
+        return formatter
+    }()
+
+    private var heatmapDayFormatter: DateFormatter { Self.heatmapDayFormatterStorage }
+
+    private func monthLabel(for date: Date) -> String {
+        let text = heatmapMonthFormatter.string(from: date)
+        return designStyle == .brutalist ? text.uppercased() : text
+    }
+
+    private func dayLabel(for date: Date) -> String {
+        heatmapDayFormatter.string(from: date)
+    }
 
     private static let heatmapAccessibilityFormatterStorage: DateFormatter = {
         let formatter = DateFormatter()
@@ -488,7 +554,6 @@ struct GoalTrendsView: View {
 
     private struct HeatmapWeek: Identifiable, Hashable {
         let startDate: Date
-        let label: String
         let cells: [HeatmapCell]
 
         var id: Date { startDate }
@@ -506,6 +571,9 @@ struct GoalTrendsView: View {
 
     private var streakSummary: some View {
         Group {
+            if viewModel.currentStreakDays == 0 {
+                EmptyView()
+            } else {
             if designStyle == .brutalist {
                 VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.xs) {
                     Text("Current streak".uppercased())
@@ -552,6 +620,7 @@ struct GoalTrendsView: View {
                         .fill(AppTheme.Palette.surface)
                 )
             }
+            }
         }
     }
 
@@ -575,17 +644,22 @@ struct GoalTrendsView: View {
     }
 
     private var booleanSection: some View {
-        VStack(
-            alignment: .leading,
-            spacing: designStyle == .brutalist ? AppTheme.BrutalistSpacing.sm : 12
-        ) {
-            sectionTitle("Yes/No streaks")
-            VStack(
-                alignment: .leading,
-                spacing: designStyle == .brutalist ? AppTheme.BrutalistSpacing.sm : 12
-            ) {
-                ForEach(viewModel.booleanStreaks) { streak in
-                    booleanCard(for: streak)
+        let activeStreaks = viewModel.booleanStreaks.filter { $0.currentStreak > 0 }
+        return Group {
+            if !activeStreaks.isEmpty {
+                VStack(
+                    alignment: .leading,
+                    spacing: designStyle == .brutalist ? AppTheme.BrutalistSpacing.sm : 12
+                ) {
+                    sectionTitle("Yes/No streaks")
+                    VStack(
+                        alignment: .leading,
+                        spacing: designStyle == .brutalist ? AppTheme.BrutalistSpacing.sm : 12
+                    ) {
+                        ForEach(activeStreaks) { streak in
+                            booleanCard(for: streak)
+                        }
+                    }
                 }
             }
         }
