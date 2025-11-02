@@ -4,6 +4,7 @@ struct BrutalistButtonStyle: ButtonStyle {
     enum Variant {
         case primary
         case secondary
+        case compactSecondary
         case destructive
     }
 
@@ -13,8 +14,8 @@ struct BrutalistButtonStyle: ButtonStyle {
         configuration.label
             .font(AppTheme.BrutalistTypography.bodyBold)
             .textCase(.uppercase)
-            .padding(.vertical, 14)
-            .padding(.horizontal, 20)
+            .padding(.vertical, verticalPadding)
+            .padding(.horizontal, horizontalPadding)
             .background(backgroundColor(isPressed: configuration.isPressed))
             .overlay(
                 Rectangle()
@@ -32,7 +33,7 @@ struct BrutalistButtonStyle: ButtonStyle {
         switch variant {
         case .primary:
             return .white
-        case .secondary:
+        case .secondary, .compactSecondary:
             return AppTheme.BrutalistPalette.foreground
         case .destructive:
             return .white
@@ -44,7 +45,7 @@ struct BrutalistButtonStyle: ButtonStyle {
         case .primary:
             return isPressed
                 ? AppTheme.BrutalistPalette.accent.opacity(0.8) : AppTheme.BrutalistPalette.accent
-        case .secondary:
+        case .secondary, .compactSecondary:
             return isPressed
                 ? AppTheme.BrutalistPalette.border.opacity(0.08)
                 : AppTheme.BrutalistPalette.background
@@ -57,7 +58,7 @@ struct BrutalistButtonStyle: ButtonStyle {
         switch variant {
         case .primary:
             return AppTheme.BrutalistPalette.border
-        case .secondary:
+        case .secondary, .compactSecondary:
             return AppTheme.BrutalistPalette.border
         case .destructive:
             return Color.red
@@ -66,6 +67,24 @@ struct BrutalistButtonStyle: ButtonStyle {
 
     private func borderWidth(isPressed: Bool) -> CGFloat {
         isPressed ? AppTheme.BrutalistBorder.thick : AppTheme.BrutalistBorder.standard
+    }
+
+    private var verticalPadding: CGFloat {
+        switch variant {
+        case .compactSecondary:
+            return 10
+        default:
+            return 14
+        }
+    }
+
+    private var horizontalPadding: CGFloat {
+        switch variant {
+        case .compactSecondary:
+            return 16
+        default:
+            return 20
+        }
     }
 }
 

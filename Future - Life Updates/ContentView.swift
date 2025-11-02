@@ -84,6 +84,7 @@ struct ContentView: View {
                         .disabled(todayViewModel == nil)
                     }
                 }
+                .environment(\.designStyle, .brutalist)
             }
             .tabItem {
                 Label("Today", systemImage: "sun.max.fill")
@@ -93,6 +94,7 @@ struct ContentView: View {
             NavigationStack {
                 InsightsOverviewView(goals: goals)
                     .navigationTitle("Insights")
+                    .environment(\.designStyle, .brutalist)
             }
             .tabItem {
                 Label("Insights", systemImage: "chart.line.uptrend.xyaxis")
@@ -105,6 +107,7 @@ struct ContentView: View {
                     allowNotificationPreviews: $allowNotificationPreviews
                 )
                 .navigationTitle("Settings")
+                .environment(\.designStyle, .brutalist)
             }
             .tabItem {
                 Label("Settings", systemImage: "gearshape")
@@ -271,6 +274,19 @@ extension ContentView {
 }
 
 private struct InsightsOverviewView: View {
+    @Environment(\.designStyle) private var designStyle
+    let goals: [TrackingGoal]
+
+    var body: some View {
+        if designStyle == .brutalist {
+            BrutalistInsightsFeed(goals: goals)
+        } else {
+            LegacyInsightsFeed(goals: goals)
+        }
+    }
+}
+
+private struct LegacyInsightsFeed: View {
     let goals: [TrackingGoal]
 
     var body: some View {
@@ -311,6 +327,504 @@ private struct InsightsOverviewView: View {
             Text("Review trends, streaks, and latest responses for each goal.")
                 .font(AppTheme.Typography.caption)
                 .foregroundStyle(.secondary)
+        }
+    }
+}
+
+private struct BrutalistInsightsFeed: View {
+    let goals: [TrackingGoal]
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.xl) {
+                if goals.isEmpty {
+                    BrutalistEmptyInsightsState()
+                } else {
+                    BrutalistRecentActivitySection(entries: recentEntries)
+                    BrutalistGoalInsightsSection(goals: goals)
+                }
+            }
+            .padding(AppTheme.BrutalistSpacing.md)
+        }
+        .scrollIndicators(.hidden)
+        .background(AppTheme.BrutalistPalette.background.ignoresSafeArea())
+    }
+
+    // Former digest helpers removed as the Insights Digest was cut
+
+    private var recentEntries: [RecentLogEntry] {
+        guard !goals.isEmpty else { return [] }
+        let now = Date()
+        return allDataPoints
+            .sorted(by: { $0.timestamp > $1.timestamp })
+            .prefix(6)
+            .compactMap { dataPoint in
+                guard let goalTitle = dataPoint.goal?.title ?? goals.first(where: {
+                    $0.id == dataPoint.goal?.id
+                })?.title else {
+                    return nil
+                }
+
+                let question = dataPoint.question
+                let responseType = question?.responseType ?? fallbackResponseType(for: dataPoint)
+                let value = formatValue(for: dataPoint, responseType: responseType)
+                let relative = Self.relativeFormatter.localizedString(
+                    for: dataPoint.timestamp,
+                    relativeTo: now
+                )
+
+                return RecentLogEntry(
+                    id: dataPoint.id,
+                    goalTitle: goalTitle,
+                    questionTitle: question?.text,
+                    valueDescription: value,
+                    detail: relative.uppercased(),
+                    icon: icon(for: responseType)
+                )
+            }
+    }
+
+    private var allDataPoints: [DataPoint] {
+        goals.flatMap(\.dataPoints)
+    }
+
+    private func icon(for responseType: ResponseType) -> String {
+        switch responseType {
+        case .numeric, .scale, .slider:
+            return "chart.bar.fill"
+        case .waterIntake:
+            return "drop.fill"
+        case .boolean:
+            return "checkmark.seal.fill"
+        case .multipleChoice:
+            return "square.grid.2x2"
+        case .text:
+            return "text.alignleft"
+        case .time:
+            return "clock"
+        }
+    }
+
+    private func formatValue(for dataPoint: DataPoint, responseType: ResponseType) -> String {
+        switch responseType {
+        case .numeric, .scale, .slider:
+            if let value = dataPoint.numericValue {
+                return Self.numberFormatter.string(from: NSNumber(value: value)) ?? "\(value)"
+            }
+        case .waterIntake:
+            if let value = dataPoint.numericValue {
+                return HydrationFormatter.ouncesString(value)
+            }
+        case .boolean:
+            if let value = dataPoint.boolValue {
+                return value ? "YES" : "NO"
+            }
+        case .multipleChoice:
+            if let selections = dataPoint.selectedOptions, !selections.isEmpty {
+                return selections.joined(separator: ", ").uppercased()
+            }
+        case .text:
+            if let text = dataPoint.textValue?.trimmingCharacters(in: .whitespacesAndNewlines),
+                !text.isEmpty
+            {
+                if text.count > 60 {
+                    let prefix = String(text.prefix(57))
+                    return prefix + "…"
+                }
+                return text
+            }
+        case .time:
+            if let date = dataPoint.timeValue {
+                let timezone = dataPoint.goal?.schedule.timezone ?? .current
+                Self.timeFormatter.timeZone = timezone
+                return Self.timeFormatter.string(from: date)
+            }
+        }
+
+        if let numeric = dataPoint.numericValue {
+            return Self.numberFormatter.string(from: NSNumber(value: numeric)) ?? "--"
+        }
+        if let text = dataPoint.textValue, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return text
+        }
+        return "--"
+    }
+
+    private func fallbackResponseType(for dataPoint: DataPoint) -> ResponseType {
+        if dataPoint.numericValue != nil {
+            return .numeric
+        }
+        if dataPoint.boolValue != nil {
+            return .boolean
+        }
+        if let selections = dataPoint.selectedOptions, !selections.isEmpty {
+            return .multipleChoice
+        }
+        if let text = dataPoint.textValue,
+            !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        {
+            return .text
+        }
+        if dataPoint.timeValue != nil {
+            return .time
+        }
+        return .numeric
+    }
+
+    private static let relativeFormatter: RelativeDateTimeFormatter = {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .short
+        return formatter
+    }()
+
+    private static let numberFormatter: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.maximumFractionDigits = 1
+        formatter.minimumFractionDigits = 0
+        return formatter
+    }()
+
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter
+    }()
+
+    private static let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter
+    }()
+}
+
+private struct BrutalistEmptyInsightsState: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
+            Text("No insights yet".uppercased())
+                .font(AppTheme.BrutalistTypography.overline)
+                .foregroundColor(AppTheme.BrutalistPalette.secondary)
+            Text("Create your first goal to unlock analytics.")
+                .font(AppTheme.BrutalistTypography.body)
+                .foregroundColor(AppTheme.BrutalistPalette.secondary)
+        }
+        .brutalistCard()
+    }
+}
+
+// Removed Insights Digest types (HeroStat, HeroLayoutStyle, BrutalistInsightsHero,
+// BrutalistStatTile, BrutalistStatBand) as the digest was cut from the design
+
+private struct RecentLogEntry: Identifiable, Hashable {
+    let id: UUID
+    let goalTitle: String
+    let questionTitle: String?
+    let valueDescription: String
+    let detail: String
+    let icon: String
+}
+
+private struct BrutalistRecentActivitySection: View {
+    let entries: [RecentLogEntry]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.md) {
+            Text("Recent activity".uppercased())
+                .font(AppTheme.BrutalistTypography.overline)
+                .foregroundColor(AppTheme.BrutalistPalette.secondary)
+
+            if entries.isEmpty {
+                VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.xs) {
+                    Text("No logs yet".uppercased())
+                        .font(AppTheme.BrutalistTypography.captionBold)
+                        .foregroundColor(AppTheme.BrutalistPalette.foreground)
+                    Text("Once you log updates, your most recent entries will appear here.")
+                        .font(AppTheme.BrutalistTypography.body)
+                        .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                }
+                .brutalistCard()
+            } else {
+                VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
+                    ForEach(entries) { entry in
+                        BrutalistRecentActivityRow(entry: entry)
+
+                        if entry.id != entries.last?.id {
+                            Rectangle()
+                                .fill(AppTheme.BrutalistPalette.border.opacity(0.25))
+                                .frame(height: 1)
+                        }
+                    }
+                }
+                .brutalistCard(padding: AppTheme.BrutalistSpacing.sm)
+            }
+        }
+    }
+}
+
+private struct BrutalistRecentActivityRow: View {
+    let entry: RecentLogEntry
+
+    var body: some View {
+        HStack(alignment: .top, spacing: AppTheme.BrutalistSpacing.sm) {
+            Image(systemName: entry.icon)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(AppTheme.BrutalistPalette.foreground)
+                .padding(.top, 2)
+
+            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.micro) {
+                Text(entry.goalTitle.uppercased())
+                    .font(AppTheme.BrutalistTypography.captionBold)
+                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
+
+                if let question = entry.questionTitle?.nonEmpty {
+                    Text(question)
+                        .font(AppTheme.BrutalistTypography.bodyBold)
+                        .foregroundColor(AppTheme.BrutalistPalette.foreground)
+                        .lineLimit(2)
+                }
+
+                Text(entry.valueDescription)
+                    .font(AppTheme.BrutalistTypography.body)
+                    .foregroundColor(AppTheme.BrutalistPalette.foreground)
+                    .lineLimit(2)
+
+                Text(entry.detail)
+                    .font(AppTheme.BrutalistTypography.captionMono)
+                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
+            }
+
+            Spacer()
+        }
+    }
+}
+
+private struct GoalStatistic: Identifiable, Hashable {
+    let title: String
+    let value: String
+    let icon: String
+
+    var id: String { title + value + icon }
+}
+
+private struct BrutalistGoalStatsGrid: View {
+    let stats: [GoalStatistic]
+
+    var body: some View {
+        LazyVGrid(
+            columns: [
+                GridItem(.flexible()),
+                GridItem(.flexible()),
+                GridItem(.flexible()),
+            ],
+            spacing: AppTheme.BrutalistSpacing.sm
+        ) {
+            ForEach(stats) { stat in
+                BrutalistGoalStatTile(stat: stat)
+            }
+        }
+    }
+}
+
+private struct BrutalistGoalStatTile: View {
+    let stat: GoalStatistic
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.micro) {
+            HStack(spacing: AppTheme.BrutalistSpacing.micro) {
+                Image(systemName: stat.icon)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(AppTheme.BrutalistPalette.foreground)
+                Text(stat.title.uppercased())
+                    .font(AppTheme.BrutalistTypography.overline)
+                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
+            }
+
+            Text(stat.value)
+                .font(AppTheme.BrutalistTypography.bodyMono)
+                .foregroundColor(AppTheme.BrutalistPalette.foreground)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+        }
+        .padding(.vertical, AppTheme.BrutalistSpacing.xs)
+        .padding(.horizontal, AppTheme.BrutalistSpacing.sm)
+        .background(AppTheme.BrutalistPalette.background)
+        .border(AppTheme.BrutalistPalette.border, width: AppTheme.BrutalistBorder.thin)
+        .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
+    }
+}
+
+private func goalStatistics(from viewModel: GoalTrendsViewModel) -> [GoalStatistic] {
+    let calendar = Calendar.current
+    let now = Date()
+    let todayEntry = viewModel.dailySeries.last(where: { calendar.isDateInToday($0.date) })
+    let todayValue = todayEntry.map { viewModel.formattedNumber($0.averageValue) } ?? "No log"
+
+    let lastEntry = viewModel.dailySeries.last
+    let lastLogText: String
+    if let lastEntry {
+        if calendar.isDateInToday(lastEntry.date) {
+            lastLogText = "Today"
+        } else {
+            lastLogText = goalStatsRelativeFormatter.localizedString(
+                for: lastEntry.date,
+                relativeTo: now
+            )
+        }
+    } else {
+        lastLogText = "--"
+    }
+
+    let streak = viewModel.currentStreakDays
+    let streakText = streak == 0 ? "None" : "\(streak) days"
+
+    return [
+        GoalStatistic(title: "Today", value: todayValue, icon: "target"),
+        GoalStatistic(title: "Streak", value: streakText, icon: "flame"),
+        GoalStatistic(title: "Last log", value: lastLogText, icon: "clock"),
+    ]
+}
+
+private let goalStatsRelativeFormatter: RelativeDateTimeFormatter = {
+    let formatter = RelativeDateTimeFormatter()
+    formatter.unitsStyle = .short
+    return formatter
+}()
+
+private struct BrutalistGoalInsightsSection: View {
+    let goals: [TrackingGoal]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.md) {
+            Text("Goal deep dives".uppercased())
+                .font(AppTheme.BrutalistTypography.overline)
+                .foregroundColor(AppTheme.BrutalistPalette.secondary)
+
+            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.md) {
+                ForEach(sortedGoals) { goal in
+                    BrutalistGoalInsightsCard(goal: goal)
+                }
+            }
+        }
+    }
+
+    private var sortedGoals: [TrackingGoal] {
+        goals.sorted { $0.updatedAt > $1.updatedAt }
+    }
+}
+
+private struct BrutalistGoalInsightsCard: View {
+    @Environment(\.modelContext) private var modelContext
+
+    let goal: TrackingGoal
+
+    @State private var trendsViewModel: GoalTrendsViewModel?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.md) {
+            header
+
+            if let viewModel = trendsViewModel {
+                BrutalistGoalStatsGrid(stats: goalStatistics(from: viewModel))
+                    .padding(.top, AppTheme.BrutalistSpacing.xs)
+
+                GoalTrendsView(viewModel: viewModel, displayMode: .compact)
+                    .environment(\.designStyle, .brutalist)
+            } else {
+                loadingState
+            }
+
+            NavigationLink {
+                GoalDetailView(goal: goal)
+                    .environment(\.designStyle, .brutalist)
+            } label: {
+                HStack(spacing: AppTheme.BrutalistSpacing.micro) {
+                    Text("OPEN GOAL DETAILS")
+                        .font(AppTheme.BrutalistTypography.captionMono)
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: 12, weight: .bold))
+                }
+                .foregroundColor(AppTheme.BrutalistPalette.accent)
+                .padding(.vertical, AppTheme.BrutalistSpacing.micro)
+            }
+            .buttonStyle(.plain)
+        }
+        .brutalistCard()
+        .task { updateViewModel(forceCreate: trendsViewModel == nil) }
+        .onChange(of: goal.persistentModelID) { _, _ in
+            updateViewModel(forceCreate: true)
+        }
+        .onChange(of: goal.updatedAt) { _, _ in
+            trendsViewModel?.refresh()
+        }
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.xs) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.micro) {
+                    Text(goal.title)
+                        .font(AppTheme.BrutalistTypography.title)
+                        .foregroundColor(AppTheme.BrutalistPalette.foreground)
+
+                    if let category = goal.categoryDisplayName.nonEmpty {
+                        Text(category.uppercased())
+                            .font(AppTheme.BrutalistTypography.overline)
+                            .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                    }
+                }
+
+                Spacer()
+
+                statusBadge
+            }
+
+            if let description = goal.goalDescription.nonEmpty {
+                Text(description)
+                    .font(AppTheme.BrutalistTypography.body)
+                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                    .lineLimit(2)
+            }
+        }
+    }
+
+    private var statusBadge: some View {
+        Text(goal.isActive ? "ACTIVE" : "PAUSED")
+            .font(AppTheme.BrutalistTypography.captionMono)
+            .padding(.horizontal, AppTheme.BrutalistSpacing.xs)
+            .padding(.vertical, AppTheme.BrutalistSpacing.micro)
+            .background(
+                goal.isActive
+                    ? AppTheme.BrutalistPalette.accent
+                    : AppTheme.BrutalistPalette.border.opacity(0.2)
+            )
+            .foregroundColor(
+                goal.isActive
+                    ? AppTheme.BrutalistPalette.background : AppTheme.BrutalistPalette.foreground)
+    }
+
+    private var loadingState: some View {
+        HStack(spacing: AppTheme.BrutalistSpacing.sm) {
+            ProgressView()
+                .progressViewStyle(.circular)
+            Text("Gathering insights…")
+                .font(AppTheme.BrutalistTypography.caption)
+                .foregroundColor(AppTheme.BrutalistPalette.secondary)
+        }
+    }
+
+    private func updateViewModel(forceCreate: Bool) {
+        if forceCreate {
+            trendsViewModel = GoalTrendsViewModel(goal: goal, modelContext: modelContext)
+            return
+        }
+
+        guard let current = trendsViewModel else { return }
+
+        if current.goal.persistentModelID == goal.persistentModelID {
+            current.refresh()
+        } else {
+            trendsViewModel = GoalTrendsViewModel(goal: goal, modelContext: modelContext)
         }
     }
 }
@@ -489,17 +1003,8 @@ private struct BrutalistGoalCardView: View {
     }
 
     private func quickStats(using viewModel: GoalTrendsViewModel) -> some View {
-        let stats = statData(from: viewModel)
-
-        return LazyVGrid(
-            columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())],
-            spacing: AppTheme.BrutalistSpacing.sm
-        ) {
-            ForEach(stats, id: \.title) { stat in
-                statPill(title: stat.title, value: stat.value, icon: stat.icon)
-            }
-        }
-        .padding(.vertical, AppTheme.BrutalistSpacing.xs)
+        BrutalistGoalStatsGrid(stats: goalStatistics(from: viewModel))
+            .padding(.vertical, AppTheme.BrutalistSpacing.xs)
     }
 
     private func actionRow() -> some View {
@@ -540,30 +1045,6 @@ private struct BrutalistGoalCardView: View {
                 .font(AppTheme.BrutalistTypography.bodyMono)
                 .foregroundColor(AppTheme.BrutalistPalette.foreground)
         }
-    }
-
-    private func statPill(title: String, value: String, icon: String) -> some View {
-        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.micro) {
-            HStack(spacing: AppTheme.BrutalistSpacing.micro) {
-                Image(systemName: icon)
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(AppTheme.BrutalistPalette.foreground)
-                Text(title.uppercased())
-                    .font(AppTheme.BrutalistTypography.overline)
-                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
-            }
-
-            Text(value)
-                .font(AppTheme.BrutalistTypography.bodyMono)
-                .foregroundColor(AppTheme.BrutalistPalette.foreground)
-                .lineLimit(1)
-                .minimumScaleFactor(0.85)
-        }
-        .padding(.vertical, AppTheme.BrutalistSpacing.xs)
-        .padding(.horizontal, AppTheme.BrutalistSpacing.sm)
-        .background(AppTheme.BrutalistPalette.background)
-        .border(AppTheme.BrutalistPalette.border, width: AppTheme.BrutalistBorder.thin)
-        .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
     }
 
     private enum ActionChipStyle {
@@ -653,43 +1134,6 @@ private struct BrutalistGoalCardView: View {
             )
     }
 
-    private func statData(from viewModel: GoalTrendsViewModel) -> [(
-        title: String, value: String, icon: String
-    )] {
-        let todayEntry = viewModel.dailySeries.last(where: {
-            Calendar.current.isDateInToday($0.date)
-        })
-        let todayValue = todayEntry.map { viewModel.formattedNumber($0.averageValue) } ?? "No log"
-
-        let lastEntry = viewModel.dailySeries.last
-        let lastLogText: String
-        if let lastEntry {
-            if Calendar.current.isDateInToday(lastEntry.date) {
-                lastLogText = "Today"
-            } else {
-                lastLogText = Self.relativeFormatter.localizedString(
-                    for: lastEntry.date, relativeTo: Date())
-            }
-        } else {
-            lastLogText = "--"
-        }
-
-        let streak = viewModel.currentStreakDays
-        let streakText = streak == 0 ? "None" : "\(streak) days"
-
-        return [
-            (title: "Today", value: todayValue, icon: "target"),
-            (title: "Streak", value: streakText, icon: "flame"),
-            (title: "Last log", value: lastLogText, icon: "clock"),
-        ]
-    }
-
-    private static let relativeFormatter: RelativeDateTimeFormatter = {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .short
-        return formatter
-    }()
-
     private var scheduleSummary: String {
         let times = goal.schedule.times
         guard !times.isEmpty else { return "No reminders" }
@@ -772,6 +1216,16 @@ private struct SettingsRootView: View {
                 Toggle(isOn: $allowNotificationPreviews) {
                     Text("Allow reminder previews")
                 }
+
+                NavigationLink {
+                    SendTestNotificationView()
+                } label: {
+                    Label("Send test notification", systemImage: "paperplane")
+                }
+
+                Text("Pick a goal and we'll send a one-off reminder to confirm delivery.")
+                    .font(AppTheme.Typography.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section("Data management") {
