@@ -331,7 +331,10 @@ struct GoalTrendsView: View {
                 Text(weekdaySymbols[index])
                     .font(font)
                     .foregroundColor(color)
-                    .frame(width: dayLabelColumnWidth(for: cellSize), height: cellSize, alignment: .leading)
+                    .frame(
+                        width: dayLabelColumnWidth(for: cellSize), height: cellSize,
+                        alignment: .leading
+                    )
                     .accessibilityHidden(true)
             }
         }
@@ -574,52 +577,57 @@ struct GoalTrendsView: View {
             if viewModel.currentStreakDays == 0 {
                 EmptyView()
             } else {
-            if designStyle == .brutalist {
-                VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.xs) {
-                    Text("Current streak".uppercased())
-                        .font(AppTheme.BrutalistTypography.overline)
-                        .foregroundColor(AppTheme.BrutalistPalette.secondary)
-                    HStack(alignment: .firstTextBaseline, spacing: AppTheme.BrutalistSpacing.xs) {
-                        Text(streakHeadline.uppercased())
-                            .font(AppTheme.BrutalistTypography.headlineMono)
-                        Image(systemName: viewModel.currentStreakDays > 0 ? "flame.fill" : "flame")
+                if designStyle == .brutalist {
+                    VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.xs) {
+                        Text("Current streak".uppercased())
+                            .font(AppTheme.BrutalistTypography.overline)
+                            .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                        HStack(alignment: .firstTextBaseline, spacing: AppTheme.BrutalistSpacing.xs)
+                        {
+                            Text(streakHeadline.uppercased())
+                                .font(AppTheme.BrutalistTypography.headlineMono)
+                            Image(
+                                systemName: viewModel.currentStreakDays > 0 ? "flame.fill" : "flame"
+                            )
                             .foregroundColor(
                                 viewModel.currentStreakDays > 0
                                     ? AppTheme.BrutalistPalette.accent
                                     : AppTheme.BrutalistPalette.secondary)
-                    }
-                    Text(streakDetail)
-                        .font(AppTheme.BrutalistTypography.caption)
-                        .foregroundColor(AppTheme.BrutalistPalette.secondary)
-                }
-                .padding(AppTheme.BrutalistSpacing.md)
-                .brutalistCard()
-            } else {
-                VStack(alignment: .leading, spacing: 8) {
-                    Label {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Current streak")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                            Text(streakHeadline)
-                                .font(.title3.weight(.semibold))
                         }
-                    } icon: {
-                        Image(systemName: viewModel.currentStreakDays > 0 ? "flame.fill" : "flame")
-                            .foregroundStyle(viewModel.currentStreakDays > 0 ? .orange : .secondary)
+                        Text(streakDetail)
+                            .font(AppTheme.BrutalistTypography.caption)
+                            .foregroundColor(AppTheme.BrutalistPalette.secondary)
                     }
+                    .padding(AppTheme.BrutalistSpacing.md)
+                    .brutalistCard()
+                } else {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Current streak")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                Text(streakHeadline)
+                                    .font(.title3.weight(.semibold))
+                            }
+                        } icon: {
+                            Image(
+                                systemName: viewModel.currentStreakDays > 0 ? "flame.fill" : "flame"
+                            )
+                            .foregroundStyle(viewModel.currentStreakDays > 0 ? .orange : .secondary)
+                        }
 
-                    Text(streakDetail)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        Text(streakDetail)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(AppTheme.Palette.surface)
+                    )
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-                .background(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(AppTheme.Palette.surface)
-                )
-            }
             }
         }
     }
