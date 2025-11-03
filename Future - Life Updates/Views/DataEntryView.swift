@@ -7,8 +7,10 @@ import SwiftUI
 
 struct DataEntryView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.designStyle) private var designStyle
 
     @State private var viewModel: DataEntryViewModel
+    @FocusState private var focusedTextQuestionID: UUID?
     private let goal: TrackingGoal
     private let mode: Mode
 
@@ -27,7 +29,52 @@ struct DataEntryView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            content
+                .navigationTitle(navigationTitle)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button(cancelButtonTitle, role: .cancel) { dismiss() }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Save") {
+                            Task { await saveEntries() }
+                        }
+                        .disabled(!viewModel.canSubmit)
+                    }
+                }
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if designStyle == .brutalist {
+            brutalistContent
+        } else {
+            legacyContent
+        }
+    }
+
+    private var legacyContent: some View {
+        Form {
+            if case .notification(_, let isTest) = mode {
+                notificationIntro(isTest: isTest)
+            }
+
+            let activeQuestions = orderedActiveQuestions
+            if activeQuestions.isEmpty {
+                ContentUnavailableView("No active questions", systemImage: "checkmark.circle")
+            } else {
+                ForEach(activeQuestions) { question in
+                    questionRow(for: question)
+                        .listRowBackground(focusHighlight(for: question))
+                }
+            }
+        }
+    }
+
+    private var brutalistContent: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.lg) {
                 if case .notification(_, let isTest) = mode {
                     notificationIntro(isTest: isTest)
                 }
@@ -35,26 +82,23 @@ struct DataEntryView: View {
                 let activeQuestions = orderedActiveQuestions
                 if activeQuestions.isEmpty {
                     ContentUnavailableView("No active questions", systemImage: "checkmark.circle")
+                        .brutalistCard()
                 } else {
-                    ForEach(activeQuestions) { question in
-                        questionRow(for: question)
-                            .listRowBackground(focusHighlight(for: question))
+                    LazyVStack(
+                        alignment: .leading,
+                        spacing: AppTheme.BrutalistSpacing.lg,
+                        pinnedViews: []
+                    ) {
+                        ForEach(activeQuestions) { question in
+                            questionRow(for: question)
+                                .transition(.opacity)
+                        }
                     }
                 }
             }
-            .navigationTitle(navigationTitle)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(cancelButtonTitle, role: .cancel) { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        Task { await saveEntries() }
-                    }
-                    .disabled(!viewModel.canSubmit)
-                }
-            }
+            .padding(AppTheme.BrutalistSpacing.md)
         }
+        .background(AppTheme.BrutalistPalette.background.ignoresSafeArea())
     }
 
     @ViewBuilder
@@ -81,21 +125,42 @@ struct DataEntryView: View {
 
     @ViewBuilder
     private func notificationIntro(isTest: Bool) -> some View {
-        Section {
-            VStack(alignment: .leading, spacing: 8) {
+        if designStyle == .brutalist {
+            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
+                Text("From your reminder".uppercased())
+                    .font(AppTheme.BrutalistTypography.overline)
+                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
+
                 Text(focusQuestion?.text ?? "Log your latest update.")
-                    .font(.headline)
+                    .font(AppTheme.BrutalistTypography.headline)
+                    .foregroundColor(AppTheme.BrutalistPalette.foreground)
+
                 Text(
                     isTest
                         ? "This test reminder helps confirm your notification setup."
                         : "This reminder jumped you straight into logging—finish your check-in below."
                 )
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .font(AppTheme.BrutalistTypography.body)
+                .foregroundColor(AppTheme.BrutalistPalette.secondary)
             }
-            .padding(.vertical, 4)
-        } header: {
-            Text("From your reminder")
+            .brutalistCard()
+        } else {
+            Section {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(focusQuestion?.text ?? "Log your latest update.")
+                        .font(.headline)
+                    Text(
+                        isTest
+                            ? "This test reminder helps confirm your notification setup."
+                            : "This reminder jumped you straight into logging—finish your check-in below."
+                    )
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 4)
+            } header: {
+                Text("From your reminder")
+            }
         }
     }
 
@@ -128,11 +193,16 @@ struct DataEntryView: View {
         return goal.questions.first(where: { $0.id == questionID })
     }
 
+    private func isFocusQuestion(_ question: Question) -> Bool {
+        focusQuestion?.id == question.id
+    }
+
     private func focusHighlight(for question: Question) -> Color? {
         guard let focusQuestion, focusQuestion.id == question.id else { return nil }
         return Color.accentColor.opacity(0.12)
     }
 
+    @ViewBuilder
     private func numericRow(for question: Question) -> some View {
         let bounds = numericBounds(for: question)
         let valueBinding = Binding<Double>(
@@ -141,7 +211,25 @@ struct DataEntryView: View {
         )
         let currentValue = valueBinding.wrappedValue
 
-        return VStack(alignment: .leading, spacing: 6) {
+        if designStyle == .brutalist {
+            brutalistNumericRow(for: question, bounds: bounds, value: currentValue)
+        } else {
+            legacyNumericRow(
+                for: question,
+                bounds: bounds,
+                valueBinding: valueBinding,
+                currentValue: currentValue
+            )
+        }
+    }
+
+    private func legacyNumericRow(
+        for question: Question,
+        bounds: ClosedRange<Double>,
+        valueBinding: Binding<Double>,
+        currentValue: Double
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(question.text)
@@ -160,14 +248,151 @@ struct DataEntryView: View {
         }
     }
 
+    private func brutalistNumericRow(
+        for question: Question,
+        bounds: ClosedRange<Double>,
+        value: Double
+    ) -> some View {
+        brutalistQuestionContainer(for: question) {
+            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
+                HStack(spacing: AppTheme.BrutalistSpacing.sm) {
+                    brutalistStepperButton(
+                        systemImage: "minus",
+                        isDisabled: value <= bounds.lowerBound
+                    ) {
+                        adjustNumericValue(for: question, by: -1, bounds: bounds)
+                    }
+
+                    Text(value, format: .number)
+                        .font(AppTheme.BrutalistTypography.bodyMono)
+                        .foregroundColor(AppTheme.BrutalistPalette.foreground)
+                        .frame(minWidth: 88)
+                        .multilineTextAlignment(.center)
+
+                    brutalistStepperButton(
+                        systemImage: "plus",
+                        isDisabled: value >= bounds.upperBound
+                    ) {
+                        adjustNumericValue(for: question, by: 1, bounds: bounds)
+                    }
+                }
+
+                Text(
+                    "Range \(formattedValue(bounds.lowerBound, for: question)) – \(formattedValue(bounds.upperBound, for: question))"
+                )
+                .font(AppTheme.BrutalistTypography.captionMono)
+                .foregroundColor(AppTheme.BrutalistPalette.secondary)
+            }
+        }
+    }
+
+    private func brutalistQuestionContainer<Content: View>(
+        for question: Question,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.md) {
+            brutalistQuestionHeader(for: question)
+            content()
+        }
+        .brutalistCard()
+        .overlay(
+            Rectangle()
+                .stroke(
+                    AppTheme.BrutalistPalette.accent,
+                    lineWidth: AppTheme.BrutalistBorder.thick
+                )
+                .opacity(isFocusQuestion(question) ? 1 : 0)
+        )
+    }
+
+    private func brutalistQuestionHeader(for question: Question) -> some View {
+        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.micro) {
+            Text(question.text)
+                .font(AppTheme.BrutalistTypography.headline)
+                .foregroundColor(AppTheme.BrutalistPalette.foreground)
+            deltaSummaryView(for: question)
+        }
+    }
+
+    private func brutalistStepperButton(
+        systemImage: String,
+        isDisabled: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 16, weight: .bold))
+        }
+        .brutalistIconButton(variant: .neutral)
+        .disabled(isDisabled)
+        .opacity(isDisabled ? 0.35 : 1)
+    }
+
+    private func adjustWaterIntake(
+        by step: Double,
+        within range: ClosedRange<Double>,
+        for question: Question
+    ) {
+        let current = viewModel.waterIntakeDelta(for: question)
+        let next = min(max(current + step, range.lowerBound), range.upperBound)
+        guard next != current else { return }
+        Haptics.selection()
+        viewModel.setWaterIntake(next, for: question)
+    }
+
+    private func adjustNumericValue(
+        for question: Question,
+        by step: Double,
+        bounds: ClosedRange<Double>
+    ) {
+        let current = viewModel.numericValue(for: question, default: bounds.lowerBound)
+        let next = min(max(current + step, bounds.lowerBound), bounds.upperBound)
+        guard next != current else { return }
+        Haptics.selection()
+        viewModel.updateNumericResponse(next, for: question)
+    }
+
+    private func setScaleValue(_ value: Int, for question: Question) {
+        let current = Int(
+            round(viewModel.numericValue(for: question, default: Double(value)))
+        )
+        guard current != value else { return }
+        Haptics.selection()
+        viewModel.updateNumericResponse(Double(value), for: question)
+    }
+
+    private func setBooleanValue(_ newValue: Bool, for question: Question) {
+        let current = viewModel.booleanValue(for: question)
+        guard current != newValue else { return }
+        Haptics.selection()
+        viewModel.updateBooleanResponse(newValue, for: question)
+    }
+
+    private func toggleOption(_ option: String, isSelected: Bool, for question: Question) {
+        Haptics.selection()
+        viewModel.setOption(option, isSelected: !isSelected, for: question)
+    }
+
+    @ViewBuilder
     private func scaleRow(for question: Question) -> some View {
         let bounds = scaleBounds(for: question)
         let binding = Binding<Int>(
             get: { Int(viewModel.numericValue(for: question, default: Double(bounds.lowerBound))) },
             set: { viewModel.updateNumericResponse(Double($0), for: question) }
         )
+        if designStyle == .brutalist {
+            brutalistScaleRow(for: question, bounds: bounds, value: binding.wrappedValue)
+        } else {
+            legacyScaleRow(for: question, bounds: bounds, binding: binding)
+        }
+    }
 
-        return VStack(alignment: .leading, spacing: 6) {
+    private func legacyScaleRow(
+        for question: Question,
+        bounds: ClosedRange<Int>,
+        binding: Binding<Int>
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .center, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(question.text)
@@ -185,6 +410,71 @@ struct DataEntryView: View {
         }
     }
 
+    private func brutalistScaleRow(
+        for question: Question,
+        bounds: ClosedRange<Int>,
+        value: Int
+    ) -> some View {
+        let options = Array(bounds)
+
+        return brutalistQuestionContainer(for: question) {
+            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
+                Text("Select a value".uppercased())
+                    .font(AppTheme.BrutalistTypography.overline)
+                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
+
+                LazyVGrid(
+                    columns: [
+                        GridItem(
+                            .adaptive(minimum: 56, maximum: 72),
+                            spacing: AppTheme.BrutalistSpacing.sm)
+                    ],
+                    spacing: AppTheme.BrutalistSpacing.sm
+                ) {
+                    ForEach(options, id: \.self) { option in
+                        Button {
+                            setScaleValue(option, for: question)
+                        } label: {
+                            Text("\(option)")
+                                .font(AppTheme.BrutalistTypography.bodyBold)
+                                .frame(height: 48)
+                                .frame(maxWidth: .infinity)
+                                .foregroundColor(
+                                    value == option
+                                        ? AppTheme.BrutalistPalette.background
+                                        : AppTheme.BrutalistPalette.foreground
+                                )
+                                .background(
+                                    value == option
+                                        ? AppTheme.BrutalistPalette.accent
+                                        : AppTheme.BrutalistPalette.background
+                                )
+                                .overlay(
+                                    Rectangle()
+                                        .stroke(
+                                            value == option
+                                                ? AppTheme.BrutalistPalette.accent
+                                                : AppTheme.BrutalistPalette.border,
+                                            lineWidth: AppTheme.BrutalistBorder.standard
+                                        )
+                                )
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Select \(option)")
+                        .accessibilityAddTraits(value == option ? .isSelected : [])
+                    }
+                }
+
+                Text(
+                    "Current selection \(value) of \(options.count)"
+                )
+                .font(AppTheme.BrutalistTypography.captionMono)
+                .foregroundColor(AppTheme.BrutalistPalette.secondary)
+            }
+        }
+    }
+
+    @ViewBuilder
     private func sliderRow(for question: Question) -> some View {
         let bounds = sliderBounds(for: question)
         let intBinding = Binding<Int>(
@@ -207,7 +497,31 @@ struct DataEntryView: View {
 
         let doubleBounds = Double(bounds.lowerBound)...Double(bounds.upperBound)
 
-        return VStack(alignment: .leading, spacing: 12) {
+        if designStyle == .brutalist {
+            brutalistSliderRow(
+                for: question,
+                bounds: bounds,
+                sliderBinding: sliderBinding,
+                intBinding: intBinding,
+                doubleBounds: doubleBounds
+            )
+        } else {
+            legacySliderRow(
+                for: question,
+                sliderBinding: sliderBinding,
+                intBinding: intBinding,
+                doubleBounds: doubleBounds
+            )
+        }
+    }
+
+    private func legacySliderRow(
+        for question: Question,
+        sliderBinding: Binding<Double>,
+        intBinding: Binding<Int>,
+        doubleBounds: ClosedRange<Double>
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(question.text)
                     .font(.headline)
@@ -223,7 +537,53 @@ struct DataEntryView: View {
         }
     }
 
+    private func brutalistSliderRow(
+        for question: Question,
+        bounds: ClosedRange<Int>,
+        sliderBinding: Binding<Double>,
+        intBinding: Binding<Int>,
+        doubleBounds: ClosedRange<Double>
+    ) -> some View {
+        brutalistQuestionContainer(for: question) {
+            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.md) {
+                VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.xs) {
+                    Slider(value: sliderBinding, in: doubleBounds, step: 1)
+                        .tint(AppTheme.BrutalistPalette.accent)
+
+                    HStack {
+                        Text(formattedValue(Double(bounds.lowerBound), for: question))
+                            .font(AppTheme.BrutalistTypography.captionMono)
+                            .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                        Spacer()
+                        Text(formattedValue(Double(bounds.upperBound), for: question))
+                            .font(AppTheme.BrutalistTypography.captionMono)
+                            .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                    }
+                }
+
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Selected".uppercased())
+                        .font(AppTheme.BrutalistTypography.overline)
+                        .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                    Spacer()
+                    Text("\(intBinding.wrappedValue)")
+                        .font(AppTheme.BrutalistTypography.bodyMono)
+                        .foregroundColor(AppTheme.BrutalistPalette.foreground)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
     private func waterIntakeRow(for question: Question) -> some View {
+        if designStyle == .brutalist {
+            brutalistWaterIntakeRow(for: question)
+        } else {
+            legacyWaterIntakeRow(for: question)
+        }
+    }
+
+    private func legacyWaterIntakeRow(for question: Question) -> some View {
         let quickActions = HydrationQuickAddAction.presets
         let pending = viewModel.waterIntakeDelta(for: question)
         let deltaBinding = Binding<Double>(
@@ -285,35 +645,236 @@ struct DataEntryView: View {
                 }
             }
         }
+
     }
 
+    private func brutalistWaterIntakeRow(for question: Question) -> some View {
+        let quickActions = HydrationQuickAddAction.presets
+        let range = waterIntakeDeltaRange(for: question)
+        let pending = viewModel.waterIntakeDelta(for: question)
+        let total = viewModel.waterIntakeTotal(for: question)
+
+        return brutalistQuestionContainer(for: question) {
+            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.md) {
+                VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.xs) {
+                    Text("Pending amount".uppercased())
+                        .font(AppTheme.BrutalistTypography.overline)
+                        .foregroundColor(AppTheme.BrutalistPalette.secondary)
+
+                    HStack(spacing: AppTheme.BrutalistSpacing.sm) {
+                        brutalistStepperButton(
+                            systemImage: "minus",
+                            isDisabled: pending <= range.lowerBound
+                        ) {
+                            adjustWaterIntake(by: -1, within: range, for: question)
+                        }
+
+                        Text(HydrationFormatter.signedDelta(pending))
+                            .font(AppTheme.BrutalistTypography.bodyMono)
+                            .foregroundColor(AppTheme.BrutalistPalette.foreground)
+                            .frame(minWidth: 96)
+                            .multilineTextAlignment(.center)
+
+                        brutalistStepperButton(
+                            systemImage: "plus",
+                            isDisabled: pending >= range.upperBound
+                        ) {
+                            adjustWaterIntake(by: 1, within: range, for: question)
+                        }
+                    }
+                }
+
+                HStack(alignment: .firstTextBaseline) {
+                    VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.micro) {
+                        Text("Today's total".uppercased())
+                            .font(AppTheme.BrutalistTypography.overline)
+                            .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                        Text(HydrationFormatter.ouncesString(total))
+                            .font(AppTheme.BrutalistTypography.bodyBold)
+                            .foregroundColor(AppTheme.BrutalistPalette.foreground)
+                    }
+                    Spacer()
+                    Button("Reset") {
+                        Haptics.selection()
+                        viewModel.resetWaterIntake(for: question)
+                    }
+                    .brutalistButton(style: .compactSecondary)
+                    .disabled(pending == 0)
+                    .opacity(pending == 0 ? 0.4 : 1)
+                }
+
+                VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
+                    Text("Quick add".uppercased())
+                        .font(AppTheme.BrutalistTypography.overline)
+                        .foregroundColor(AppTheme.BrutalistPalette.secondary)
+
+                    LazyVGrid(
+                        columns: Array(
+                            repeating: GridItem(.flexible(), spacing: AppTheme.BrutalistSpacing.sm),
+                            count: 2
+                        ),
+                        spacing: AppTheme.BrutalistSpacing.sm
+                    ) {
+                        ForEach(quickActions) { action in
+                            Button {
+                                Haptics.selection()
+                                viewModel.incrementWaterIntake(by: action.ounces, for: question)
+                            } label: {
+                                HydrationQuickAddCard(action: action)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(
+                                "Add \(formattedOunces(action.ounces)) via \(action.label)"
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
     private func booleanRow(for question: Question) -> some View {
-        Toggle(
-            isOn: Binding(
-                get: { viewModel.booleanValue(for: question) },
-                set: { viewModel.updateBooleanResponse($0, for: question) }
-            )
-        ) {
+        let binding = Binding(
+            get: { viewModel.booleanValue(for: question) },
+            set: { viewModel.updateBooleanResponse($0, for: question) }
+        )
+
+        if designStyle == .brutalist {
+            brutalistBooleanRow(for: question, value: binding.wrappedValue)
+        } else {
+            legacyBooleanRow(for: question, binding: binding)
+        }
+    }
+
+    private func legacyBooleanRow(
+        for question: Question,
+        binding: Binding<Bool>
+    ) -> some View {
+        Toggle(isOn: binding) {
             Text(question.text)
         }
     }
 
+    private func brutalistBooleanRow(for question: Question, value: Bool) -> some View {
+        brutalistQuestionContainer(for: question) {
+            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
+                Text("Choose an option".uppercased())
+                    .font(AppTheme.BrutalistTypography.overline)
+                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
+
+                HStack(spacing: AppTheme.BrutalistSpacing.sm) {
+                    brutalistBooleanOption(label: "Yes", isSelected: value) {
+                        setBooleanValue(true, for: question)
+                    }
+
+                    brutalistBooleanOption(label: "No", isSelected: !value) {
+                        setBooleanValue(false, for: question)
+                    }
+                }
+
+                Text(value ? "Marked as YES" : "Marked as NO")
+                    .font(AppTheme.BrutalistTypography.captionMono)
+                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
+            }
+        }
+    }
+
+    private func brutalistBooleanOption(
+        label: String,
+        isSelected: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Text(label.uppercased())
+                .font(AppTheme.BrutalistTypography.captionMono)
+                .frame(maxWidth: .infinity)
+                .frame(height: 44)
+                .foregroundColor(
+                    isSelected
+                        ? AppTheme.BrutalistPalette.background
+                        : AppTheme.BrutalistPalette.foreground
+                )
+                .background(
+                    isSelected
+                        ? AppTheme.BrutalistPalette.accent
+                        : AppTheme.BrutalistPalette.background
+                )
+                .overlay(
+                    Rectangle()
+                        .stroke(
+                            isSelected
+                                ? AppTheme.BrutalistPalette.accent
+                                : AppTheme.BrutalistPalette.border,
+                            lineWidth: AppTheme.BrutalistBorder.standard
+                        )
+                )
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
     private func textRow(for question: Question) -> some View {
+        let binding = Binding(
+            get: { viewModel.textValue(for: question) },
+            set: { viewModel.updateTextResponse($0, for: question) }
+        )
+
+        if designStyle == .brutalist {
+            brutalistTextRow(for: question, binding: binding)
+        } else {
+            legacyTextRow(for: question, binding: binding)
+        }
+    }
+
+    private func legacyTextRow(
+        for question: Question,
+        binding: Binding<String>
+    ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(question.text)
             TextField(
                 "Enter response",
-                text: Binding(
-                    get: { viewModel.textValue(for: question) },
-                    set: { viewModel.updateTextResponse($0, for: question) }
-                ), axis: .vertical
+                text: binding,
+                axis: .vertical
             )
             .platformAdaptiveTextField()
             .lineLimit(3, reservesSpace: true)
         }
     }
 
+    private func brutalistTextRow(
+        for question: Question,
+        binding: Binding<String>
+    ) -> some View {
+        brutalistQuestionContainer(for: question) {
+            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
+                Text("Your response".uppercased())
+                    .font(AppTheme.BrutalistTypography.overline)
+                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
+
+                TextField(
+                    "Enter response",
+                    text: binding,
+                    axis: .vertical
+                )
+                .lineLimit(3, reservesSpace: true)
+                .brutalistField(isFocused: focusedTextQuestionID == question.id)
+                .focused($focusedTextQuestionID, equals: question.id)
+            }
+        }
+    }
+
+    @ViewBuilder
     private func multipleChoiceRow(for question: Question) -> some View {
+        if designStyle == .brutalist {
+            brutalistMultipleChoiceRow(for: question)
+        } else {
+            legacyMultipleChoiceRow(for: question)
+        }
+    }
+
+    private func legacyMultipleChoiceRow(for question: Question) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(question.text)
             if let options = question.options, !options.isEmpty {
@@ -333,21 +894,138 @@ struct DataEntryView: View {
         }
     }
 
+    @ViewBuilder
+    private func brutalistMultipleChoiceRow(for question: Question) -> some View {
+        if let options = question.options, !options.isEmpty {
+            let selections = Set(viewModel.selectedOptions(for: question))
+
+            brutalistQuestionContainer(for: question) {
+                VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
+                    Text("Select all that apply".uppercased())
+                        .font(AppTheme.BrutalistTypography.overline)
+                        .foregroundColor(AppTheme.BrutalistPalette.secondary)
+
+                    VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
+                        ForEach(options, id: \.self) { option in
+                            let isSelected = selections.contains(option)
+                            Button {
+                                toggleOption(option, isSelected: isSelected, for: question)
+                            } label: {
+                                HStack(spacing: AppTheme.BrutalistSpacing.sm) {
+                                    Image(
+                                        systemName: isSelected ? "checkmark.square.fill" : "square"
+                                    )
+                                    .font(.system(size: 16, weight: .bold))
+                                    .foregroundColor(
+                                        isSelected
+                                            ? AppTheme.BrutalistPalette.accent
+                                            : AppTheme.BrutalistPalette.foreground
+                                    )
+
+                                    Text(option)
+                                        .font(AppTheme.BrutalistTypography.body)
+                                        .foregroundColor(AppTheme.BrutalistPalette.foreground)
+
+                                    Spacer()
+                                }
+                                .padding(.vertical, AppTheme.BrutalistSpacing.xs)
+                                .padding(.horizontal, AppTheme.BrutalistSpacing.sm)
+                                .background(AppTheme.BrutalistPalette.background)
+                                .overlay(
+                                    Rectangle()
+                                        .stroke(
+                                            isSelected
+                                                ? AppTheme.BrutalistPalette.accent
+                                                : AppTheme.BrutalistPalette.border,
+                                            lineWidth: AppTheme.BrutalistBorder.standard
+                                        )
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(
+                                "\(option), \(isSelected ? "selected" : "not selected")"
+                            )
+                        }
+                    }
+                }
+            }
+        } else {
+            brutalistQuestionContainer(for: question) {
+                Text("No options configured")
+                    .font(AppTheme.BrutalistTypography.captionMono)
+                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
+            }
+        }
+    }
+
+    @ViewBuilder
     private func timeRow(for question: Question) -> some View {
+        let binding = Binding(
+            get: {
+                viewModel.timeValue(for: question, fallback: defaultTime())
+            },
+            set: { viewModel.updateTimeResponse($0, for: question) }
+        )
+
+        if designStyle == .brutalist {
+            brutalistTimeRow(for: question, binding: binding)
+        } else {
+            legacyTimeRow(for: question, binding: binding)
+        }
+    }
+
+    private func legacyTimeRow(
+        for question: Question,
+        binding: Binding<Date>
+    ) -> some View {
         DatePicker(
             question.text,
-            selection: Binding(
-                get: {
-                    viewModel.timeValue(for: question, fallback: defaultTime())
-                },
-                set: { viewModel.updateTimeResponse($0, for: question) }
-            ),
+            selection: binding,
             displayedComponents: .hourAndMinute
         )
     }
 
+    private func brutalistTimeRow(
+        for question: Question,
+        binding: Binding<Date>
+    ) -> some View {
+        let selected = binding.wrappedValue
+        return brutalistQuestionContainer(for: question) {
+            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
+                Text("Select time".uppercased())
+                    .font(AppTheme.BrutalistTypography.overline)
+                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
+
+                DatePicker("", selection: binding, displayedComponents: .hourAndMinute)
+                    .labelsHidden()
+                    .datePickerStyle(.compact)
+                    .tint(AppTheme.BrutalistPalette.accent)
+
+                Text(Self.timeFormatter.string(from: selected))
+                    .font(AppTheme.BrutalistTypography.bodyMono)
+                    .foregroundColor(AppTheme.BrutalistPalette.foreground)
+            }
+        }
+    }
+
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter
+    }()
+
     @ViewBuilder
     private func deltaSummaryView(for question: Question) -> some View {
+        let summaryFont: Font =
+            designStyle == .brutalist
+            ? AppTheme.BrutalistTypography.captionMono : .caption
+        let secondaryColor: Color =
+            designStyle == .brutalist
+            ? AppTheme.BrutalistPalette.secondary : Color.secondary
+        let positiveDeltaColor: Color =
+            designStyle == .brutalist ? AppTheme.BrutalistPalette.accent : .green
+        let negativeDeltaColor: Color = designStyle == .brutalist ? .red : .pink
+
         if let preview = viewModel.numericChangePreview(for: question) {
             if let previous = preview.previousValue {
                 let delta = preview.delta ?? (preview.resultingValue - previous)
@@ -357,27 +1035,27 @@ struct DataEntryView: View {
                     )
                     Text(formattedSignedDelta(delta, for: question))
                         .fontWeight(.semibold)
-                        .foregroundStyle(delta >= 0 ? .green : .pink)
+                        .foregroundColor(delta >= 0 ? positiveDeltaColor : negativeDeltaColor)
                 }
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(summaryFont)
+                .foregroundColor(secondaryColor)
             } else if preview.isDeltaBaseline {
                 let delta = preview.delta ?? 0
                 HStack(spacing: 6) {
                     Text("Add \(formattedAbsolute(delta, for: question))")
                     Text("Total \(formattedValue(preview.resultingValue, for: question))")
                 }
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(summaryFont)
+                .foregroundColor(secondaryColor)
             } else {
                 Text("Will set to \(formattedValue(preview.resultingValue, for: question))")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(summaryFont)
+                    .foregroundColor(secondaryColor)
             }
         } else {
             Text("Set today's value")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(summaryFont)
+                .foregroundColor(secondaryColor)
         }
     }
 
@@ -526,6 +1204,16 @@ private struct HydrationQuickAddCard: View {
     let action: HydrationQuickAddAction
 
     var body: some View {
+        if designStyle == .brutalist {
+            brutalistBody
+        } else {
+            legacyBody
+        }
+    }
+
+    @Environment(\.designStyle) private var designStyle
+
+    private var legacyBody: some View {
         VStack(spacing: 8) {
             Image(systemName: action.systemImage)
                 .font(.system(size: 32, weight: .semibold))
@@ -547,7 +1235,7 @@ private struct HydrationQuickAddCard: View {
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(backgroundColor)
+                .fill(legacyBackgroundColor)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -557,7 +1245,36 @@ private struct HydrationQuickAddCard: View {
         .accessibilityLabel(action.accessibilityLabel)
     }
 
-    private var backgroundColor: Color {
+    private var brutalistBody: some View {
+        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
+            HStack(alignment: .top) {
+                Image(systemName: action.systemImage)
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundColor(action.accent)
+
+                Spacer()
+
+                Text(HydrationFormatter.ouncesString(action.ounces))
+                    .font(AppTheme.BrutalistTypography.bodyMono)
+                    .foregroundColor(AppTheme.BrutalistPalette.foreground)
+            }
+
+            Text(action.label.uppercased())
+                .font(AppTheme.BrutalistTypography.captionBold)
+                .foregroundColor(AppTheme.BrutalistPalette.secondary)
+        }
+        .frame(maxWidth: .infinity, minHeight: 120, alignment: .topLeading)
+        .padding(AppTheme.BrutalistSpacing.sm)
+        .background(AppTheme.BrutalistPalette.background)
+        .overlay(
+            Rectangle()
+                .stroke(action.accent, lineWidth: AppTheme.BrutalistBorder.standard)
+        )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(action.accessibilityLabel)
+    }
+
+    private var legacyBackgroundColor: Color {
         #if os(iOS)
             Color(UIColor.secondarySystemBackground)
         #else
