@@ -67,16 +67,39 @@ struct GoalTrendsView: View {
     private var emptyState: some View {
         Group {
             if designStyle == .brutalist {
-                VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.xs) {
-                    Text("No insights yet".uppercased())
-                        .font(AppTheme.BrutalistTypography.overline)
-                        .foregroundColor(AppTheme.BrutalistPalette.secondary)
-                    Text("Log a few updates to unlock charts and streaks for this goal.")
-                        .font(AppTheme.BrutalistTypography.body)
-                        .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                VStack(spacing: AppTheme.BrutalistSpacing.md) {
+                    // Icon with glow
+                    ZStack {
+                        Circle()
+                            .fill(viewModel.goal.categoryColor.opacity(0.1))
+                            .frame(width: 64, height: 64)
+
+                        Image(systemName: "chart.line.uptrend.xyaxis")
+                            .font(.system(size: 28, weight: .medium))
+                            .foregroundColor(viewModel.goal.categoryColor)
+                    }
+
+                    VStack(spacing: AppTheme.BrutalistSpacing.xs) {
+                        Text("No Insights Yet")
+                            .font(AppTheme.BrutalistTypography.bodyBold)
+                            .foregroundColor(AppTheme.BrutalistPalette.foreground)
+
+                        Text("Log a few updates to unlock charts and streaks for this goal.")
+                            .font(AppTheme.BrutalistTypography.caption)
+                            .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                            .multilineTextAlignment(.center)
+                    }
                 }
-                .padding(AppTheme.BrutalistSpacing.md)
-                .brutalistCard()
+                .frame(maxWidth: .infinity)
+                .padding(AppTheme.BrutalistSpacing.xl)
+                .background(
+                    RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.round)
+                        .fill(AppTheme.BrutalistPalette.surface)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.round)
+                        .stroke(AppTheme.BrutalistPalette.border.opacity(0.2), lineWidth: 1)
+                )
             } else {
                 ContentUnavailableView(
                     "No insights yet",
@@ -179,25 +202,34 @@ struct GoalTrendsView: View {
     }
 
     private var accentColor: Color {
-        designStyle == .brutalist ? AppTheme.BrutalistPalette.accent : AppTheme.Palette.primary
+        designStyle == .brutalist ? viewModel.goal.categoryColor : AppTheme.Palette.primary
     }
 
     private func brutalistHeatMap(showLegend: Bool) -> some View {
-        heatMapGrid(
+        let categoryColor = viewModel.goal.categoryColor
+
+        return heatMapGrid(
             cellSize: displayMode == .compact ? 22 : 28,
             columnSpacing: AppTheme.BrutalistSpacing.xs,
             rowSpacing: AppTheme.BrutalistSpacing.micro,
-            cornerRadius: 0,
+            cornerRadius: AppTheme.BrutalistRadius.minimal,
             labelFont: AppTheme.BrutalistTypography.captionMono,
             labelColor: AppTheme.BrutalistPalette.secondary,
-            baseColor: AppTheme.BrutalistPalette.accent,
-            emptyFill: AppTheme.BrutalistPalette.background,
-            borderColor: AppTheme.BrutalistPalette.border,
+            baseColor: categoryColor,
+            emptyFill: AppTheme.BrutalistPalette.surface,
+            borderColor: AppTheme.BrutalistPalette.border.opacity(0.3),
             showLegend: showLegend
         )
-        .padding(AppTheme.BrutalistSpacing.sm)
-        .background(AppTheme.BrutalistPalette.background)
-        .border(AppTheme.BrutalistPalette.border, width: AppTheme.BrutalistBorder.standard)
+        .padding(AppTheme.BrutalistSpacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.round)
+                .fill(AppTheme.BrutalistPalette.background)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.round)
+                .stroke(AppTheme.BrutalistPalette.border.opacity(0.2), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.03), radius: 6, x: 0, y: 2)
     }
 
     private func legacyHeatMap(showLegend: Bool) -> some View {
@@ -578,28 +610,47 @@ struct GoalTrendsView: View {
                 EmptyView()
             } else {
                 if designStyle == .brutalist {
-                    VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.xs) {
-                        Text("Current streak".uppercased())
-                            .font(AppTheme.BrutalistTypography.overline)
-                            .foregroundColor(AppTheme.BrutalistPalette.secondary)
-                        HStack(alignment: .firstTextBaseline, spacing: AppTheme.BrutalistSpacing.xs)
-                        {
-                            Text(streakHeadline.uppercased())
-                                .font(AppTheme.BrutalistTypography.headlineMono)
-                            Image(
-                                systemName: viewModel.currentStreakDays > 0 ? "flame.fill" : "flame"
-                            )
-                            .foregroundColor(
-                                viewModel.currentStreakDays > 0
-                                    ? AppTheme.BrutalistPalette.accent
-                                    : AppTheme.BrutalistPalette.secondary)
+                    let categoryColor = viewModel.goal.categoryColor
+
+                    HStack(spacing: AppTheme.BrutalistSpacing.md) {
+                        // Flame icon with glow
+                        ZStack {
+                            Circle()
+                                .fill(categoryColor.opacity(0.15))
+                                .frame(width: 56, height: 56)
+
+                            Image(systemName: "flame.fill")
+                                .font(.system(size: 26, weight: .medium))
+                                .foregroundColor(categoryColor)
                         }
-                        Text(streakDetail)
-                            .font(AppTheme.BrutalistTypography.caption)
-                            .foregroundColor(AppTheme.BrutalistPalette.secondary)
+
+                        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.xs) {
+                            Text("Current Streak")
+                                .font(AppTheme.BrutalistTypography.caption)
+                                .foregroundColor(AppTheme.BrutalistPalette.secondary)
+
+                            Text(streakHeadline)
+                                .font(AppTheme.BrutalistTypography.dataLarge)
+                                .foregroundColor(categoryColor)
+
+                            Text(streakDetail)
+                                .font(AppTheme.BrutalistTypography.caption)
+                                .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                                .lineLimit(2)
+                        }
+
+                        Spacer()
                     }
-                    .padding(AppTheme.BrutalistSpacing.md)
-                    .brutalistCard()
+                    .padding(AppTheme.BrutalistSpacing.lg)
+                    .background(
+                        RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.round)
+                            .fill(AppTheme.BrutalistPalette.surface)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.round)
+                            .stroke(categoryColor.opacity(0.2), lineWidth: 1)
+                    )
+                    .shadow(color: categoryColor.opacity(0.1), radius: 8, x: 0, y: 4)
                 } else {
                     VStack(alignment: .leading, spacing: 8) {
                         Label {
@@ -987,9 +1038,15 @@ struct GoalTrendsView: View {
     @ViewBuilder
     private func sectionTitle(_ text: String) -> some View {
         if designStyle == .brutalist {
-            Text(text.uppercased())
-                .font(AppTheme.BrutalistTypography.overline)
-                .foregroundColor(AppTheme.BrutalistPalette.secondary)
+            HStack(spacing: AppTheme.BrutalistSpacing.xs) {
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(viewModel.goal.categoryColor)
+                    .frame(width: 3, height: 16)
+
+                Text(text)
+                    .font(AppTheme.BrutalistTypography.bodyBold)
+                    .foregroundColor(AppTheme.BrutalistPalette.foreground)
+            }
         } else {
             Text(text)
                 .font(.headline)

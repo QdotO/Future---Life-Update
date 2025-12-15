@@ -60,84 +60,159 @@ enum AppTheme {
 		static let accentOnPrimary = Color.white
 	}
 
-	// MARK: - Brutalist Design System
+	// MARK: - Neo-Brutalist Design System ("Warm Industrial")
 	enum BrutalistPalette {
-		// Light mode - pure black and white
-		static let backgroundLight = Color(hex: 0xFFFFFF)
-		static let foregroundLight = Color(hex: 0x000000)
-		static let borderLight = Color(hex: 0x000000)
-		static let secondaryLight = Color(hex: 0x666666)
+		// Light mode - Warm Industrial (off-white with warm charcoal)
+		static let backgroundLight = Color(hex: 0xFAF7F2)  // Warm off-white (aged paper)
+		static let foregroundLight = Color(hex: 0x2C2824)  // Warm black with brown undertone
+		static let borderLight = Color(hex: 0xD4CDC3)  // Warm gray border
+		static let secondaryLight = Color(hex: 0x6B6560)  // Muted warm gray
+		static let surfaceLight = Color(hex: 0xFFFCF7)  // Lighter warm white
 
-		// Dark mode - pure black and white
-		static let backgroundDark = Color(hex: 0x000000)
-		static let foregroundDark = Color(hex: 0xFFFFFF)
-		static let borderDark = Color(hex: 0xFFFFFF)
-		static let secondaryDark = Color(hex: 0xCCCCCC)
+		// Dark mode - Warm charcoal (not pure black)
+		static let backgroundDark = Color(hex: 0x1A1816)  // Warm charcoal
+		static let foregroundDark = Color(hex: 0xF5F0E8)  // Warm cream
+		static let borderDark = Color(hex: 0x3D3835)  // Warm dark gray
+		static let secondaryDark = Color(hex: 0xA39E98)  // Muted light gray
+		static let surfaceDark = Color(hex: 0x252220)  // Elevated dark surface
 
-		// Accent - orange (consistent across modes)
-		static let accentOrange = Color(hex: 0xFF6600)
-		static let accentOrangeDark = Color(hex: 0xFF8533)
+		// Primary accent - Deeper, warmer orange
+		static let accentOrange = Color(hex: 0xE85D04)  // Warm burnt orange
+		static let accentOrangeDark = Color(hex: 0xF48C06)  // Brighter orange for dark mode
+
+		// Extended accent palette for variety
+		static let accentPlum = Color(hex: 0x5F0F40)  // Burgundy plum
+		static let accentNavy = Color(hex: 0x0D3B66)  // Deep navy for data
+		static let accentForest = Color(hex: 0x386641)  // Forest green (success)
+		static let accentTerracotta = Color(hex: 0xD4A373)  // Terracotta (caution)
+		static let accentCoral = Color(hex: 0xBC4749)  // Muted coral red (danger)
+
+		// Category accent colors (for goal cards)
+		static let categoryHealth = Color(hex: 0x386641)  // Forest green
+		static let categoryFitness = Color(hex: 0xE85D04)  // Burnt orange
+		static let categoryProductivity = Color(hex: 0x0D3B66)  // Navy
+		static let categoryHabits = Color(hex: 0x5F0F40)  // Plum
+		static let categoryMood = Color(hex: 0xD4A373)  // Terracotta
+		static let categoryLearning = Color(hex: 0x3A86FF)  // Bright blue
+		static let categorySocial = Color(hex: 0xF72585)  // Magenta pink
+		static let categoryFinance = Color(hex: 0x2D6A4F)  // Deep teal
 
 		// Dynamic helpers
 		static let background = Color(dynamicLight: backgroundLight, dynamicDark: backgroundDark)
 		static let foreground = Color(dynamicLight: foregroundLight, dynamicDark: foregroundDark)
 		static let border = Color(dynamicLight: borderLight, dynamicDark: borderDark)
 		static let secondary = Color(dynamicLight: secondaryLight, dynamicDark: secondaryDark)
+		static let surface = Color(dynamicLight: surfaceLight, dynamicDark: surfaceDark)
 		static let accent = Color(dynamicLight: accentOrange, dynamicDark: accentOrangeDark)
+
+		// Semantic colors
+		static let success = accentForest
+		static let warning = accentTerracotta
+		static let danger = accentCoral
+		static let info = accentNavy
 	}
 
 	enum BrutalistTypography {
-		// Display/Hero - 34pt bold
-		static let display = Font.system(size: 34, weight: .bold, design: .default)
-		static let displayMono = Font.system(size: 34, weight: .bold, design: .monospaced)
+		// Display/Hero - 40pt black weight with tight tracking
+		static let display = Font.system(size: 40, weight: .black, design: .default)
+		static let displayMono = Font.system(size: 40, weight: .black, design: .monospaced)
 
-		// Title - 24pt bold
-		static let title = Font.system(size: 24, weight: .bold, design: .default)
-		static let titleMono = Font.system(size: 24, weight: .bold, design: .monospaced)
+		// Title - 28pt bold with slight tracking
+		static let title = Font.system(size: 28, weight: .bold, design: .default)
+		static let titleMono = Font.system(size: 28, weight: .bold, design: .monospaced)
 
-		// Headline - 17pt semibold
-		static let headline = Font.system(size: 17, weight: .semibold, design: .default)
-		static let headlineMono = Font.system(size: 17, weight: .semibold, design: .monospaced)
+		// Headline - 18pt semibold
+		static let headline = Font.system(size: 18, weight: .semibold, design: .default)
+		static let headlineMono = Font.system(size: 18, weight: .semibold, design: .monospaced)
 
-		// Body - 15pt regular
-		static let body = Font.system(size: 15, weight: .regular, design: .default)
-		static let bodyMono = Font.system(size: 15, weight: .regular, design: .monospaced)
-		static let bodyBold = Font.system(size: 15, weight: .semibold, design: .default)
+		// Body - 16pt regular with generous line height
+		static let body = Font.system(size: 16, weight: .regular, design: .default)
+		static let bodyMono = Font.system(size: 16, weight: .regular, design: .monospaced)
+		static let bodyBold = Font.system(size: 16, weight: .semibold, design: .default)
 
-		// Caption - 12pt regular
-		static let caption = Font.system(size: 12, weight: .regular, design: .default)
-		static let captionMono = Font.system(size: 12, weight: .regular, design: .monospaced)
-		static let captionBold = Font.system(size: 12, weight: .semibold, design: .default)
+		// Caption - 13pt regular
+		static let caption = Font.system(size: 13, weight: .regular, design: .default)
+		static let captionMono = Font.system(size: 13, weight: .regular, design: .monospaced)
+		static let captionBold = Font.system(size: 13, weight: .semibold, design: .default)
 
-		// Overline/Label - 11pt bold, uppercase
+		// Small - 12pt for metadata
+		static let small = Font.system(size: 12, weight: .regular, design: .default)
+		static let smallMono = Font.system(size: 12, weight: .medium, design: .monospaced)
+
+		// Overline/Label - 11pt bold, uppercase with wide tracking
 		static let overline = Font.system(size: 11, weight: .bold, design: .default)
 		static let overlineMono = Font.system(size: 11, weight: .bold, design: .monospaced)
+
+		// Data display - For numbers and stats
+		static let dataLarge = Font.system(size: 32, weight: .bold, design: .monospaced)
+		static let dataMedium = Font.system(size: 24, weight: .semibold, design: .monospaced)
+		static let dataSmall = Font.system(size: 16, weight: .medium, design: .monospaced)
 	}
 
 	enum BrutalistSpacing {
-		static let micro: CGFloat = 4
-		static let xs: CGFloat = 8
-		static let sm: CGFloat = 12
-		static let md: CGFloat = 16
-		static let lg: CGFloat = 24
-		static let xl: CGFloat = 32
-		static let xxl: CGFloat = 48
-		static let xxxl: CGFloat = 64
+		static let nano: CGFloat = 2  // Micro adjustments
+		static let micro: CGFloat = 4  // Tight element gaps
+		static let xs: CGFloat = 6  // Inner padding adjustments
+		static let sm: CGFloat = 12  // Component internal spacing
+		static let md: CGFloat = 16  // Standard gaps
+		static let lg: CGFloat = 24  // Section spacing
+		static let xl: CGFloat = 36  // Major section breaks
+		static let xxl: CGFloat = 48  // Hero spacing
+		static let xxxl: CGFloat = 72  // Dramatic pauses
+
+		// Asymmetric padding for organic feel
+		static let asymStart: CGFloat = 20
+		static let asymEnd: CGFloat = 16
 	}
 
 	enum BrutalistBorder {
-		static let thin: CGFloat = 1
-		static let standard: CGFloat = 2
-		static let thick: CGFloat = 3
+		static let hairline: CGFloat = 0.5  // Subtle dividers
+		static let thin: CGFloat = 1  // Default borders
+		static let standard: CGFloat = 2  // Interactive elements
+		static let thick: CGFloat = 3  // Focus states
+		static let heavy: CGFloat = 4  // Hero cards
+	}
+
+	enum BrutalistRadius {
+		static let sharp: CGFloat = 0  // Pure brutalist
+		static let minimal: CGFloat = 2  // Softened (prevents aliasing)
+		static let soft: CGFloat = 8  // Interactive elements
+		static let round: CGFloat = 12  // Pills, tags
+		static let circular: CGFloat = 9999  // Fully round
 	}
 
 	enum BrutalistShadow {
-		// Hard offset shadow (no blur) - for elevated cards
+		// Subtle elevation for cards
+		static let elevation1 = ShadowStyle(
+			color: .black.opacity(0.04),
+			radius: 2,
+			x: 0,
+			y: 1
+		)
+		static let elevation2 = ShadowStyle(
+			color: .black.opacity(0.08),
+			radius: 6,
+			x: 0,
+			y: 2
+		)
+		static let elevation3 = ShadowStyle(
+			color: .black.opacity(0.12),
+			radius: 12,
+			x: 0,
+			y: 4
+		)
+		// Hard offset shadow (no blur) - brutalist option
 		static let hardOffset = ShadowStyle(
-			color: .black.opacity(0.15),
+			color: .black.opacity(0.1),
 			radius: 0,
 			x: 4,
 			y: 4
+		)
+		static let hardOffset2 = ShadowStyle(
+			color: .black.opacity(0.08),
+			radius: 0,
+			x: 6,
+			y: 6
 		)
 		// None for pure flat aesthetic
 		static let none = ShadowStyle(
@@ -146,6 +221,27 @@ enum AppTheme {
 			x: 0,
 			y: 0
 		)
+		// Glow for accent elements
+		static func accentGlow(opacity: Double = 0.25) -> ShadowStyle {
+			ShadowStyle(
+				color: BrutalistPalette.accent.opacity(opacity),
+				radius: 16,
+				x: 0,
+				y: 0
+			)
+		}
+	}
+
+	enum BrutalistAnimation {
+		static let instant: Double = 0.1
+		static let fast: Double = 0.2
+		static let normal: Double = 0.3
+		static let slow: Double = 0.5
+		static let dramatic: Double = 0.8
+
+		static let springSnappy = Animation.spring(response: 0.3, dampingFraction: 0.85)
+		static let springBouncy = Animation.spring(response: 0.4, dampingFraction: 0.7)
+		static let springGentle = Animation.spring(response: 0.5, dampingFraction: 0.8)
 	}
 
 	enum Typography {

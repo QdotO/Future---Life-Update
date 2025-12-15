@@ -71,38 +71,63 @@ struct GoalDetailView: View {
     }
 
     private var brutalistOverviewSection: some View {
-        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.xs) {
+        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
             brutalistHeader("Overview")
-            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
-                HStack(alignment: .firstTextBaseline, spacing: AppTheme.BrutalistSpacing.sm) {
-                    statusBadge
-                    if let category = goal.categoryDisplayName.nonEmpty {
-                        Text(category.uppercased())
-                            .font(AppTheme.BrutalistTypography.overline)
-                            .foregroundColor(AppTheme.BrutalistPalette.secondary)
+
+            HStack(spacing: 0) {
+                // Category stripe
+                RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.minimal)
+                    .fill(goal.categoryColor)
+                    .frame(width: 4)
+
+                VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.md) {
+                    HStack(alignment: .firstTextBaseline, spacing: AppTheme.BrutalistSpacing.sm) {
+                        statusBadge
+                        if let category = goal.categoryDisplayName.nonEmpty {
+                            Text(category)
+                                .font(AppTheme.BrutalistTypography.caption)
+                                .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                                .padding(.horizontal, AppTheme.BrutalistSpacing.xs)
+                                .padding(.vertical, 4)
+                                .background(
+                                    RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.soft)
+                                        .fill(goal.categoryColor.opacity(0.1))
+                                )
+                        }
                     }
-                }
 
-                if let description = goal.goalDescription.nonEmpty {
-                    Text(description)
-                        .font(AppTheme.BrutalistTypography.body)
-                }
+                    if let description = goal.goalDescription.nonEmpty {
+                        Text(description)
+                            .font(AppTheme.BrutalistTypography.body)
+                            .foregroundColor(AppTheme.BrutalistPalette.foreground)
+                    }
 
-                VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.xs) {
-                    Text("Cadence")
-                        .font(AppTheme.BrutalistTypography.overline)
-                        .foregroundColor(AppTheme.BrutalistPalette.secondary)
-                    Text(formattedSchedule)
-                        .font(AppTheme.BrutalistTypography.body)
-                }
+                    VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.xs) {
+                        Text("Schedule")
+                            .font(AppTheme.BrutalistTypography.caption)
+                            .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                        Text(formattedSchedule)
+                            .font(AppTheme.BrutalistTypography.body)
+                            .foregroundColor(AppTheme.BrutalistPalette.foreground)
+                    }
 
-                if designStyle == .brutalist {
-                    brutalistActionRow
-                }
+                    if designStyle == .brutalist {
+                        brutalistActionRow
+                    }
 
-                supplementalActions
+                    supplementalActions
+                }
+                .padding(AppTheme.BrutalistSpacing.lg)
             }
-            .brutalistCard()
+            .background(
+                RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.round)
+                    .fill(AppTheme.BrutalistPalette.background)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.round)
+                    .stroke(AppTheme.BrutalistPalette.border.opacity(0.2), lineWidth: 1)
+            )
+            .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 2)
         }
     }
 
@@ -351,9 +376,15 @@ struct GoalDetailView: View {
     }
 
     private func brutalistHeader(_ title: String) -> some View {
-        Text(title.uppercased())
-            .font(AppTheme.BrutalistTypography.overline)
-            .foregroundColor(AppTheme.BrutalistPalette.secondary)
+        HStack(spacing: AppTheme.BrutalistSpacing.xs) {
+            RoundedRectangle(cornerRadius: 1)
+                .fill(goal.categoryColor)
+                .frame(width: 3, height: 16)
+
+            Text(title)
+                .font(AppTheme.BrutalistTypography.bodyBold)
+                .foregroundColor(AppTheme.BrutalistPalette.foreground)
+        }
     }
 
     private func presentLogEntry() {

@@ -200,47 +200,68 @@ struct ContentView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: AppTheme.BrutalistSpacing.lg) {
+        VStack(spacing: AppTheme.BrutalistSpacing.xl) {
             Spacer()
 
-            // Icon
-            Image(systemName: "target")
-                .font(.system(size: 64, weight: .regular))
-                .foregroundColor(AppTheme.BrutalistPalette.secondary)
+            // Illustrated empty state with warm aesthetic
+            VStack(spacing: AppTheme.BrutalistSpacing.lg) {
+                // Icon with accent glow
+                ZStack {
+                    Circle()
+                        .fill(AppTheme.BrutalistPalette.accent.opacity(0.1))
+                        .frame(width: 120, height: 120)
 
-            // Title & Description
-            VStack(spacing: AppTheme.BrutalistSpacing.sm) {
-                Text("CREATE YOUR FIRST GOAL")
-                    .font(AppTheme.BrutalistTypography.headline)
-                    .fontWeight(.bold)
-                    .tracking(0.05)
+                    Circle()
+                        .fill(AppTheme.BrutalistPalette.surface)
+                        .frame(width: 96, height: 96)
 
-                Text("Set up proactive prompts to stay on track.")
-                    .font(AppTheme.BrutalistTypography.body)
-                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
-                    .multilineTextAlignment(.center)
+                    Image(systemName: "target")
+                        .font(.system(size: 48, weight: .medium))
+                        .foregroundColor(AppTheme.BrutalistPalette.accent)
+                }
+
+                // Title & Description
+                VStack(spacing: AppTheme.BrutalistSpacing.sm) {
+                    Text("Start Your Journey")
+                        .font(AppTheme.BrutalistTypography.title)
+                        .foregroundColor(AppTheme.BrutalistPalette.foreground)
+
+                    Text("Create your first goal to begin tracking\nwhat matters most to you.")
+                        .font(AppTheme.BrutalistTypography.body)
+                        .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(4)
+                }
             }
 
             Spacer()
 
-            // Call to Action
-            Button {
-                showingCreateGoal = true
-            } label: {
-                Text("+ CREATE GOAL")
+            // Call to Action with new style
+            VStack(spacing: AppTheme.BrutalistSpacing.sm) {
+                Button {
+                    showingCreateGoal = true
+                } label: {
+                    HStack(spacing: AppTheme.BrutalistSpacing.xs) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 16, weight: .bold))
+                        Text("Create Goal")
+                    }
                     .font(AppTheme.BrutalistTypography.bodyBold)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 48)
-                    .contentShape(Rectangle())
-            }
-            .brutalistButton(style: .primary)
-            .padding(.horizontal, AppTheme.BrutalistSpacing.md)
+                    .frame(height: 52)
+                    .contentShape(RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.soft))
+                }
+                .brutalistButton(style: .primary)
 
-            Spacer()
+                Text("It only takes a minute")
+                    .font(AppTheme.BrutalistTypography.caption)
+                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
+            }
+            .padding(.horizontal, AppTheme.BrutalistSpacing.lg)
+            .padding(.bottom, AppTheme.BrutalistSpacing.xl)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(AppTheme.BrutalistPalette.background)
-        .ignoresSafeArea()
     }
 
     private var goalsList: some View {
@@ -551,15 +572,32 @@ private struct BrutalistInsightsFeed: View {
 
 private struct BrutalistEmptyInsightsState: View {
     var body: some View {
-        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
-            Text("No insights yet".uppercased())
-                .font(AppTheme.BrutalistTypography.overline)
-                .foregroundColor(AppTheme.BrutalistPalette.secondary)
-            Text("Create your first goal to unlock analytics.")
-                .font(AppTheme.BrutalistTypography.body)
-                .foregroundColor(AppTheme.BrutalistPalette.secondary)
+        VStack(spacing: AppTheme.BrutalistSpacing.lg) {
+            // Icon with subtle styling
+            ZStack {
+                Circle()
+                    .fill(AppTheme.BrutalistPalette.accent.opacity(0.08))
+                    .frame(width: 80, height: 80)
+
+                Image(systemName: "chart.line.uptrend.xyaxis")
+                    .font(.system(size: 32, weight: .medium))
+                    .foregroundColor(AppTheme.BrutalistPalette.accent)
+            }
+
+            VStack(spacing: AppTheme.BrutalistSpacing.xs) {
+                Text("No Insights Yet")
+                    .font(AppTheme.BrutalistTypography.headline)
+                    .foregroundColor(AppTheme.BrutalistPalette.foreground)
+
+                Text("Create your first goal to unlock\nanalytics and track your progress.")
+                    .font(AppTheme.BrutalistTypography.body)
+                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(4)
+            }
         }
-        .brutalistCard()
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, AppTheme.BrutalistSpacing.xxl)
     }
 }
 
@@ -576,37 +614,70 @@ private struct RecentLogEntry: Identifiable, Hashable {
 }
 
 private struct BrutalistRecentActivitySection: View {
+    @Environment(\.colorScheme) private var colorScheme
     let entries: [RecentLogEntry]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.md) {
-            Text("Recent activity".uppercased())
+        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
+            Text("Recent Activity".uppercased())
                 .font(AppTheme.BrutalistTypography.overline)
                 .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                .tracking(0.8)
 
             if entries.isEmpty {
-                VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.xs) {
-                    Text("No logs yet".uppercased())
-                        .font(AppTheme.BrutalistTypography.captionBold)
-                        .foregroundColor(AppTheme.BrutalistPalette.foreground)
-                    Text("Once you log updates, your most recent entries will appear here.")
-                        .font(AppTheme.BrutalistTypography.body)
-                        .foregroundColor(AppTheme.BrutalistPalette.secondary)
-                }
-                .brutalistCard()
-            } else {
                 VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
-                    ForEach(entries) { entry in
-                        BrutalistRecentActivityRow(entry: entry)
+                    HStack(spacing: AppTheme.BrutalistSpacing.sm) {
+                        Image(systemName: "clock")
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundColor(AppTheme.BrutalistPalette.secondary)
 
-                        if entry.id != entries.last?.id {
-                            Rectangle()
-                                .fill(AppTheme.BrutalistPalette.border.opacity(0.25))
-                                .frame(height: 1)
+                        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.micro) {
+                            Text("No logs yet")
+                                .font(AppTheme.BrutalistTypography.bodyBold)
+                                .foregroundColor(AppTheme.BrutalistPalette.foreground)
+                            Text("Once you log updates, your most recent entries will appear here.")
+                                .font(AppTheme.BrutalistTypography.caption)
+                                .foregroundColor(AppTheme.BrutalistPalette.secondary)
                         }
                     }
                 }
-                .brutalistCard(padding: AppTheme.BrutalistSpacing.sm)
+                .padding(AppTheme.BrutalistSpacing.md)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.soft)
+                        .fill(AppTheme.BrutalistPalette.surface)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.soft)
+                        .stroke(
+                            AppTheme.BrutalistPalette.border,
+                            lineWidth: AppTheme.BrutalistBorder.hairline)
+                )
+            } else {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
+                        BrutalistRecentActivityRow(entry: entry)
+                            .padding(.vertical, AppTheme.BrutalistSpacing.sm)
+
+                        if index < entries.count - 1 {
+                            Rectangle()
+                                .fill(AppTheme.BrutalistPalette.border)
+                                .frame(height: AppTheme.BrutalistBorder.hairline)
+                        }
+                    }
+                }
+                .padding(.horizontal, AppTheme.BrutalistSpacing.md)
+                .background(
+                    RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.soft)
+                        .fill(AppTheme.BrutalistPalette.background)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.soft)
+                        .stroke(
+                            AppTheme.BrutalistPalette.border,
+                            lineWidth: AppTheme.BrutalistBorder.thin)
+                )
+                .appShadow(colorScheme == .dark ? nil : AppTheme.BrutalistShadow.elevation1)
             }
         }
     }
@@ -617,34 +688,43 @@ private struct BrutalistRecentActivityRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: AppTheme.BrutalistSpacing.sm) {
-            Image(systemName: entry.icon)
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(AppTheme.BrutalistPalette.foreground)
-                .padding(.top, 2)
+            // Icon container
+            ZStack {
+                RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.minimal)
+                    .fill(AppTheme.BrutalistPalette.accent.opacity(0.1))
+                    .frame(width: 32, height: 32)
+
+                Image(systemName: entry.icon)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(AppTheme.BrutalistPalette.accent)
+            }
 
             VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.micro) {
-                Text(entry.goalTitle.uppercased())
-                    .font(AppTheme.BrutalistTypography.captionBold)
-                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                HStack {
+                    Text(entry.goalTitle.uppercased())
+                        .font(AppTheme.BrutalistTypography.overline)
+                        .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                        .tracking(0.3)
+
+                    Spacer()
+
+                    Text(entry.detail)
+                        .font(AppTheme.BrutalistTypography.smallMono)
+                        .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                }
 
                 if let question = entry.questionTitle?.nonEmpty {
                     Text(question)
-                        .font(AppTheme.BrutalistTypography.bodyBold)
+                        .font(AppTheme.BrutalistTypography.body)
                         .foregroundColor(AppTheme.BrutalistPalette.foreground)
-                        .lineLimit(2)
+                        .lineLimit(1)
                 }
 
                 Text(entry.valueDescription)
-                    .font(AppTheme.BrutalistTypography.body)
+                    .font(AppTheme.BrutalistTypography.bodyBold)
                     .foregroundColor(AppTheme.BrutalistPalette.foreground)
-                    .lineLimit(2)
-
-                Text(entry.detail)
-                    .font(AppTheme.BrutalistTypography.captionMono)
-                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                    .lineLimit(1)
             }
-
-            Spacer()
         }
     }
 }
@@ -680,27 +760,35 @@ private struct BrutalistGoalStatTile: View {
     let stat: GoalStatistic
 
     var body: some View {
-        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.micro) {
+        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.xs) {
             HStack(spacing: AppTheme.BrutalistSpacing.micro) {
                 Image(systemName: stat.icon)
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(AppTheme.BrutalistPalette.foreground)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
                 Text(stat.title.uppercased())
                     .font(AppTheme.BrutalistTypography.overline)
                     .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                    .tracking(0.3)
             }
 
             Text(stat.value)
-                .font(AppTheme.BrutalistTypography.bodyMono)
+                .font(AppTheme.BrutalistTypography.dataSmall)
                 .foregroundColor(AppTheme.BrutalistPalette.foreground)
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
         }
-        .padding(.vertical, AppTheme.BrutalistSpacing.xs)
+        .padding(.vertical, AppTheme.BrutalistSpacing.sm)
         .padding(.horizontal, AppTheme.BrutalistSpacing.sm)
-        .background(AppTheme.BrutalistPalette.background)
-        .border(AppTheme.BrutalistPalette.border, width: AppTheme.BrutalistBorder.thin)
         .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.minimal)
+                .fill(AppTheme.BrutalistPalette.surface)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.minimal)
+                .stroke(
+                    AppTheme.BrutalistPalette.border, lineWidth: AppTheme.BrutalistBorder.hairline)
+        )
     }
 }
 
@@ -748,10 +836,11 @@ private struct BrutalistGoalInsightsSection: View {
     let goals: [TrackingGoal]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.md) {
-            Text("Goal deep dives".uppercased())
+        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
+            Text("Goal Deep Dives".uppercased())
                 .font(AppTheme.BrutalistTypography.overline)
                 .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                .tracking(0.8)
 
             VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.md) {
                 ForEach(sortedGoals) { goal in
@@ -768,41 +857,72 @@ private struct BrutalistGoalInsightsSection: View {
 
 private struct BrutalistGoalInsightsCard: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.colorScheme) private var colorScheme
 
     let goal: TrackingGoal
 
     @State private var trendsViewModel: GoalTrendsViewModel?
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.md) {
-            header
-
-            if let viewModel = trendsViewModel {
-                BrutalistGoalStatsGrid(stats: goalStatistics(from: viewModel))
-                    .padding(.top, AppTheme.BrutalistSpacing.xs)
-
-                GoalTrendsView(viewModel: viewModel, displayMode: .compact)
-                    .environment(\.designStyle, .brutalist)
-            } else {
-                loadingState
-            }
-
-            NavigationLink {
-                GoalDetailView(goal: goal)
-                    .environment(\.designStyle, .brutalist)
-            } label: {
-                HStack(spacing: AppTheme.BrutalistSpacing.micro) {
-                    Text("OPEN GOAL DETAILS")
-                        .font(AppTheme.BrutalistTypography.captionMono)
-                    Image(systemName: "arrow.up.right")
-                        .font(.system(size: 12, weight: .bold))
-                }
-                .foregroundColor(AppTheme.BrutalistPalette.accent)
-                .padding(.vertical, AppTheme.BrutalistSpacing.micro)
-            }
-            .buttonStyle(.plain)
+    // Category color for visual identity
+    private var categoryColor: Color {
+        switch goal.category {
+        case .health: return AppTheme.BrutalistPalette.categoryHealth
+        case .fitness: return AppTheme.BrutalistPalette.categoryFitness
+        case .productivity: return AppTheme.BrutalistPalette.categoryProductivity
+        case .habits: return AppTheme.BrutalistPalette.categoryHabits
+        case .mood: return AppTheme.BrutalistPalette.categoryMood
+        case .learning: return AppTheme.BrutalistPalette.categoryLearning
+        case .social: return AppTheme.BrutalistPalette.categorySocial
+        case .finance: return AppTheme.BrutalistPalette.categoryFinance
+        case .custom: return AppTheme.BrutalistPalette.accent
         }
-        .brutalistCard()
+    }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            // Left accent stripe
+            RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.minimal)
+                .fill(categoryColor)
+                .frame(width: 4)
+
+            // Card content
+            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.md) {
+                header
+
+                if let viewModel = trendsViewModel {
+                    BrutalistGoalStatsGrid(stats: goalStatistics(from: viewModel))
+
+                    GoalTrendsView(viewModel: viewModel, displayMode: .compact)
+                        .environment(\.designStyle, .brutalist)
+                } else {
+                    loadingState
+                }
+
+                NavigationLink {
+                    GoalDetailView(goal: goal)
+                        .environment(\.designStyle, .brutalist)
+                } label: {
+                    HStack(spacing: AppTheme.BrutalistSpacing.xs) {
+                        Text("View Full Details")
+                            .font(AppTheme.BrutalistTypography.captionBold)
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 12, weight: .bold))
+                    }
+                    .foregroundColor(categoryColor)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(AppTheme.BrutalistSpacing.md)
+        }
+        .background(
+            RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.soft)
+                .fill(AppTheme.BrutalistPalette.background)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.soft)
+                .stroke(AppTheme.BrutalistPalette.border, lineWidth: AppTheme.BrutalistBorder.thin)
+        )
+        .appShadow(colorScheme == .dark ? nil : AppTheme.BrutalistShadow.elevation2)
         .task { updateViewModel(forceCreate: trendsViewModel == nil) }
         .onChange(of: goal.persistentModelID) { _, _ in
             updateViewModel(forceCreate: true)
@@ -817,13 +937,19 @@ private struct BrutalistGoalInsightsCard: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.micro) {
                     Text(goal.title)
-                        .font(AppTheme.BrutalistTypography.title)
+                        .font(AppTheme.BrutalistTypography.headline)
                         .foregroundColor(AppTheme.BrutalistPalette.foreground)
 
                     if let category = goal.categoryDisplayName.nonEmpty {
-                        Text(category.uppercased())
-                            .font(AppTheme.BrutalistTypography.overline)
-                            .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                        HStack(spacing: AppTheme.BrutalistSpacing.micro) {
+                            Circle()
+                                .fill(categoryColor)
+                                .frame(width: 6, height: 6)
+                            Text(category.uppercased())
+                                .font(AppTheme.BrutalistTypography.overline)
+                                .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                                .tracking(0.3)
+                        }
                     }
                 }
 
@@ -843,27 +969,32 @@ private struct BrutalistGoalInsightsCard: View {
 
     private var statusBadge: some View {
         Text(goal.isActive ? "ACTIVE" : "PAUSED")
-            .font(AppTheme.BrutalistTypography.captionMono)
+            .font(AppTheme.BrutalistTypography.overline)
+            .tracking(0.3)
             .padding(.horizontal, AppTheme.BrutalistSpacing.xs)
             .padding(.vertical, AppTheme.BrutalistSpacing.micro)
             .background(
-                goal.isActive
-                    ? AppTheme.BrutalistPalette.accent
-                    : AppTheme.BrutalistPalette.border.opacity(0.2)
+                RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.minimal)
+                    .fill(
+                        goal.isActive
+                            ? categoryColor.opacity(0.15)
+                            : AppTheme.BrutalistPalette.border.opacity(0.1))
             )
             .foregroundColor(
                 goal.isActive
-                    ? AppTheme.BrutalistPalette.background : AppTheme.BrutalistPalette.foreground)
+                    ? categoryColor : AppTheme.BrutalistPalette.secondary)
     }
 
     private var loadingState: some View {
         HStack(spacing: AppTheme.BrutalistSpacing.sm) {
             ProgressView()
                 .progressViewStyle(.circular)
+                .tint(AppTheme.BrutalistPalette.secondary)
             Text("Gathering insights…")
                 .font(AppTheme.BrutalistTypography.caption)
                 .foregroundColor(AppTheme.BrutalistPalette.secondary)
         }
+        .padding(.vertical, AppTheme.BrutalistSpacing.md)
     }
 
     private func updateViewModel(forceCreate: Bool) {
@@ -953,6 +1084,7 @@ private struct GoalTrendFeedCard: View {
 
 private struct BrutalistGoalCardView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.colorScheme) private var colorScheme
 
     let goal: TrackingGoal
 
@@ -960,44 +1092,88 @@ private struct BrutalistGoalCardView: View {
     @State private var showingReminderDetails = false
     @State private var presentingDataEntry = false
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.md) {
-            header
-
-            if let viewModel = trendsViewModel {
-                quickStats(using: viewModel)
-            }
-
-            actionRow()
-
-            sectionDivider
-            if let viewModel = trendsViewModel {
-                GoalTrendsView(viewModel: viewModel, displayMode: .compact)
-                    .environment(\.designStyle, .brutalist)
-            } else {
-                loadingState
-            }
-
-            DisclosureGroup(isExpanded: $showingReminderDetails) {
-                VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
-                    metaRow(label: "Cadence", value: scheduleSummary)
-                    if let timezoneLabel = goal.schedule.timezone.identifier.split(separator: "/")
-                        .last
-                    {
-                        metaRow(label: "Timezone", value: String(timezoneLabel))
-                    }
-                }
-                .padding(.top, AppTheme.BrutalistSpacing.sm)
-            } label: {
-                HStack {
-                    Text("Reminder details".uppercased())
-                        .font(AppTheme.BrutalistTypography.overline)
-                    Spacer()
-                }
-                .foregroundColor(AppTheme.BrutalistPalette.foreground)
-            }
+    // Category color for the accent stripe
+    private var categoryColor: Color {
+        switch goal.category {
+        case .health:
+            return AppTheme.BrutalistPalette.categoryHealth
+        case .fitness:
+            return AppTheme.BrutalistPalette.categoryFitness
+        case .productivity:
+            return AppTheme.BrutalistPalette.categoryProductivity
+        case .habits:
+            return AppTheme.BrutalistPalette.categoryHabits
+        case .mood:
+            return AppTheme.BrutalistPalette.categoryMood
+        case .learning:
+            return AppTheme.BrutalistPalette.categoryLearning
+        case .social:
+            return AppTheme.BrutalistPalette.categorySocial
+        case .finance:
+            return AppTheme.BrutalistPalette.categoryFinance
+        case .custom:
+            return AppTheme.BrutalistPalette.accent
         }
-        .brutalistCard()
+    }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            // Left accent stripe
+            RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.minimal)
+                .fill(categoryColor)
+                .frame(width: 4)
+
+            // Card content
+            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.md) {
+                header
+
+                if let viewModel = trendsViewModel {
+                    quickStats(using: viewModel)
+                }
+
+                actionRow()
+
+                sectionDivider
+
+                if let viewModel = trendsViewModel {
+                    GoalTrendsView(viewModel: viewModel, displayMode: .compact)
+                        .environment(\.designStyle, .brutalist)
+                } else {
+                    loadingState
+                }
+
+                DisclosureGroup(isExpanded: $showingReminderDetails) {
+                    VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
+                        metaRow(label: "Cadence", value: scheduleSummary)
+                        if let timezoneLabel = goal.schedule.timezone.identifier.split(
+                            separator: "/"
+                        )
+                        .last {
+                            metaRow(label: "Timezone", value: String(timezoneLabel))
+                        }
+                    }
+                    .padding(.top, AppTheme.BrutalistSpacing.sm)
+                } label: {
+                    HStack {
+                        Text("Reminder details".uppercased())
+                            .font(AppTheme.BrutalistTypography.overline)
+                            .tracking(0.5)
+                        Spacer()
+                    }
+                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                }
+            }
+            .padding(AppTheme.BrutalistSpacing.md)
+        }
+        .background(
+            RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.soft)
+                .fill(AppTheme.BrutalistPalette.background)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.soft)
+                .stroke(AppTheme.BrutalistPalette.border, lineWidth: AppTheme.BrutalistBorder.thin)
+        )
+        .appShadow(colorScheme == .dark ? nil : AppTheme.BrutalistShadow.elevation2)
         .task { updateViewModel(forceCreate: trendsViewModel == nil) }
         .onChange(of: goal.persistentModelID) { _, _ in
             updateViewModel(forceCreate: true)
@@ -1016,13 +1192,19 @@ private struct BrutalistGoalCardView: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.micro) {
                     Text(goal.title)
-                        .font(AppTheme.BrutalistTypography.title)
+                        .font(AppTheme.BrutalistTypography.headline)
                         .foregroundColor(AppTheme.BrutalistPalette.foreground)
 
                     if let category = goal.categoryDisplayName.nonEmpty {
-                        Text(category.uppercased())
-                            .font(AppTheme.BrutalistTypography.overline)
-                            .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                        HStack(spacing: AppTheme.BrutalistSpacing.micro) {
+                            Circle()
+                                .fill(categoryColor)
+                                .frame(width: 8, height: 8)
+                            Text(category.uppercased())
+                                .font(AppTheme.BrutalistTypography.overline)
+                                .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                                .tracking(0.5)
+                        }
                     }
                 }
 
@@ -1042,17 +1224,20 @@ private struct BrutalistGoalCardView: View {
 
     private var statusBadge: some View {
         Text(goal.isActive ? "ACTIVE" : "PAUSED")
-            .font(AppTheme.BrutalistTypography.captionMono)
+            .font(AppTheme.BrutalistTypography.overline)
+            .tracking(0.5)
             .padding(.horizontal, AppTheme.BrutalistSpacing.xs)
             .padding(.vertical, AppTheme.BrutalistSpacing.micro)
             .background(
-                goal.isActive
-                    ? AppTheme.BrutalistPalette.accent
-                    : AppTheme.BrutalistPalette.border.opacity(0.2)
+                RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.minimal)
+                    .fill(
+                        goal.isActive
+                            ? categoryColor.opacity(0.15)
+                            : AppTheme.BrutalistPalette.border.opacity(0.1))
             )
             .foregroundColor(
                 goal.isActive
-                    ? AppTheme.BrutalistPalette.background : AppTheme.BrutalistPalette.foreground)
+                    ? categoryColor : AppTheme.BrutalistPalette.secondary)
     }
 
     private func quickStats(using viewModel: GoalTrendsViewModel) -> some View {
@@ -1140,26 +1325,29 @@ private struct BrutalistGoalCardView: View {
     {
         let foreground: Color =
             style == .primary
-            ? AppTheme.BrutalistPalette.background : AppTheme.BrutalistPalette.foreground
+            ? .white : AppTheme.BrutalistPalette.foreground
         let background: Color =
             style == .primary
             ? AppTheme.BrutalistPalette.accent : AppTheme.BrutalistPalette.background
         let border: Color =
-            style == .primary ? AppTheme.BrutalistPalette.accent : AppTheme.BrutalistPalette.border
+            style == .primary ? .clear : AppTheme.BrutalistPalette.border
 
-        return HStack(spacing: AppTheme.BrutalistSpacing.micro) {
+        return HStack(spacing: AppTheme.BrutalistSpacing.xs) {
             Image(systemName: systemImage)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
             Text(text.uppercased())
-                .font(AppTheme.BrutalistTypography.captionMono)
+                .font(AppTheme.BrutalistTypography.overline)
+                .tracking(0.5)
         }
         .foregroundColor(foreground)
-        .padding(.vertical, AppTheme.BrutalistSpacing.micro)
+        .padding(.vertical, AppTheme.BrutalistSpacing.xs)
         .padding(.horizontal, AppTheme.BrutalistSpacing.sm)
-        .background(background)
-        .clipShape(RoundedRectangle(cornerRadius: 4))
+        .background(
+            RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.soft)
+                .fill(background)
+        )
         .overlay(
-            RoundedRectangle(cornerRadius: 4)
+            RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.soft)
                 .stroke(border, lineWidth: AppTheme.BrutalistBorder.thin)
         )
     }
@@ -1167,22 +1355,23 @@ private struct BrutalistGoalCardView: View {
     private func actionChipIconOnly(systemImage: String, style: ActionChipStyle) -> some View {
         let foreground: Color =
             style == .primary
-            ? AppTheme.BrutalistPalette.background : AppTheme.BrutalistPalette.foreground
+            ? .white : AppTheme.BrutalistPalette.foreground
         let background: Color =
             style == .primary
             ? AppTheme.BrutalistPalette.accent : AppTheme.BrutalistPalette.background
         let border: Color =
-            style == .primary ? AppTheme.BrutalistPalette.accent : AppTheme.BrutalistPalette.border
+            style == .primary ? .clear : AppTheme.BrutalistPalette.border
 
         return Image(systemName: systemImage)
             .font(.system(size: 14, weight: .semibold))
             .foregroundColor(foreground)
-            .padding(.vertical, AppTheme.BrutalistSpacing.micro)
-            .padding(.horizontal, AppTheme.BrutalistSpacing.sm)
-            .background(background)
-            .clipShape(RoundedRectangle(cornerRadius: 4))
+            .frame(width: 36, height: 36)
+            .background(
+                RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.soft)
+                    .fill(background)
+            )
             .overlay(
-                RoundedRectangle(cornerRadius: 4)
+                RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.soft)
                     .stroke(border, lineWidth: AppTheme.BrutalistBorder.thin)
             )
     }
@@ -1241,7 +1430,8 @@ private struct BrutalistGoalCardView: View {
     private var sectionDivider: some View {
         Rectangle()
             .fill(AppTheme.BrutalistPalette.border)
-            .frame(height: AppTheme.BrutalistBorder.thin)
+            .frame(height: AppTheme.BrutalistBorder.hairline)
+            .padding(.vertical, AppTheme.BrutalistSpacing.xs)
     }
 }
 
@@ -1338,36 +1528,72 @@ private struct SettingsRootView: View {
     // MARK: - Brutalist Cards
 
     private var notificationsCard: some View {
-        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
-            Text("Notifications".uppercased())
-                .font(AppTheme.BrutalistTypography.overline)
-                .foregroundColor(AppTheme.BrutalistPalette.secondary)
+        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.md) {
+            // Header with icon
+            HStack(spacing: AppTheme.BrutalistSpacing.xs) {
+                ZStack {
+                    Circle()
+                        .fill(AppTheme.BrutalistPalette.accent.opacity(0.1))
+                        .frame(width: 36, height: 36)
+                    Image(systemName: "bell.badge.fill")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(AppTheme.BrutalistPalette.accent)
+                }
 
-            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
+                Text("Notifications")
+                    .font(AppTheme.BrutalistTypography.bodyBold)
+                    .foregroundColor(AppTheme.BrutalistPalette.foreground)
+            }
+
+            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.md) {
                 Toggle(isOn: $sendDailyDigest) {
-                    Text("Daily summary digest")
-                        .font(AppTheme.BrutalistTypography.body)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Daily summary digest")
+                            .font(AppTheme.BrutalistTypography.body)
+                            .foregroundColor(AppTheme.BrutalistPalette.foreground)
+                        Text("Receive a summary of your progress")
+                            .font(AppTheme.BrutalistTypography.caption)
+                            .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                    }
                 }
+                .tint(AppTheme.BrutalistPalette.accent)
+
                 Toggle(isOn: $allowNotificationPreviews) {
-                    Text("Allow reminder previews")
-                        .font(AppTheme.BrutalistTypography.body)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Allow reminder previews")
+                            .font(AppTheme.BrutalistTypography.body)
+                            .foregroundColor(AppTheme.BrutalistPalette.foreground)
+                        Text("Show question text in notifications")
+                            .font(AppTheme.BrutalistTypography.caption)
+                            .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                    }
                 }
+                .tint(AppTheme.BrutalistPalette.accent)
 
                 Rectangle()
-                    .fill(AppTheme.BrutalistPalette.border.opacity(0.25))
+                    .fill(AppTheme.BrutalistPalette.border.opacity(0.15))
                     .frame(height: 1)
-                    .padding(.vertical, AppTheme.BrutalistSpacing.xs)
 
                 NavigationLink {
                     SendTestNotificationView()
                         .environment(\.designStyle, .brutalist)
                 } label: {
                     HStack(spacing: AppTheme.BrutalistSpacing.sm) {
-                        Image(systemName: "paperplane")
-                            .font(.system(size: 14, weight: .semibold))
-                        Text("SEND TEST NOTIFICATION")
-                            .font(AppTheme.BrutalistTypography.captionMono)
+                        Image(systemName: "paperplane.fill")
+                            .font(.system(size: 14, weight: .medium))
+                        Text("Send Test Notification")
+                            .font(AppTheme.BrutalistTypography.bodyBold)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(AppTheme.BrutalistPalette.secondary)
                     }
+                    .foregroundColor(AppTheme.BrutalistPalette.foreground)
+                    .padding(AppTheme.BrutalistSpacing.sm)
+                    .background(
+                        RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.soft)
+                            .fill(AppTheme.BrutalistPalette.surface)
+                    )
                 }
                 .buttonStyle(.plain)
 
@@ -1376,205 +1602,343 @@ private struct SettingsRootView: View {
                     .foregroundColor(AppTheme.BrutalistPalette.secondary)
             }
         }
-        .brutalistCard()
+        .padding(AppTheme.BrutalistSpacing.lg)
+        .background(
+            RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.round)
+                .fill(AppTheme.BrutalistPalette.background)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.round)
+                .stroke(AppTheme.BrutalistPalette.border.opacity(0.2), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 2)
     }
 
     private var dataManagementCard: some View {
-        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
-            Text("Data management".uppercased())
-                .font(AppTheme.BrutalistTypography.overline)
-                .foregroundColor(AppTheme.BrutalistPalette.secondary)
+        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.md) {
+            // Header with icon
+            HStack(spacing: AppTheme.BrutalistSpacing.xs) {
+                ZStack {
+                    Circle()
+                        .fill(AppTheme.BrutalistPalette.categoryProductivity.opacity(0.1))
+                        .frame(width: 36, height: 36)
+                    Image(systemName: "externaldrive.fill")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(AppTheme.BrutalistPalette.categoryProductivity)
+                }
+
+                Text("Data Management")
+                    .font(AppTheme.BrutalistTypography.bodyBold)
+                    .foregroundColor(AppTheme.BrutalistPalette.foreground)
+            }
 
             VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
-                HStack {
-                    Button(action: handleExport) {
-                        HStack(spacing: AppTheme.BrutalistSpacing.micro) {
-                            Image(systemName: "square.and.arrow.up")
-                                .font(.system(size: 14, weight: .semibold))
-                            Text("EXPORT DATA")
-                                .font(AppTheme.BrutalistTypography.captionMono)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(isProcessing || settingsViewModel == nil)
-                    Spacer()
+                // Export button
+                settingsActionRow(
+                    icon: "square.and.arrow.up",
+                    title: "Export Data",
+                    subtitle: "Save a backup of your goals and history",
+                    isDisabled: isProcessing || settingsViewModel == nil,
+                    action: handleExport
+                )
+
+                settingsDivider
+
+                // Import button
+                settingsActionRow(
+                    icon: "square.and.arrow.down",
+                    title: "Import Data",
+                    subtitle: "Restore a previous backup (replaces existing)",
+                    isDisabled: isProcessing || settingsViewModel == nil
+                ) {
+                    isPresentingImporter = true
                 }
-                Text("Save a backup of your goals and history to Files.")
-                    .font(AppTheme.BrutalistTypography.caption)
-                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
 
-                Rectangle()
-                    .fill(AppTheme.BrutalistPalette.border.opacity(0.25))
-                    .frame(height: 1)
-                    .padding(.vertical, AppTheme.BrutalistSpacing.xs)
+                settingsDivider
 
-                HStack {
-                    Button {
-                        isPresentingImporter = true
-                    } label: {
-                        HStack(spacing: AppTheme.BrutalistSpacing.micro) {
-                            Image(systemName: "square.and.arrow.down")
-                                .font(.system(size: 14, weight: .semibold))
-                            Text("IMPORT DATA")
-                                .font(AppTheme.BrutalistTypography.captionMono)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(isProcessing || settingsViewModel == nil)
-                    Spacer()
-                }
-                Text("Restore a previous backup. Existing data will be replaced.")
-                    .font(AppTheme.BrutalistTypography.caption)
-                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
-
-                Rectangle()
-                    .fill(AppTheme.BrutalistPalette.border.opacity(0.25))
-                    .frame(height: 1)
-                    .padding(.vertical, AppTheme.BrutalistSpacing.xs)
-
+                // Trash navigation
                 NavigationLink {
                     TrashInboxView().environment(\.designStyle, .brutalist)
                 } label: {
-                    HStack(spacing: AppTheme.BrutalistSpacing.sm) {
-                        Image(systemName: "trash")
-                            .font(.system(size: 14, weight: .semibold))
-                        Text("TRASH")
-                            .font(AppTheme.BrutalistTypography.captionMono)
-                    }
+                    settingsNavigationRow(
+                        icon: "trash",
+                        title: "Trash",
+                        subtitle: "Restore deleted goals within 30 days"
+                    )
                 }
                 .buttonStyle(.plain)
-                Text("Restore deleted goals within 30 days.")
-                    .font(AppTheme.BrutalistTypography.caption)
-                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
 
-                Rectangle()
-                    .fill(AppTheme.BrutalistPalette.border.opacity(0.25))
-                    .frame(height: 1)
-                    .padding(.vertical, AppTheme.BrutalistSpacing.xs)
+                settingsDivider
 
+                // Merge backups navigation
                 NavigationLink {
                     BackupMergeView().environment(\.designStyle, .brutalist)
                 } label: {
-                    HStack(spacing: AppTheme.BrutalistSpacing.sm) {
-                        Image(systemName: "arrow.triangle.merge")
-                            .font(.system(size: 14, weight: .semibold))
-                        Text("MERGE BACKUPS (ADVANCED)")
-                            .font(AppTheme.BrutalistTypography.captionMono)
-                    }
+                    settingsNavigationRow(
+                        icon: "arrow.triangle.merge",
+                        title: "Merge Backups",
+                        subtitle: "Combine two backup files into one"
+                    )
                 }
                 .buttonStyle(.plain)
-                Text("Combine two backup files into one.")
+            }
+        }
+        .padding(AppTheme.BrutalistSpacing.lg)
+        .background(
+            RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.round)
+                .fill(AppTheme.BrutalistPalette.background)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.round)
+                .stroke(AppTheme.BrutalistPalette.border.opacity(0.2), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 2)
+    }
+
+    private var settingsDivider: some View {
+        Rectangle()
+            .fill(AppTheme.BrutalistPalette.border.opacity(0.1))
+            .frame(height: 1)
+    }
+
+    private func settingsActionRow(
+        icon: String,
+        title: String,
+        subtitle: String,
+        isDisabled: Bool = false,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: AppTheme.BrutalistSpacing.sm) {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(
+                        isDisabled
+                            ? AppTheme.BrutalistPalette.secondary : AppTheme.BrutalistPalette.accent
+                    )
+                    .frame(width: 24)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(AppTheme.BrutalistTypography.body)
+                        .foregroundColor(
+                            isDisabled
+                                ? AppTheme.BrutalistPalette.secondary
+                                : AppTheme.BrutalistPalette.foreground)
+                    Text(subtitle)
+                        .font(AppTheme.BrutalistTypography.caption)
+                        .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                }
+
+                Spacer()
+            }
+            .padding(.vertical, AppTheme.BrutalistSpacing.xs)
+        }
+        .buttonStyle(.plain)
+        .disabled(isDisabled)
+        .opacity(isDisabled ? 0.6 : 1)
+    }
+
+    private func settingsNavigationRow(
+        icon: String,
+        title: String,
+        subtitle: String
+    ) -> some View {
+        HStack(spacing: AppTheme.BrutalistSpacing.sm) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(AppTheme.BrutalistPalette.accent)
+                .frame(width: 24)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(AppTheme.BrutalistTypography.body)
+                    .foregroundColor(AppTheme.BrutalistPalette.foreground)
+                Text(subtitle)
                     .font(AppTheme.BrutalistTypography.caption)
                     .foregroundColor(AppTheme.BrutalistPalette.secondary)
             }
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(AppTheme.BrutalistPalette.secondary)
         }
-        .brutalistCard()
+        .padding(.vertical, AppTheme.BrutalistSpacing.xs)
     }
 
     private var supportCard: some View {
-        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
-            Text("Support".uppercased())
-                .font(AppTheme.BrutalistTypography.overline)
-                .foregroundColor(AppTheme.BrutalistPalette.secondary)
+        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.md) {
+            // Header with icon
+            HStack(spacing: AppTheme.BrutalistSpacing.xs) {
+                ZStack {
+                    Circle()
+                        .fill(AppTheme.BrutalistPalette.categoryMood.opacity(0.1))
+                        .frame(width: 36, height: 36)
+                    Image(systemName: "lifepreserver.fill")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(AppTheme.BrutalistPalette.categoryMood)
+                }
+
+                Text("Support")
+                    .font(AppTheme.BrutalistTypography.bodyBold)
+                    .foregroundColor(AppTheme.BrutalistPalette.foreground)
+            }
 
             VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
                 Link(destination: URL(string: "https://future.life/support")!) {
-                    HStack(spacing: AppTheme.BrutalistSpacing.sm) {
-                        Image(systemName: "questionmark.circle")
-                            .font(.system(size: 14, weight: .semibold))
-                        Text("HELP CENTER")
-                            .font(AppTheme.BrutalistTypography.captionMono)
-                    }
+                    settingsNavigationRow(
+                        icon: "questionmark.circle",
+                        title: "Help Center",
+                        subtitle: "Get answers to common questions"
+                    )
                 }
 
-                Rectangle()
-                    .fill(AppTheme.BrutalistPalette.border.opacity(0.25))
-                    .frame(height: 1)
-                    .padding(.vertical, AppTheme.BrutalistSpacing.xs)
+                settingsDivider
 
                 Link(destination: URL(string: "https://future.life/privacy")!) {
-                    HStack(spacing: AppTheme.BrutalistSpacing.sm) {
-                        Image(systemName: "lock.shield")
-                            .font(.system(size: 14, weight: .semibold))
-                        Text("PRIVACY POLICY")
-                            .font(AppTheme.BrutalistTypography.captionMono)
-                    }
+                    settingsNavigationRow(
+                        icon: "lock.shield",
+                        title: "Privacy Policy",
+                        subtitle: "How we protect your data"
+                    )
                 }
             }
         }
-        .brutalistCard()
+        .padding(AppTheme.BrutalistSpacing.lg)
+        .background(
+            RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.round)
+                .fill(AppTheme.BrutalistPalette.background)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.round)
+                .stroke(AppTheme.BrutalistPalette.border.opacity(0.2), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 2)
     }
 
     private var aboutCard: some View {
-        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
-            Text("About".uppercased())
-                .font(AppTheme.BrutalistTypography.overline)
-                .foregroundColor(AppTheme.BrutalistPalette.secondary)
+        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.md) {
+            // Header with icon
+            HStack(spacing: AppTheme.BrutalistSpacing.xs) {
+                ZStack {
+                    Circle()
+                        .fill(AppTheme.BrutalistPalette.categoryLearning.opacity(0.1))
+                        .frame(width: 36, height: 36)
+                    Image(systemName: "info.circle.fill")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(AppTheme.BrutalistPalette.categoryLearning)
+                }
+
+                Text("About")
+                    .font(AppTheme.BrutalistTypography.bodyBold)
+                    .foregroundColor(AppTheme.BrutalistPalette.foreground)
+            }
+
             VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.xs) {
                 Text("Future – Life Updates")
-                    .font(AppTheme.BrutalistTypography.bodyBold)
-                Text("Build 26.0")
+                    .font(AppTheme.BrutalistTypography.title)
+                    .foregroundColor(AppTheme.BrutalistPalette.foreground)
+
+                HStack(spacing: AppTheme.BrutalistSpacing.xs) {
+                    Text("Version 26.0")
+                        .font(AppTheme.BrutalistTypography.captionMono)
+                        .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                        .padding(.horizontal, AppTheme.BrutalistSpacing.xs)
+                        .padding(.vertical, 4)
+                        .background(
+                            RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.soft)
+                                .fill(AppTheme.BrutalistPalette.surface)
+                        )
+                }
+
+                Text("Track your goals, build habits, and see your progress over time.")
                     .font(AppTheme.BrutalistTypography.caption)
                     .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                    .padding(.top, AppTheme.BrutalistSpacing.xs)
             }
         }
-        .brutalistCard()
+        .padding(AppTheme.BrutalistSpacing.lg)
+        .background(
+            RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.round)
+                .fill(AppTheme.BrutalistPalette.background)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.round)
+                .stroke(AppTheme.BrutalistPalette.border.opacity(0.2), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 2)
     }
 
     #if DEBUG
         private var debugCard: some View {
-            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
-                Text("Debug".uppercased())
-                    .font(AppTheme.BrutalistTypography.overline)
-                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
-
-                NavigationLink {
-                    NotificationInspectorView().environment(\.designStyle, .brutalist)
-                } label: {
-                    HStack(spacing: AppTheme.BrutalistSpacing.sm) {
-                        Image(systemName: "bell.badge")
-                            .font(.system(size: 14, weight: .semibold))
-                        Text("NOTIFICATION INSPECTOR")
-                            .font(AppTheme.BrutalistTypography.captionMono)
+            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.md) {
+                // Header with icon
+                HStack(spacing: AppTheme.BrutalistSpacing.xs) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.purple.opacity(0.1))
+                            .frame(width: 36, height: 36)
+                        Image(systemName: "ant.fill")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.purple)
                     }
+
+                    Text("Debug")
+                        .font(AppTheme.BrutalistTypography.bodyBold)
+                        .foregroundColor(AppTheme.BrutalistPalette.foreground)
                 }
-                .buttonStyle(.plain)
-                Text("View and manage all scheduled notifications.")
-                    .font(AppTheme.BrutalistTypography.caption)
-                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
 
-                Rectangle()
-                    .fill(AppTheme.BrutalistPalette.border.opacity(0.25))
-                    .frame(height: 1)
-                    .padding(.vertical, AppTheme.BrutalistSpacing.xs)
+                VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
+                    NavigationLink {
+                        NotificationInspectorView().environment(\.designStyle, .brutalist)
+                    } label: {
+                        settingsNavigationRow(
+                            icon: "bell.badge",
+                            title: "Notification Inspector",
+                            subtitle: "View and manage scheduled notifications"
+                        )
+                    }
+                    .buttonStyle(.plain)
 
-                Group {
-                    if #available(iOS 18.0, macOS 15.0, watchOS 11.0, tvOS 18.0, visionOS 2.0, *) {
-                        NavigationLink {
-                            DebugAIChatView().environment(\.designStyle, .brutalist)
-                        } label: {
+                    settingsDivider
+
+                    Group {
+                        if #available(iOS 18.0, macOS 15.0, watchOS 11.0, tvOS 18.0, visionOS 2.0,
+                        *) {
+                            NavigationLink {
+                                DebugAIChatView().environment(\.designStyle, .brutalist)
+                            } label: {
+                                settingsNavigationRow(
+                                    icon: "bubble.left.and.bubble.right",
+                                    title: "AI Debug Chat",
+                                    subtitle: "Inspect Apple Intelligence responses"
+                                )
+                            }
+                        } else {
                             HStack(spacing: AppTheme.BrutalistSpacing.sm) {
-                                Image(systemName: "bubble.left.and.bubble.right")
-                                    .font(.system(size: 14, weight: .semibold))
-                                Text("AI DEBUG CHAT")
-                                    .font(AppTheme.BrutalistTypography.captionMono)
+                                Image(systemName: "exclamationmark.triangle")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(.orange)
+                                Text("AI Debug requires latest OS")
+                                    .font(AppTheme.BrutalistTypography.caption)
+                                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
                             }
                         }
-                        Text("Inspect Apple Intelligence responses in a local conversation.")
-                            .font(AppTheme.BrutalistTypography.caption)
-                            .foregroundColor(AppTheme.BrutalistPalette.secondary)
-                    } else {
-                        HStack(spacing: AppTheme.BrutalistSpacing.sm) {
-                            Image(systemName: "exclamationmark.triangle")
-                                .font(.system(size: 14, weight: .semibold))
-                            Text("AI DEBUG CHAT REQUIRES THE LATEST OS")
-                                .font(AppTheme.BrutalistTypography.captionMono)
-                        }
-                        .foregroundColor(AppTheme.BrutalistPalette.secondary)
                     }
                 }
             }
-            .brutalistCard()
+            .padding(AppTheme.BrutalistSpacing.lg)
+            .background(
+                RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.round)
+                    .fill(AppTheme.BrutalistPalette.background)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.round)
+                    .stroke(Color.purple.opacity(0.2), lineWidth: 1)
+            )
+            .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 2)
         }
     #endif
 

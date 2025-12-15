@@ -254,8 +254,9 @@ struct DataEntryView: View {
         value: Double
     ) -> some View {
         brutalistQuestionContainer(for: question) {
-            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
-                HStack(spacing: AppTheme.BrutalistSpacing.sm) {
+            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.md) {
+                // Large numeric display
+                HStack(alignment: .center, spacing: AppTheme.BrutalistSpacing.md) {
                     brutalistStepperButton(
                         systemImage: "minus",
                         isDisabled: value <= bounds.lowerBound
@@ -264,10 +265,12 @@ struct DataEntryView: View {
                     }
 
                     Text(value, format: .number)
-                        .font(AppTheme.BrutalistTypography.bodyMono)
-                        .foregroundColor(AppTheme.BrutalistPalette.foreground)
-                        .frame(minWidth: 88)
+                        .font(AppTheme.BrutalistTypography.dataLarge)
+                        .foregroundColor(goal.categoryColor)
+                        .frame(minWidth: 80)
                         .multilineTextAlignment(.center)
+                        .contentTransition(.numericText())
+                        .animation(.spring(response: 0.3), value: value)
 
                     brutalistStepperButton(
                         systemImage: "plus",
@@ -276,11 +279,17 @@ struct DataEntryView: View {
                         adjustNumericValue(for: question, by: 1, bounds: bounds)
                     }
                 }
+                .frame(maxWidth: .infinity)
 
-                Text(
-                    "Range \(formattedValue(bounds.lowerBound, for: question)) – \(formattedValue(bounds.upperBound, for: question))"
-                )
-                .font(AppTheme.BrutalistTypography.captionMono)
+                // Range indicator
+                HStack(spacing: AppTheme.BrutalistSpacing.xs) {
+                    Image(systemName: "arrow.left.and.right")
+                        .font(.system(size: 10))
+                    Text(
+                        "Range: \(formattedValue(bounds.lowerBound, for: question)) – \(formattedValue(bounds.upperBound, for: question))"
+                    )
+                    .font(AppTheme.BrutalistTypography.caption)
+                }
                 .foregroundColor(AppTheme.BrutalistPalette.secondary)
             }
         }
@@ -290,27 +299,87 @@ struct DataEntryView: View {
         for question: Question,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.md) {
-            brutalistQuestionHeader(for: question)
-            content()
+        let isFocused = isFocusQuestion(question)
+        let categoryColor = goal.categoryColor
+
+        return HStack(spacing: 0) {
+            // Left accent stripe (category colored)
+            RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.minimal)
+                .fill(isFocused ? categoryColor : categoryColor.opacity(0.4))
+                .frame(width: 4)
+
+            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.md) {
+                brutalistQuestionHeader(for: question)
+                content()
+            }
+            .padding(AppTheme.BrutalistSpacing.lg)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .brutalistCard()
-        .overlay(
-            Rectangle()
-                .stroke(
-                    AppTheme.BrutalistPalette.accent,
-                    lineWidth: AppTheme.BrutalistBorder.thick
-                )
-                .opacity(isFocusQuestion(question) ? 1 : 0)
+        .background(
+            RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.round)
+                .fill(
+                    isFocused
+                        ? categoryColor.opacity(0.05)
+                        : AppTheme.BrutalistPalette.surface)
         )
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.round)
+                .stroke(
+                    isFocused ? categoryColor : AppTheme.BrutalistPalette.border.opacity(0.3),
+                    lineWidth: isFocused ? 2 : 1
+                )
+        )
+        .shadow(
+            color: isFocused ? categoryColor.opacity(0.15) : Color.black.opacity(0.04),
+            radius: isFocused ? 12 : 6,
+            x: 0,
+            y: isFocused ? 4 : 2
+        )
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isFocused)
     }
 
     private func brutalistQuestionHeader(for question: Question) -> some View {
-        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.micro) {
-            Text(question.text)
-                .font(AppTheme.BrutalistTypography.headline)
-                .foregroundColor(AppTheme.BrutalistPalette.foreground)
+        VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.xs) {
+            HStack {
+                Text(question.text)
+                    .font(AppTheme.BrutalistTypography.title)
+                    .foregroundColor(AppTheme.BrutalistPalette.foreground)
+
+                Spacer()
+
+                // Response type badge
+                responseTypeBadge(for: question.responseType)
+            }
             deltaSummaryView(for: question)
+        }
+    }
+
+    private func responseTypeBadge(for type: ResponseType) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: responseTypeIcon(for: type))
+                .font(.system(size: 10, weight: .medium))
+            Text(type.displayName)
+                .font(AppTheme.BrutalistTypography.captionMono)
+        }
+        .foregroundColor(AppTheme.BrutalistPalette.secondary)
+        .padding(.horizontal, AppTheme.BrutalistSpacing.xs)
+        .padding(.vertical, 4)
+        .background(
+            RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.soft)
+                .fill(AppTheme.BrutalistPalette.border.opacity(0.1))
+        )
+    }
+
+    private func responseTypeIcon(for type: ResponseType) -> String {
+        switch type {
+        case .numeric: return "number"
+        case .scale: return "star.fill"
+        case .slider: return "slider.horizontal.3"
+        case .waterIntake: return "drop.fill"
+        case .boolean: return "checkmark.circle"
+        case .text: return "text.alignleft"
+        case .multipleChoice: return "list.bullet"
+        case .time: return "clock"
         }
     }
 
@@ -321,11 +390,31 @@ struct DataEntryView: View {
     ) -> some View {
         Button(action: action) {
             Image(systemName: systemImage)
-                .font(.system(size: 16, weight: .bold))
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(
+                    isDisabled
+                        ? AppTheme.BrutalistPalette.secondary.opacity(0.5)
+                        : AppTheme.BrutalistPalette.foreground
+                )
+                .frame(width: 48, height: 48)
+                .background(
+                    RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.soft)
+                        .fill(AppTheme.BrutalistPalette.surface)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.soft)
+                        .stroke(
+                            isDisabled
+                                ? AppTheme.BrutalistPalette.border.opacity(0.3)
+                                : AppTheme.BrutalistPalette.border,
+                            lineWidth: 1
+                        )
+                )
         }
-        .brutalistIconButton(variant: .neutral)
+        .buttonStyle(.plain)
         .disabled(isDisabled)
-        .opacity(isDisabled ? 0.35 : 1)
+        .scaleEffect(isDisabled ? 0.95 : 1.0)
+        .animation(.spring(response: 0.2), value: isDisabled)
     }
 
     private func adjustWaterIntake(
@@ -416,20 +505,33 @@ struct DataEntryView: View {
         value: Int
     ) -> some View {
         let options = Array(bounds)
+        let categoryColor = goal.categoryColor
 
         return brutalistQuestionContainer(for: question) {
-            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
-                Text("Select a value".uppercased())
-                    .font(AppTheme.BrutalistTypography.overline)
-                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
+            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.md) {
+                // Current value display
+                HStack {
+                    Text("\(value)")
+                        .font(AppTheme.BrutalistTypography.dataLarge)
+                        .foregroundColor(categoryColor)
+                        .contentTransition(.numericText())
+                        .animation(.spring(response: 0.3), value: value)
 
+                    Text("/ \(bounds.upperBound)")
+                        .font(AppTheme.BrutalistTypography.body)
+                        .foregroundColor(AppTheme.BrutalistPalette.secondary)
+
+                    Spacer()
+                }
+
+                // Scale buttons
                 LazyVGrid(
                     columns: [
                         GridItem(
-                            .adaptive(minimum: 56, maximum: 72),
-                            spacing: AppTheme.BrutalistSpacing.sm)
+                            .adaptive(minimum: 48, maximum: 64),
+                            spacing: AppTheme.BrutalistSpacing.xs)
                     ],
-                    spacing: AppTheme.BrutalistSpacing.sm
+                    spacing: AppTheme.BrutalistSpacing.xs
                 ) {
                     ForEach(options, id: \.self) { option in
                         Button {
@@ -437,39 +539,45 @@ struct DataEntryView: View {
                         } label: {
                             Text("\(option)")
                                 .font(AppTheme.BrutalistTypography.bodyBold)
-                                .frame(height: 48)
+                                .frame(height: 44)
                                 .frame(maxWidth: .infinity)
                                 .foregroundColor(
                                     value == option
-                                        ? AppTheme.BrutalistPalette.background
+                                        ? .white
                                         : AppTheme.BrutalistPalette.foreground
                                 )
                                 .background(
-                                    value == option
-                                        ? AppTheme.BrutalistPalette.accent
-                                        : AppTheme.BrutalistPalette.background
+                                    RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.soft)
+                                        .fill(
+                                            value == option
+                                                ? categoryColor
+                                                : AppTheme.BrutalistPalette.surface)
                                 )
                                 .overlay(
-                                    Rectangle()
+                                    RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.soft)
                                         .stroke(
                                             value == option
-                                                ? AppTheme.BrutalistPalette.accent
-                                                : AppTheme.BrutalistPalette.border,
-                                            lineWidth: AppTheme.BrutalistBorder.standard
+                                                ? categoryColor
+                                                : AppTheme.BrutalistPalette.border.opacity(0.3),
+                                            lineWidth: 1
                                         )
+                                )
+                                .shadow(
+                                    color: value == option ? categoryColor.opacity(0.3) : .clear,
+                                    radius: 4,
+                                    x: 0,
+                                    y: 2
                                 )
                         }
                         .buttonStyle(.plain)
+                        .scaleEffect(value == option ? 1.05 : 1.0)
+                        .animation(
+                            .spring(response: 0.3, dampingFraction: 0.7), value: value == option
+                        )
                         .accessibilityLabel("Select \(option)")
                         .accessibilityAddTraits(value == option ? .isSelected : [])
                     }
                 }
-
-                Text(
-                    "Current selection \(value) of \(options.count)"
-                )
-                .font(AppTheme.BrutalistTypography.captionMono)
-                .foregroundColor(AppTheme.BrutalistPalette.secondary)
             }
         }
     }
@@ -757,25 +865,79 @@ struct DataEntryView: View {
     }
 
     private func brutalistBooleanRow(for question: Question, value: Bool) -> some View {
-        brutalistQuestionContainer(for: question) {
-            VStack(alignment: .leading, spacing: AppTheme.BrutalistSpacing.sm) {
-                Text("Choose an option".uppercased())
-                    .font(AppTheme.BrutalistTypography.overline)
-                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
+        let categoryColor = goal.categoryColor
 
-                HStack(spacing: AppTheme.BrutalistSpacing.sm) {
-                    brutalistBooleanOption(label: "Yes", isSelected: value) {
-                        setBooleanValue(true, for: question)
+        return brutalistQuestionContainer(for: question) {
+            HStack(spacing: AppTheme.BrutalistSpacing.md) {
+                // Yes button
+                Button {
+                    setBooleanValue(true, for: question)
+                } label: {
+                    HStack(spacing: AppTheme.BrutalistSpacing.xs) {
+                        Image(systemName: value ? "checkmark.circle.fill" : "circle")
+                            .font(.system(size: 20, weight: .medium))
+                        Text("Yes")
+                            .font(AppTheme.BrutalistTypography.bodyBold)
                     }
-
-                    brutalistBooleanOption(label: "No", isSelected: !value) {
-                        setBooleanValue(false, for: question)
-                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 56)
+                    .foregroundColor(value ? .white : AppTheme.BrutalistPalette.foreground)
+                    .background(
+                        RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.soft)
+                            .fill(value ? categoryColor : AppTheme.BrutalistPalette.surface)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.soft)
+                            .stroke(
+                                value
+                                    ? categoryColor : AppTheme.BrutalistPalette.border.opacity(0.3),
+                                lineWidth: value ? 2 : 1
+                            )
+                    )
+                    .shadow(
+                        color: value ? categoryColor.opacity(0.3) : .clear,
+                        radius: 6,
+                        x: 0,
+                        y: 3
+                    )
                 }
+                .buttonStyle(.plain)
+                .scaleEffect(value ? 1.02 : 1.0)
+                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: value)
 
-                Text(value ? "Marked as YES" : "Marked as NO")
-                    .font(AppTheme.BrutalistTypography.captionMono)
-                    .foregroundColor(AppTheme.BrutalistPalette.secondary)
+                // No button
+                Button {
+                    setBooleanValue(false, for: question)
+                } label: {
+                    HStack(spacing: AppTheme.BrutalistSpacing.xs) {
+                        Image(systemName: !value ? "xmark.circle.fill" : "circle")
+                            .font(.system(size: 20, weight: .medium))
+                        Text("No")
+                            .font(AppTheme.BrutalistTypography.bodyBold)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 56)
+                    .foregroundColor(!value ? .white : AppTheme.BrutalistPalette.foreground)
+                    .background(
+                        RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.soft)
+                            .fill(
+                                !value
+                                    ? AppTheme.BrutalistPalette.secondary
+                                    : AppTheme.BrutalistPalette.surface)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.soft)
+                            .stroke(
+                                !value
+                                    ? AppTheme.BrutalistPalette.secondary
+                                    : AppTheme.BrutalistPalette.border.opacity(0.3),
+                                lineWidth: !value ? 2 : 1
+                            )
+                    )
+                }
+                .buttonStyle(.plain)
+                .scaleEffect(!value ? 1.02 : 1.0)
+                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: value)
             }
         }
     }
@@ -786,31 +948,37 @@ struct DataEntryView: View {
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            Text(label.uppercased())
-                .font(AppTheme.BrutalistTypography.captionMono)
-                .frame(maxWidth: .infinity)
-                .frame(height: 44)
-                .foregroundColor(
-                    isSelected
-                        ? AppTheme.BrutalistPalette.background
-                        : AppTheme.BrutalistPalette.foreground
-                )
-                .background(
-                    isSelected
-                        ? AppTheme.BrutalistPalette.accent
-                        : AppTheme.BrutalistPalette.background
-                )
-                .overlay(
-                    Rectangle()
-                        .stroke(
-                            isSelected
-                                ? AppTheme.BrutalistPalette.accent
-                                : AppTheme.BrutalistPalette.border,
-                            lineWidth: AppTheme.BrutalistBorder.standard
-                        )
-                )
+            HStack(spacing: AppTheme.BrutalistSpacing.xs) {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 16))
+                Text(label)
+                    .font(AppTheme.BrutalistTypography.bodyBold)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 48)
+            .foregroundColor(
+                isSelected ? .white : AppTheme.BrutalistPalette.foreground
+            )
+            .background(
+                RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.soft)
+                    .fill(
+                        isSelected
+                            ? AppTheme.BrutalistPalette.accent
+                            : AppTheme.BrutalistPalette.surface)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: AppTheme.BrutalistRadius.soft)
+                    .stroke(
+                        isSelected
+                            ? AppTheme.BrutalistPalette.accent
+                            : AppTheme.BrutalistPalette.border.opacity(0.3),
+                        lineWidth: isSelected ? 2 : 1
+                    )
+            )
         }
         .buttonStyle(.plain)
+        .scaleEffect(isSelected ? 1.02 : 1.0)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
     }
 
     @ViewBuilder

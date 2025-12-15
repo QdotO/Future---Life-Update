@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import SwiftUI
 
 enum ResponseType: String, CaseIterable, Codable, Sendable {
     case numeric
@@ -21,6 +22,30 @@ extension TrackingGoal {
             return label
         }
         return category.displayName
+    }
+
+    /// Returns the theme color for this goal's category
+    var categoryColor: Color {
+        switch category {
+        case .health:
+            return AppTheme.BrutalistPalette.categoryHealth
+        case .fitness:
+            return AppTheme.BrutalistPalette.categoryFitness
+        case .productivity:
+            return AppTheme.BrutalistPalette.categoryProductivity
+        case .habits:
+            return AppTheme.BrutalistPalette.categoryHabits
+        case .mood:
+            return AppTheme.BrutalistPalette.categoryMood
+        case .learning:
+            return AppTheme.BrutalistPalette.categoryLearning
+        case .social:
+            return AppTheme.BrutalistPalette.categorySocial
+        case .finance:
+            return AppTheme.BrutalistPalette.categoryFinance
+        case .custom:
+            return AppTheme.BrutalistPalette.accent
+        }
     }
 }
 
