@@ -158,7 +158,7 @@ struct ContentView: View {
             .tag(Tab.settings)
         }
         .sheet(isPresented: $showingCreateGoal) {
-            GoalCreateView(modelContext: modelContext)
+            ConversationalGoalCreationView()
                 .environment(\.designStyle, .brutalist)
         }
         .onAppear(perform: initializeDashboard)
